@@ -7,10 +7,26 @@ import json
 from .. import models
 from ..database import get_db
 from ..auth.router import get_current_user
-from ..ai.gapgpt import get_ai_response, stream_ai_response
+from ..ai.gapgpt import get_ai_response, stream_ai_response, get_ai_config
 from ..config import settings
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+
+def _get_settings(db: Session) -> models.SystemSettings:
+    """رکورد تنظیمات سیستم را برمی‌گرداند (اگر نبود می‌سازد)."""
+    s = db.query(models.SystemSettings).first()
+    if not s:
+        s = models.SystemSettings()
+        db.add(s)
+        db.commit()
+        db.refresh(s)
+    return s
+
+
+def _active_api_key(db: Session) -> str:
+    """کلید فعال: اول دیتابیس، بعد .env"""
+    return get_ai_config(db)["api_key"]
 
 
 class ChatRequest(BaseModel):
@@ -45,7 +61,7 @@ async def send_chat(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if not settings.GAPGPT_API_KEY:
+    if not _active_api_key(db):
         raise HTTPException(status_code=400, detail="کلید API هوش مصنوعی تنظیم نشده است")
 
     # Save user message
@@ -66,7 +82,7 @@ async def send_chat(
     messages = [{"role": m.role, "content": m.content} for m in history]
 
     # Get AI response
-    response_text = await get_ai_response(messages)
+    response_text = await get_ai_response(messages, db=db)
 
     # Save assistant message
     asst_msg = models.ChatMessage(
@@ -89,7 +105,7 @@ async def stream_chat(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if not settings.GAPGPT_API_KEY:
+    if not _active_api_key(db):
         raise HTTPException(status_code=400, detail="کلید API هوش مصنوعی تنظیم نشده است")
 
     user_msg = models.ChatMessage(
@@ -109,7 +125,7 @@ async def stream_chat(
     full_response = []
 
     async def generate():
-        async for chunk in stream_ai_response(messages):
+        async for chunk in stream_ai_response(messages, db=db):
             full_response.append(chunk)
             yield f"data: {json.dumps({'chunk': chunk})}\n\n"
 
@@ -145,20 +161,24 @@ async def update_api_key(
 ):
     if not current_user.is_superadmin:
         raise HTTPException(status_code=403, detail="فقط سوپر ادمین")
-    settings.GAPGPT_API_KEY = api_key
+    s = _get_settings(db)
+    s.gapgpt_api_key = api_key
+    db.commit()
     return {"message": "کلید API هوش مصنوعی ذخیره شد"}
 
 
 @router.get("/connections")
 async def get_ai_connections(
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
     """Returns AI provider connection status."""
+    cfg = get_ai_config(db)
     return [
         {
             "id": 1,
-            "provider": "GapGPT (GPT-4o)",
-            "status": "connected" if settings.GAPGPT_API_KEY else "disconnected",
+            "provider": f"GapGPT ({cfg['model']})",
+            "status": "connected" if cfg["api_key"] else "disconnected",
         }
     ]
 
@@ -171,12 +191,15 @@ class ConnectionRequest(BaseModel):
 @router.post("/connections")
 async def add_ai_connection(
     req: ConnectionRequest,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """Save an AI provider API key."""
+    """Save an AI provider API key (persisted to database)."""
     if not current_user.is_superadmin:
         raise HTTPException(status_code=403, detail="فقط سوپر ادمین می‌تواند کلید API اضافه کند")
-    settings.GAPGPT_API_KEY = req.api_key
+    s = _get_settings(db)
+    s.gapgpt_api_key = req.api_key
+    db.commit()
     return {
         "id": 1,
         "provider": req.provider,

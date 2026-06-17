@@ -91,7 +91,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
 
             if user.ai_trading_enabled and ml_signal["signal"] != "WAIT":
                 try:
-                    ai_result = await analyze_market_for_trade(pair, current_price, ohlcv, strategy)
+                    ai_result = await analyze_market_for_trade(pair, current_price, ohlcv, strategy, db=db)
                     if ai_result["signal"] == ml_signal["signal"]:
                         final_signal = ai_result["signal"]
                     else:

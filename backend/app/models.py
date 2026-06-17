@@ -116,6 +116,9 @@ class SystemSettings(Base):
     allow_short = Column(Boolean, default=True)
     allow_futures = Column(Boolean, default=True)
     maintenance_mode = Column(Boolean, default=False)
+    # AI / GapGPT configuration (set from super admin panel, persisted)
+    gapgpt_api_key = Column(String, default="")
+    gapgpt_model = Column(String, default="gpt-4o")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

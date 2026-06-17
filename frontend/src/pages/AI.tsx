@@ -80,6 +80,8 @@ export default function AI() {
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsError, setModelsError] = useState<string | null>(null)
   const [savingModel, setSavingModel] = useState(false)
+  const [isFallback, setIsFallback] = useState(false)
+  const [manualModel, setManualModel] = useState('')
 
   // Chat
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -125,9 +127,10 @@ export default function AI() {
     setModelsLoading(true)
     setModelsError(null)
     try {
-      const res = await api.get<{ models: string[]; selected: string }>('/ai/models')
+      const res = await api.get<{ models: string[]; selected: string; fallback?: boolean }>('/ai/models')
       setModels(res.data.models ?? [])
       setSelectedModel(res.data.selected ?? '')
+      setIsFallback(!!res.data.fallback)
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } }
       setModelsError(e?.response?.data?.detail ?? 'دریافت مدل‌ها با خطا مواجه شد')
@@ -145,6 +148,7 @@ export default function AI() {
 
   const handleSelectModel = async (model: string) => {
     setSelectedModel(model)
+    setModels((prev) => (prev.includes(model) ? prev : [model, ...prev]))
     setSavingModel(true)
     try {
       await api.put('/ai/model', { model })
@@ -737,11 +741,59 @@ export default function AI() {
                     />
                   </div>
                 )}
+                {isFallback && models.length > 0 && (
+                  <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--amber)' }}>
+                    اتصال زنده برقرار نشد؛ لیست پیش‌فرض نمایش داده شد. می‌توانید نام مدل را دستی هم وارد کنید.
+                  </p>
+                )}
+
                 {selectedModel && !modelsError && models.length > 0 && (
                   <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--green)' }}>
                     مدل فعال: {selectedModel}
                   </p>
                 )}
+
+                {/* ورود دستی نام مدل */}
+                <div style={{ marginBlockStart: 14, display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="نام مدل را دستی وارد کنید (مثلاً gpt-4o)"
+                    value={manualModel}
+                    onChange={(e) => setManualModel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && manualModel.trim()) {
+                        handleSelectModel(manualModel.trim())
+                        setManualModel('')
+                      }
+                    }}
+                    dir="ltr"
+                    style={{ flex: 1, fontSize: 12 }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (manualModel.trim()) {
+                        handleSelectModel(manualModel.trim())
+                        setManualModel('')
+                      }
+                    }}
+                    disabled={savingModel || !manualModel.trim()}
+                    style={{
+                      padding: '0 16px',
+                      borderRadius: 11,
+                      border: 'none',
+                      background: 'var(--accent)',
+                      color: '#05121a',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: savingModel || !manualModel.trim() ? 'not-allowed' : 'pointer',
+                      opacity: savingModel || !manualModel.trim() ? 0.6 : 1,
+                      fontFamily: 'inherit',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    ذخیره
+                  </button>
+                </div>
               </div>
             </div>
           </div>

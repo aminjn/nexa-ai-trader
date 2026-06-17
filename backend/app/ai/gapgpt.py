@@ -39,7 +39,7 @@ def get_ai_client(db=None) -> AsyncOpenAI:
 
 async def get_ai_response(messages: List[Dict[str, str]], stream: bool = False, db=None) -> str:
     cfg = get_ai_config(db)
-    client = AsyncOpenAI(api_key=cfg["api_key"] or "placeholder", base_url=settings.GAPGPT_BASE_URL)
+    client = AsyncOpenAI(api_key=cfg["api_key"] or "placeholder", base_url=settings.GAPGPT_BASE_URL, timeout=60.0)
     full_messages = [{"role": "system", "content": SYSTEM_PROMPT_FA}] + messages
 
     if stream:
@@ -56,7 +56,7 @@ async def get_ai_response(messages: List[Dict[str, str]], stream: bool = False, 
 
 async def stream_ai_response(messages: List[Dict[str, str]], db=None) -> AsyncGenerator[str, None]:
     cfg = get_ai_config(db)
-    client = AsyncOpenAI(api_key=cfg["api_key"] or "placeholder", base_url=settings.GAPGPT_BASE_URL)
+    client = AsyncOpenAI(api_key=cfg["api_key"] or "placeholder", base_url=settings.GAPGPT_BASE_URL, timeout=60.0)
     full_messages = [{"role": "system", "content": SYSTEM_PROMPT_FA}] + messages
 
     stream = await client.chat.completions.create(

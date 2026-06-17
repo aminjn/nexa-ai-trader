@@ -1,0 +1,157 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+body {
+  font-family: Vazirmatn, 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* ─── Dark theme (Nebula) ─── */
+[data-theme="dark"] {
+  --bg: #08081c;
+  --bg2: rgba(255,255,255,0.045);
+  --bg3: rgba(255,255,255,0.07);
+  --panel: rgba(255,255,255,0.04);
+  --border: rgba(255,255,255,0.09);
+  --border2: rgba(255,255,255,0.17);
+  --text: #eef0ff;
+  --dim: #a59fce;
+  --faint: #6f6a99;
+  --accent: #4be0ff;
+  --accent2: #ff5cc8;
+  --green: #4be0aa;
+  --red: #ff6f8b;
+  --amber: #ffc24b;
+  --grid: rgba(255,255,255,0.04);
+  --glass: rgba(255,255,255,0.03);
+  --sidebar-bg: rgba(8,8,30,0.95);
+  --card-bg: rgba(255,255,255,0.045);
+}
+
+/* ─── Light theme ─── */
+[data-theme="light"] {
+  --bg: #eef1f6;
+  --bg2: #ffffff;
+  --bg3: #f6f8fb;
+  --panel: #ffffff;
+  --border: #e1e6ee;
+  --border2: #d2dae6;
+  --text: #0d1626;
+  --dim: #5a6678;
+  --faint: #9aa6b6;
+  --accent: #0099cc;
+  --accent2: #6d5cf0;
+  --green: #0fae66;
+  --red: #e23b4e;
+  --amber: #d98a06;
+  --grid: rgba(10,20,40,0.05);
+  --glass: rgba(10,20,40,0.015);
+  --sidebar-bg: #ffffff;
+  --card-bg: #ffffff;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ─── Animations ─── */
+@keyframes gridmove { from { background-position: 0 0; } to { background-position: 48px 48px; } }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+.fade-in { animation: fadeIn 0.25s ease forwards; }
+
+/* ─── Range inputs ─── */
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg3);
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  cursor: pointer;
+}
+
+/* ─── Input base ─── */
+input, textarea, select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+}
+input::placeholder { color: var(--faint); }
+
+/* ─── Button base ─── */
+button { cursor: pointer; font-family: inherit; }
+
+/* ─── Toggle switch ─── */
+.toggle {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s, right 0.2s;
+}
+
+/* ─── Mono font helper ─── */
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ─── Card ─── */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px;
+}
+
+/* ─── Tag/pill ─── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .mobile-nav { display: flex; }
+}

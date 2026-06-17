@@ -217,8 +217,8 @@ async def list_gapgpt_models(
     if not cfg["api_key"]:
         raise HTTPException(status_code=400, detail="ابتدا کلید API گپ‌جی‌پی‌تی را وارد کنید")
 
-    from openai import AsyncOpenAI
-    client = AsyncOpenAI(api_key=cfg["api_key"], base_url=settings.GAPGPT_BASE_URL, timeout=30.0)
+    from ..ai.gapgpt import make_client
+    client = make_client(cfg["api_key"], timeout=30.0)
     try:
         resp = await client.models.list()
     except Exception as e:

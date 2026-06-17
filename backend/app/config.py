@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     GAPGPT_API_KEY: str = ""
     GAPGPT_BASE_URL: str = "https://api.gapgpt.app/v1"
     GAPGPT_MODEL: str = "gpt-4o"
+    # پروکسی برای دسترسی به گپ‌جی‌پی‌تی (مثلاً http://127.0.0.1:8889 یا socks5://...)
+    GAPGPT_PROXY: str = ""
 
     ADMIN_EMAIL: str = "admin@nexa.ai"
     ADMIN_PASSWORD: str = "Admin@12345"

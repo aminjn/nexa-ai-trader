@@ -194,7 +194,7 @@ async def add_ai_connection(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """Save an AI provider API key (persisted to database)."""
+    """Save the GapGPT API key (persisted to database)."""
     if not current_user.is_superadmin:
         raise HTTPException(status_code=403, detail="فقط سوپر ادمین می‌تواند کلید API اضافه کند")
     s = _get_settings(db)
@@ -205,3 +205,43 @@ async def add_ai_connection(
         "provider": req.provider,
         "status": "connected",
     }
+
+
+@router.get("/models")
+async def list_gapgpt_models(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """لیست مدل‌های در دسترس گپ‌جی‌پی‌تی را برمی‌گرداند."""
+    cfg = get_ai_config(db)
+    if not cfg["api_key"]:
+        raise HTTPException(status_code=400, detail="ابتدا کلید API گپ‌جی‌پی‌تی را وارد کنید")
+
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=cfg["api_key"], base_url=settings.GAPGPT_BASE_URL)
+    try:
+        resp = await client.models.list()
+        model_ids = sorted([m.id for m in resp.data])
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"دریافت لیست مدل‌ها ناموفق بود: {e}")
+
+    return {"models": model_ids, "selected": cfg["model"]}
+
+
+class ModelSelectRequest(BaseModel):
+    model: str
+
+
+@router.put("/model")
+async def select_model(
+    req: ModelSelectRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """مدل انتخاب‌شده گپ‌جی‌پی‌تی را ذخیره می‌کند."""
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="فقط سوپر ادمین می‌تواند مدل را تغییر دهد")
+    s = _get_settings(db)
+    s.gapgpt_model = req.model
+    db.commit()
+    return {"model": req.model}

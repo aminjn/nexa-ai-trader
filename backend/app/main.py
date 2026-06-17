@@ -15,12 +15,33 @@ from .api.admin import router as admin_router
 from .auth.service import create_user, get_user_by_email
 from .database import SessionLocal
 from .config import settings
+from sqlalchemy import inspect, text
+
+
+def ensure_columns():
+    """ستون‌های جدید را به جدول‌های موجود اضافه می‌کند (migration سبک برای SQLite)."""
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+    # system_settings: ستون‌های مربوط به هوش مصنوعی
+    if "system_settings" in tables:
+        cols = {c["name"] for c in inspector.get_columns("system_settings")}
+        with engine.begin() as conn:
+            if "gapgpt_api_key" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN gapgpt_api_key VARCHAR DEFAULT ''"))
+            if "gapgpt_model" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN gapgpt_model VARCHAR DEFAULT 'gpt-4o'"))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables
     Base.metadata.create_all(bind=engine)
+
+    # Migration سبک برای دیتابیس‌های قدیمی
+    try:
+        ensure_columns()
+    except Exception as e:
+        print(f"⚠️ migration warning: {e}")
 
     # Create super admin if not exists
     db = SessionLocal()

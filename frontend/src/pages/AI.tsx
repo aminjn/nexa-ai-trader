@@ -67,13 +67,19 @@ export default function AI() {
   const [aiEnabled, setAiEnabled] = useState(false)
   const [togglingAI, setTogglingAI] = useState(false)
 
-  // AI Connections
+  // AI Connections (GapGPT)
   const [connections, setConnections] = useState<AIConnection[]>([])
   const [connLoading, setConnLoading] = useState(true)
-  const [newProvider, setNewProvider] = useState('openai')
   const [newApiKey, setNewApiKey] = useState('')
   const [addingConn, setAddingConn] = useState(false)
   const [connError, setConnError] = useState<string | null>(null)
+
+  // GapGPT models
+  const [models, setModels] = useState<string[]>([])
+  const [selectedModel, setSelectedModel] = useState<string>('')
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState<string | null>(null)
+  const [savingModel, setSavingModel] = useState(false)
 
   // Chat
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -114,10 +120,40 @@ export default function AI() {
     }
   }, [])
 
+  // Load GapGPT models (only works once a key is set)
+  const loadModels = useCallback(async () => {
+    setModelsLoading(true)
+    setModelsError(null)
+    try {
+      const res = await api.get<{ models: string[]; selected: string }>('/ai/models')
+      setModels(res.data.models ?? [])
+      setSelectedModel(res.data.selected ?? '')
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { detail?: string } } }
+      setModelsError(e?.response?.data?.detail ?? 'دریافت مدل‌ها با خطا مواجه شد')
+      setModels([])
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadChatHistory()
     loadConnections()
-  }, [loadChatHistory, loadConnections])
+    loadModels()
+  }, [loadChatHistory, loadConnections, loadModels])
+
+  const handleSelectModel = async (model: string) => {
+    setSelectedModel(model)
+    setSavingModel(true)
+    try {
+      await api.put('/ai/model', { model })
+    } catch {
+      // silent
+    } finally {
+      setSavingModel(false)
+    }
+  }
 
   const handleToggleAI = async () => {
     setTogglingAI(true)
@@ -136,12 +172,13 @@ export default function AI() {
     setAddingConn(true)
     setConnError(null)
     try {
-      const res = await api.post<AIConnection>('/ai/connections', {
-        provider: newProvider,
+      await api.post<AIConnection>('/ai/connections', {
+        provider: 'GapGPT',
         api_key: newApiKey.trim(),
       })
-      setConnections((prev) => [...prev, res.data])
       setNewApiKey('')
+      await loadConnections()
+      await loadModels()
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } }
       setConnError(e?.response?.data?.detail ?? 'افزودن اتصال با خطا مواجه شد')
@@ -571,7 +608,7 @@ export default function AI() {
                 )}
               </div>
 
-              {/* Add new connection */}
+              {/* Connect GapGPT key */}
               <div
                 style={{
                   padding: '16px',
@@ -581,47 +618,18 @@ export default function AI() {
                 }}
               >
                 <div style={{ fontSize: 12, color: 'var(--faint)', marginBlockEnd: 12 }}>
-                  افزودن اتصال جدید
+                  کلید API گپ‌جی‌پی‌تی
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {/* Provider select */}
-                  <div style={{ position: 'relative' }}>
-                    <select
-                      value={newProvider}
-                      onChange={(e) => setNewProvider(e.target.value)}
-                      style={{
-                        width: '100%',
-                        appearance: 'none',
-                        WebkitAppearance: 'none',
-                        paddingInlineEnd: 36,
-                      }}
-                    >
-                      <option value="openai">OpenAI (GPT-4o)</option>
-                      <option value="anthropic">Anthropic (Claude)</option>
-                      <option value="gemini">Google Gemini</option>
-                      <option value="grok">xAI Grok</option>
-                    </select>
-                    <ChevronDown
-                      size={14}
-                      style={{
-                        position: 'absolute',
-                        insetBlockStart: '50%',
-                        insetInlineEnd: 12,
-                        transform: 'translateY(-50%)',
-                        pointerEvents: 'none',
-                        color: 'var(--faint)',
-                      }}
-                    />
-                  </div>
-
                   {/* API Key input */}
                   <input
                     type="password"
-                    placeholder={t.aiKeyPlaceholder}
+                    placeholder="کلید گپ‌جی‌پی‌تی را وارد کنید"
                     value={newApiKey}
                     onChange={(e) => setNewApiKey(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddConnection()}
+                    dir="ltr"
                   />
 
                   {connError && (
@@ -650,9 +658,90 @@ export default function AI() {
                     }}
                   >
                     {addingConn ? <Spinner size={16} /> : <Plus size={15} />}
-                    {t.connect}
+                    اتصال و ذخیره کلید
                   </button>
                 </div>
+              </div>
+
+              {/* GapGPT model picker */}
+              <div
+                style={{
+                  marginBlockStart: 16,
+                  padding: '16px',
+                  borderRadius: 12,
+                  background: 'var(--bg2)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBlockEnd: 12 }}>
+                  <div style={{ fontSize: 12, color: 'var(--faint)' }}>
+                    انتخاب مدل گپ‌جی‌پی‌تی
+                  </div>
+                  <button
+                    onClick={loadModels}
+                    disabled={modelsLoading}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent)',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: modelsLoading ? 'not-allowed' : 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {modelsLoading ? <Spinner size={12} /> : null}
+                    به‌روزرسانی لیست
+                  </button>
+                </div>
+
+                {modelsError ? (
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--faint)' }}>
+                    {modelsError}
+                  </p>
+                ) : models.length === 0 ? (
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--faint)' }}>
+                    ابتدا کلید را وارد کنید تا لیست مدل‌ها بارگذاری شود.
+                  </p>
+                ) : (
+                  <div style={{ position: 'relative' }}>
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => handleSelectModel(e.target.value)}
+                      disabled={savingModel}
+                      style={{
+                        width: '100%',
+                        appearance: 'none',
+                        WebkitAppearance: 'none',
+                        paddingInlineEnd: 36,
+                      }}
+                      dir="ltr"
+                    >
+                      {models.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      size={14}
+                      style={{
+                        position: 'absolute',
+                        insetBlockStart: '50%',
+                        insetInlineEnd: 12,
+                        transform: 'translateY(-50%)',
+                        pointerEvents: 'none',
+                        color: 'var(--faint)',
+                      }}
+                    />
+                  </div>
+                )}
+                {selectedModel && !modelsError && models.length > 0 && (
+                  <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--green)' }}>
+                    مدل فعال: {selectedModel}
+                  </p>
+                )}
               </div>
             </div>
           </div>

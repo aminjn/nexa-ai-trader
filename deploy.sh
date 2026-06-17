@@ -8,10 +8,12 @@ BACKEND="$REPO_DIR/backend"
 FRONTEND="$REPO_DIR/frontend"
 
 # ─── 1. پایتون ────────────────────────────────────────────────────
-echo "📦 نصب Python 3.12..."
-add-apt-repository -y ppa:deadsnakes/ppa 2>/dev/null || true
+echo "📦 نصب Python..."
 apt-get update -qq
-apt-get install -y python3.12 python3.12-venv python3.12-distutils python3-pip curl
+# روی Ubuntu 24.04 پایتون 3.12 پیش‌فرض است (distutils در 3.12 حذف شده)
+apt-get install -y python3 python3-venv python3-dev python3-pip build-essential curl
+PY=$(command -v python3.12 || command -v python3)
+echo "   استفاده از: $PY ($($PY --version))"
 
 # ─── 2. Node.js ───────────────────────────────────────────────────
 echo "📦 نصب Node.js..."
@@ -26,8 +28,9 @@ apt-get install -y nginx
 # ─── 4. Backend venv ──────────────────────────────────────────────
 echo "🐍 نصب dependencies بک‌اند..."
 cd "$BACKEND"
-python3.12 -m venv venv
+$PY -m venv venv
 source venv/bin/activate
+pip install -q --upgrade pip
 pip install -q -r requirements.txt
 
 # ─── 5. فایل .env ────────────────────────────────────────────────

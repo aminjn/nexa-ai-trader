@@ -12,25 +12,6 @@ from ..config import settings
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
-# لیست پیش‌فرض مدل‌های رایج گپ‌جی‌پی‌تی (در صورت در دسترس نبودن لیست زنده)
-FALLBACK_MODELS = [
-    "gpt-4o",
-    "gpt-4o-mini",
-    "gpt-4.1",
-    "gpt-4.1-mini",
-    "gpt-4-turbo",
-    "gpt-3.5-turbo",
-    "o1",
-    "o1-mini",
-    "o3-mini",
-    "claude-3-5-sonnet-20241022",
-    "claude-3-7-sonnet-latest",
-    "gemini-1.5-pro",
-    "gemini-2.0-flash",
-    "deepseek-chat",
-    "deepseek-reasoner",
-]
-
 
 def _get_settings(db: Session) -> models.SystemSettings:
     """رکورد تنظیمات سیستم را برمی‌گرداند (اگر نبود می‌سازد)."""
@@ -231,23 +212,23 @@ async def list_gapgpt_models(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """لیست مدل‌های در دسترس گپ‌جی‌پی‌تی را برمی‌گرداند (با لیست پیش‌فرض در صورت خطا)."""
+    """لیست واقعی مدل‌های در دسترس گپ‌جی‌پی‌تی را برمی‌گرداند."""
     cfg = get_ai_config(db)
     if not cfg["api_key"]:
         raise HTTPException(status_code=400, detail="ابتدا کلید API گپ‌جی‌پی‌تی را وارد کنید")
 
     from openai import AsyncOpenAI
-    client = AsyncOpenAI(api_key=cfg["api_key"], base_url=settings.GAPGPT_BASE_URL, timeout=15.0)
+    client = AsyncOpenAI(api_key=cfg["api_key"], base_url=settings.GAPGPT_BASE_URL, timeout=30.0)
     try:
         resp = await client.models.list()
-        model_ids = sorted({m.id for m in resp.data})
-        if model_ids:
-            return {"models": model_ids, "selected": cfg["model"], "fallback": False}
-    except Exception:
-        pass
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"اتصال به سرور گپ‌جی‌پی‌تی برقرار نشد: {type(e).__name__}",
+        )
 
-    # اگر دریافت زنده ناموفق بود، لیست پیش‌فرض مدل‌های رایج گپ‌جی‌پی‌تی
-    return {"models": FALLBACK_MODELS, "selected": cfg["model"], "fallback": True}
+    model_ids = sorted({m.id for m in resp.data})
+    return {"models": model_ids, "selected": cfg["model"]}
 
 
 class ModelSelectRequest(BaseModel):

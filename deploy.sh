@@ -8,10 +8,10 @@ BACKEND="$REPO_DIR/backend"
 FRONTEND="$REPO_DIR/frontend"
 
 # ─── 1. پایتون ────────────────────────────────────────────────────
-echo "📦 نصب Python..."
+echo "📦 نصب Python 3.12..."
 add-apt-repository -y ppa:deadsnakes/ppa 2>/dev/null || true
 apt-get update -qq
-apt-get install -y python3.11 python3.11-venv python3.11-distutils python3-pip curl
+apt-get install -y python3.12 python3.12-venv python3.12-distutils python3-pip curl
 
 # ─── 2. Node.js ───────────────────────────────────────────────────
 echo "📦 نصب Node.js..."
@@ -26,7 +26,7 @@ apt-get install -y nginx
 # ─── 4. Backend venv ──────────────────────────────────────────────
 echo "🐍 نصب dependencies بک‌اند..."
 cd "$BACKEND"
-python3.11 -m venv venv
+python3.12 -m venv venv
 source venv/bin/activate
 pip install -q -r requirements.txt
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
 import Logo from './Logo'
@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 interface LayoutProps { children: React.ReactNode; title: string; subtitle?: string }
 
 export default function Layout({ children, title, subtitle }: LayoutProps) {
-  const { t, theme, lang, dir, toggleLang, toggleTheme } = useAppStore()
+  const { t, theme, lang, dir, toggleTheme } = useAppStore()
   const { fullName, isSuperAdmin, logout } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
@@ -97,7 +97,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
             <div style={{ width: 32, height: 32, borderRadius: '50%', background: accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#05121a', fontSize: 13 }}>{initials}</div>
             <div style={{ overflow: 'hidden' }}>
               <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fullName}</div>
-              <div style={{ fontSize: 11, color: 'var(--dim)' }}>{isSuperAdmin ? '⭐ Super Admin' : 'User'}</div>
+              <div style={{ fontSize: 11, color: 'var(--dim)' }}>{isSuperAdmin ? '⭐ مدیر کل' : 'کاربر'}</div>
             </div>
           </div>
           <button onClick={() => { logout(); navigate('/') }} style={{ width: '100%', padding: 9, border: '1px solid var(--border2)', borderRadius: 9, background: 'transparent', color: 'var(--dim)', fontSize: 13, fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -123,7 +123,6 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: botActive ? 'var(--green)' : 'var(--dim)', boxShadow: botActive ? '0 0 8px var(--green)' : 'none', animation: botActive ? 'pulse 2s infinite' : 'none' }} />
               {botActive ? t.botRunning : t.botStopped}
             </button>
-            <button onClick={toggleLang} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', padding: '9px 12px', borderRadius: 11, cursor: 'pointer', fontSize: 13, fontFamily: "'JetBrains Mono'" }}>{t.lang}</button>
             <button onClick={toggleTheme} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', width: 40, height: 38, borderRadius: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>

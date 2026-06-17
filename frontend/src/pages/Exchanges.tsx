@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw, Trash2, Plus, Eye, EyeOff, Wifi, WifiOff } from 'lucide-react'
+import { RefreshCw, Trash2, Plus, Eye, EyeOff, Wifi, WifiOff, Info } from 'lucide-react'
+import Layout from '../components/Layout'
 import { useAppStore } from '../stores/appStore'
 import api from '../lib/api'
 
@@ -11,7 +12,10 @@ interface Exchange {
   last_sync: string
 }
 
-const EXCHANGE_OPTIONS = ['Nobitex', 'Binance', 'KuCoin', 'Bybit', 'OKX', 'Other']
+const EXCHANGE_OPTIONS = ['Nobitex', 'Binance', 'KuCoin', 'Bybit', 'OKX']
+
+// نوبیتکس فقط توکن می‌خواهد، بقیه کلید + سکرت
+const TOKEN_ONLY = ['Nobitex']
 
 const GRADIENT_COLORS = [
   'linear-gradient(135deg, #667eea, #764ba2)',
@@ -27,18 +31,24 @@ function getInitials(name: string): string {
 }
 
 function formatBalance(n: number): string {
-  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return n.toLocaleString('fa-IR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' تومان'
 }
 
 function timeAgo(iso: string): string {
-  if (!iso) return 'Never'
+  if (!iso) return 'هرگز'
   const diff = Date.now() - new Date(iso).getTime()
   const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
+  if (mins < 1) return 'همین الان'
+  if (mins < 60) return `${mins} دقیقه پیش`
   const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
+  if (hrs < 24) return `${hrs} ساعت پیش`
+  return `${Math.floor(hrs / 24)} روز پیش`
+}
+
+const STATUS_LABEL: Record<Exchange['status'], string> = {
+  connected: 'متصل',
+  disconnected: 'قطع',
+  error: 'خطا',
 }
 
 export default function Exchanges() {
@@ -57,12 +67,14 @@ export default function Exchanges() {
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
 
+  const isTokenOnly = TOKEN_ONLY.includes(addName)
+
   const fetchExchanges = () => {
     setLoading(true)
     setError(null)
     api.get('/exchanges/')
       .then(res => setExchanges(res.data))
-      .catch(() => setError('Failed to load exchanges'))
+      .catch(() => setError('بارگذاری صرافی‌ها با خطا مواجه شد'))
       .finally(() => setLoading(false))
   }
 
@@ -78,7 +90,7 @@ export default function Exchanges() {
   }
 
   const handleRemove = async (id: number, name: string) => {
-    if (!window.confirm(`Remove ${name}? This action cannot be undone.`)) return
+    if (!window.confirm(`صرافی ${name} حذف شود؟ این عمل قابل بازگشت نیست.`)) return
     setRemoving(id)
     try {
       await api.delete(`/exchanges/${id}`)
@@ -88,8 +100,12 @@ export default function Exchanges() {
   }
 
   const handleAdd = async () => {
-    if (!addKey.trim() || !addSecret.trim()) {
-      setAddError('API Key and Secret are required')
+    if (!addKey.trim()) {
+      setAddError(isTokenOnly ? 'وارد کردن توکن الزامی است' : 'وارد کردن کلید API الزامی است')
+      return
+    }
+    if (!isTokenOnly && !addSecret.trim()) {
+      setAddError('وارد کردن کلید و سکرت الزامی است')
       return
     }
     setAddLoading(true)
@@ -98,14 +114,14 @@ export default function Exchanges() {
       await api.post('/exchanges/', {
         exchange_name: addName,
         api_key: addKey.trim(),
-        api_secret: addSecret.trim(),
+        api_secret: isTokenOnly ? '' : addSecret.trim(),
       })
       setAddKey('')
       setAddSecret('')
       setAddName('Nobitex')
       await fetchExchanges()
     } catch (err: any) {
-      setAddError(err?.response?.data?.detail || 'Failed to connect exchange')
+      setAddError(err?.response?.data?.detail || 'اتصال به صرافی با خطا مواجه شد')
     }
     setAddLoading(false)
   }
@@ -127,12 +143,21 @@ export default function Exchanges() {
     fontSize: 14,
     outline: 'none',
     boxSizing: 'border-box',
+    fontFamily: 'inherit',
+  }
+
+  const labelStyle: React.CSSProperties = {
+    color: 'var(--faint)',
+    fontSize: 12,
+    marginBottom: 6,
+    fontWeight: 600,
   }
 
   const statusColor = (s: Exchange['status']) =>
     s === 'connected' ? '#22c55e' : s === 'error' ? '#ef4444' : '#6b7280'
 
   return (
+    <Layout title={t.navExchanges} subtitle="صرافی‌های متصل و افزودن صرافی جدید">
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
@@ -141,7 +166,7 @@ export default function Exchanges() {
         {loading && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--dim)', fontSize: 13 }}>
             <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />
-            Loading...
+            در حال بارگذاری...
           </div>
         )}
       </div>
@@ -163,8 +188,8 @@ export default function Exchanges() {
       {!loading && exchanges.length === 0 ? (
         <div style={{ ...cardStyle, textAlign: 'center', padding: '48px 24px' }}>
           <Plus size={40} style={{ color: 'var(--faint)', marginBottom: 12 }} />
-          <div style={{ color: 'var(--dim)', fontSize: 16, fontWeight: 500 }}>No exchanges connected</div>
-          <div style={{ color: 'var(--faint)', fontSize: 13, marginTop: 6 }}>Add an exchange below to get started</div>
+          <div style={{ color: 'var(--dim)', fontSize: 16, fontWeight: 500 }}>هیچ صرافی متصل نیست</div>
+          <div style={{ color: 'var(--faint)', fontSize: 13, marginTop: 6 }}>برای شروع، از فرم پایین یک صرافی اضافه کنید</div>
         </div>
       ) : (
         <div style={{
@@ -217,22 +242,22 @@ export default function Exchanges() {
                       ? <Wifi size={11} style={{ color: statusColor(ex.status) }} />
                       : <WifiOff size={11} style={{ color: statusColor(ex.status) }} />
                     }
-                    <span style={{ fontSize: 11, fontWeight: 600, color: statusColor(ex.status), textTransform: 'capitalize' }}>
-                      {ex.status}
+                    <span style={{ fontSize: 11, fontWeight: 600, color: statusColor(ex.status) }}>
+                      {STATUS_LABEL[ex.status]}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div style={{ marginBottom: 12 }}>
-                <div style={{ color: 'var(--faint)', fontSize: 11, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Balance</div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>
+                <div style={{ color: 'var(--faint)', fontSize: 11, marginBottom: 4, fontWeight: 600 }}>موجودی</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
                   {formatBalance(ex.balance ?? 0)}
                 </div>
               </div>
 
               <div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 16 }}>
-                Last sync: {timeAgo(ex.last_sync)}
+                آخرین همگام‌سازی: {timeAgo(ex.last_sync)}
               </div>
 
               <div style={{ display: 'flex', gap: 8 }}>
@@ -252,13 +277,14 @@ export default function Exchanges() {
                     color: 'var(--dim)',
                     fontSize: 13,
                     fontWeight: 600,
+                    fontFamily: 'inherit',
                     cursor: syncing === ex.id ? 'not-allowed' : 'pointer',
                     opacity: syncing === ex.id ? 0.6 : 1,
                     transition: 'all 0.15s',
                   }}
                 >
                   <RefreshCw size={13} style={{ animation: syncing === ex.id ? 'spin 1s linear infinite' : 'none' }} />
-                  Sync
+                  همگام‌سازی
                 </button>
                 <button
                   onClick={() => handleRemove(ex.id, ex.name)}
@@ -292,12 +318,12 @@ export default function Exchanges() {
       <div style={cardStyle}>
         <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
           <Plus size={18} style={{ color: 'var(--accent)' }} />
-          Add Exchange
+          افزودن صرافی
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Exchange</div>
+            <div style={labelStyle}>صرافی</div>
             <select
               value={addName}
               onChange={e => setAddName(e.target.value)}
@@ -309,47 +335,70 @@ export default function Exchanges() {
             </select>
           </div>
 
+          {/* راهنمای نوبیتکس */}
+          {isTokenOnly && (
+            <div style={{
+              display: 'flex',
+              gap: 10,
+              background: 'rgba(75,224,255,0.06)',
+              border: '1px solid rgba(75,224,255,0.2)',
+              borderRadius: 10,
+              padding: '12px 14px',
+            }}>
+              <Info size={16} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 2 }} />
+              <div style={{ fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.7 }}>
+                برای دریافت توکن نوبیتکس وارد حساب نوبیتکس خود شوید، به بخش
+                {' '}<b style={{ color: 'var(--text)' }}>تنظیمات ← API</b>{' '}
+                بروید و یک توکن جدید بسازید. سپس توکن را در کادر زیر وارد کنید.
+              </div>
+            </div>
+          )}
+
           <div>
-            <div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>API Key</div>
+            <div style={labelStyle}>{isTokenOnly ? 'توکن API نوبیتکس' : 'کلید API'}</div>
             <input
               type="text"
               value={addKey}
               onChange={e => setAddKey(e.target.value)}
-              placeholder="Enter your API key"
+              placeholder={isTokenOnly ? 'توکن دریافتی از نوبیتکس را وارد کنید' : 'کلید API را وارد کنید'}
               style={inputStyle}
+              dir="ltr"
             />
           </div>
 
-          <div>
-            <div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>API Secret</div>
-            <div style={{ position: 'relative' }}>
-              <input
-                type={showSecret ? 'text' : 'password'}
-                value={addSecret}
-                onChange={e => setAddSecret(e.target.value)}
-                placeholder="Enter your API secret"
-                style={{ ...inputStyle, paddingInlineEnd: 44 }}
-              />
-              <button
-                onClick={() => setShowSecret(s => !s)}
-                style={{
-                  position: 'absolute',
-                  top: '50%',
-                  insetInlineEnd: 12,
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--dim)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: 0,
-                }}
-              >
-                {showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
+          {!isTokenOnly && (
+            <div>
+              <div style={labelStyle}>سکرت API</div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showSecret ? 'text' : 'password'}
+                  value={addSecret}
+                  onChange={e => setAddSecret(e.target.value)}
+                  placeholder="سکرت API را وارد کنید"
+                  style={{ ...inputStyle, paddingInlineEnd: 44 }}
+                  dir="ltr"
+                />
+                <button
+                  onClick={() => setShowSecret(s => !s)}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    insetInlineEnd: 12,
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--dim)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 0,
+                  }}
+                >
+                  {showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {addError && (
             <div style={{
@@ -376,6 +425,7 @@ export default function Exchanges() {
               padding: '13px 24px',
               fontSize: 15,
               fontWeight: 700,
+              fontFamily: 'inherit',
               cursor: addLoading ? 'not-allowed' : 'pointer',
               opacity: addLoading ? 0.7 : 1,
               display: 'flex',
@@ -389,17 +439,18 @@ export default function Exchanges() {
             {addLoading ? (
               <>
                 <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                Connecting...
+                در حال اتصال...
               </>
             ) : (
               <>
                 <Plus size={15} />
-                Connect Exchange
+                اتصال صرافی
               </>
             )}
           </button>
         </div>
       </div>
     </div>
+    </Layout>
   )
 }

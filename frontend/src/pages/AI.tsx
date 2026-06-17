@@ -144,7 +144,7 @@ export default function AI() {
       setNewApiKey('')
     } catch (err: unknown) {
       const e = err as { response?: { data?: { detail?: string } } }
-      setConnError(e?.response?.data?.detail ?? 'Failed to add connection')
+      setConnError(e?.response?.data?.detail ?? 'افزودن اتصال با خطا مواجه شد')
     } finally {
       setAddingConn(false)
     }
@@ -171,7 +171,7 @@ export default function AI() {
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, I could not process your request. Please try again.',
+          content: 'متأسفم، نتوانستم درخواست شما را پردازش کنم. دوباره تلاش کنید.',
           created_at: new Date().toISOString(),
         },
       ])
@@ -192,14 +192,14 @@ export default function AI() {
     new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
   const aiTasks = [
-    { label: 'Market trend analysis', freq: 'Real-time' },
-    { label: 'Risk assessment', freq: 'Continuous' },
-    { label: 'Signal generation', freq: 'Every 30s' },
-    { label: 'Portfolio optimization', freq: 'Hourly' },
+    { label: 'تحلیل روند بازار', freq: 'لحظه‌ای' },
+    { label: 'ارزیابی ریسک', freq: 'پیوسته' },
+    { label: 'تولید سیگنال', freq: 'هر ۳۰ ثانیه' },
+    { label: 'بهینه‌سازی پرتفوی', freq: 'ساعتی' },
   ]
 
   return (
-    <Layout title={t.navAI} subtitle="Neural engine status and AI-powered market intelligence">
+    <Layout title={t.navAI} subtitle="وضعیت موتور عصبی و هوش بازار مبتنی بر هوش مصنوعی">
       <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
         {/* ─── Two-column layout ─── */}
@@ -275,7 +275,7 @@ export default function AI() {
                           animation: 'pulse 1.4s ease-in-out infinite',
                         }}
                       />
-                      Active
+                      فعال
                     </span>
                   </div>
                   <p
@@ -301,8 +301,8 @@ export default function AI() {
                 }}
               >
                 {[
-                  { label: 'Processing', value: '847 signals/sec' },
-                  { label: 'Latency', value: '12ms' },
+                  { label: 'پردازش', value: '۸۴۷ سیگنال در ثانیه' },
+                  { label: 'تأخیر', value: '۱۲ms' },
                 ].map(({ label, value }) => (
                   <div
                     key={label}
@@ -373,7 +373,7 @@ export default function AI() {
                       {t.aiTradingLink}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--dim)', marginBlockStart: 2 }}>
-                      Connect AI signals to live trading engine
+                      اتصال سیگنال‌های هوش مصنوعی به موتور معاملات زنده
                     </div>
                   </div>
 
@@ -521,7 +521,7 @@ export default function AI() {
                   </div>
                 ) : connections.length === 0 ? (
                   <p style={{ fontSize: 13, color: 'var(--faint)', textAlign: 'center', padding: '12px 0' }}>
-                    No AI providers connected yet.
+                    هنوز هیچ سرویس هوش مصنوعی متصل نشده است.
                   </p>
                 ) : (
                   connections.map((conn) => (
@@ -581,7 +581,7 @@ export default function AI() {
                 }}
               >
                 <div style={{ fontSize: 12, color: 'var(--faint)', marginBlockEnd: 12 }}>
-                  Add new connection
+                  افزودن اتصال جدید
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -729,7 +729,7 @@ export default function AI() {
                         animation: 'pulse 1.4s ease-in-out infinite',
                       }}
                     />
-                    NEXA Neural Engine · Online
+                    NEXA Neural Engine · آنلاین
                   </div>
                 </div>
               </div>
@@ -770,7 +770,7 @@ export default function AI() {
                   >
                     <Brain size={32} style={{ opacity: 0.3 }} color="var(--accent)" />
                     <p style={{ margin: 0, fontSize: 13, textAlign: 'center' }}>
-                      Ask anything about the market, signals, or strategy.
+                      درباره بازار، سیگنال‌ها یا استراتژی بپرسید.
                     </p>
                   </div>
                 ) : (
@@ -805,7 +805,7 @@ export default function AI() {
                             color: isUser ? '#05121a' : 'var(--accent)',
                           }}
                         >
-                          {isUser ? 'U' : <Bot size={13} />}
+                          {isUser ? 'شما' : <Bot size={13} />}
                         </div>
 
                         {/* Bubble */}

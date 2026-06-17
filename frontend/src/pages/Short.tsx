@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { AlertTriangle, TrendingDown, BarChart3, Layers, Save, Percent, Activity } from 'lucide-react'
+import Layout from '../components/Layout'
 import { useAppStore } from '../stores/appStore'
 import api from '../lib/api'
 
@@ -84,8 +85,8 @@ export default function Short() {
     settings.leverage <= 10 ? '#f59e0b' : '#ef4444'
 
   const leverageLabel =
-    settings.leverage <= 5 ? 'Low Risk' :
-    settings.leverage <= 10 ? 'Medium Risk' : 'High Risk'
+    settings.leverage <= 5 ? 'ریسک پایین' :
+    settings.leverage <= 10 ? 'ریسک متوسط' : 'ریسک بالا'
 
   const pnlColor = stats.total_pnl >= 0 ? '#22c55e' : '#ef4444'
 
@@ -94,8 +95,8 @@ export default function Short() {
     bufferPct >= 60 ? '#22c55e' :
     bufferPct >= 30 ? '#f59e0b' : '#ef4444'
   const bufferLabel =
-    bufferPct >= 60 ? 'Safe' :
-    bufferPct >= 30 ? 'Warning' : 'Danger'
+    bufferPct >= 60 ? 'امن' :
+    bufferPct >= 30 ? 'هشدار' : 'خطر'
 
   const cardStyle: React.CSSProperties = {
     background: 'var(--panel)',
@@ -105,6 +106,7 @@ export default function Short() {
   }
 
   return (
+    <Layout title={t.navShort} subtitle="تنظیمات معاملات فروش (شورت)">
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
@@ -113,7 +115,7 @@ export default function Short() {
       </div>
 
       {loading ? (
-        <div style={{ color: 'var(--dim)', textAlign: 'center', padding: 40 }}>Loading...</div>
+        <div style={{ color: 'var(--dim)', textAlign: 'center', padding: 40 }}>در حال بارگذاری...</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
 
@@ -129,18 +131,18 @@ export default function Short() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <TrendingDown size={18} style={{ color: 'var(--accent)' }} />
                 <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>
-                  Short Trading
+                  معاملات فروش (شورت)
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
-                    Enable Short Selling
+                    فعال‌سازی معاملات شورت
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--dim)' }}>
                     {settings.short_enabled
-                      ? 'Short selling is active'
-                      : 'Enable to trade falling markets'}
+                      ? 'معاملات شورت فعال است'
+                      : 'برای معامله در بازارهای نزولی فعال کنید'}
                   </div>
                 </div>
                 <div
@@ -185,11 +187,11 @@ export default function Short() {
               <AlertTriangle size={20} style={{ color: 'var(--amber, #f59e0b)', flexShrink: 0, marginTop: 2 }} />
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--amber, #f59e0b)', marginBottom: 6, fontFamily: "'Space Grotesk', sans-serif" }}>
-                  Risk Warning
+                  هشدار ریسک
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.6 }}>
-                  Short selling involves significant risk of loss beyond your initial investment.
-                  Leveraged positions can be liquidated rapidly during volatile market conditions.
+                  معاملات شورت ریسک بالایی دارد. ممکن است بیش از سرمایه اولیه خود ضرر کنید.
+                  پوزیشن‌های اهرم‌دار می‌توانند در شرایط پرنوسان بازار به سرعت لیکویید شوند.
                 </div>
               </div>
             </div>
@@ -199,7 +201,7 @@ export default function Short() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                 <BarChart3 size={18} style={{ color: 'var(--accent)' }} />
                 <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>
-                  Leverage
+                  اهرم
                 </span>
               </div>
               <div style={{ textAlign: 'center', marginBottom: 20 }}>
@@ -255,7 +257,7 @@ export default function Short() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                 <Layers size={18} style={{ color: 'var(--accent)' }} />
                 <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>
-                  Short Pairs
+                  جفت‌ارزهای شورت
                 </span>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
@@ -295,19 +297,19 @@ export default function Short() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                 <Activity size={18} style={{ color: 'var(--accent)' }} />
                 <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>
-                  Short Statistics
+                  آمار معاملات شورت
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {[
-                  { label: 'Open Positions', value: String(stats.open_positions), color: 'var(--text)', icon: <Layers size={15} /> },
+                  { label: 'پوزیشن‌های باز', value: String(stats.open_positions), color: 'var(--text)', icon: <Layers size={15} /> },
                   {
-                    label: 'Total P&L',
+                    label: 'سود/زیان کل',
                     value: `${stats.total_pnl >= 0 ? '+' : ''}$${stats.total_pnl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                     color: pnlColor,
                     icon: <TrendingDown size={15} />,
                   },
-                  { label: 'Win Rate', value: `${stats.win_rate.toFixed(1)}%`, color: stats.win_rate >= 50 ? '#22c55e' : '#ef4444', icon: <Percent size={15} /> },
+                  { label: 'نرخ موفقیت', value: `${stats.win_rate.toFixed(1)}%`, color: stats.win_rate >= 50 ? '#22c55e' : '#ef4444', icon: <Percent size={15} /> },
                 ].map(({ label, value, color, icon }, i, arr) => (
                   <div
                     key={label}
@@ -336,10 +338,10 @@ export default function Short() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <BarChart3 size={18} style={{ color: 'var(--accent)' }} />
                 <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>
-                  Liquidation Buffer
+                  حاشیه امنیت لیکویید
                 </span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 24 }}>Margin Safety</div>
+              <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 24 }}>امنیت مارجین</div>
 
               <div style={{
                 position: 'relative',
@@ -367,9 +369,9 @@ export default function Short() {
               </div>
 
               <div style={{ display: 'flex', fontSize: 11, fontFamily: "'JetBrains Mono', monospace", marginBottom: 20 }}>
-                <div style={{ width: '40%', color: '#22c55e' }}>Safe</div>
-                <div style={{ width: '30%', color: '#f59e0b', textAlign: 'center' }}>Warning</div>
-                <div style={{ width: '30%', color: '#ef4444', textAlign: 'end' }}>Danger</div>
+                <div style={{ width: '40%', color: '#22c55e' }}>امن</div>
+                <div style={{ width: '30%', color: '#f59e0b', textAlign: 'center' }}>هشدار</div>
+                <div style={{ width: '30%', color: '#ef4444', textAlign: 'end' }}>خطر</div>
               </div>
 
               <div style={{
@@ -381,7 +383,7 @@ export default function Short() {
                 background: `${bufferColor}10`,
                 border: `1px solid ${bufferColor}35`,
               }}>
-                <div style={{ fontSize: 13, color: 'var(--dim)' }}>Current Buffer</div>
+                <div style={{ fontSize: 13, color: 'var(--dim)' }}>حاشیه فعلی</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: bufferColor }}>
                     {bufferPct.toFixed(1)}%
@@ -406,7 +408,7 @@ export default function Short() {
                   textAlign: 'center',
                   marginBottom: 12,
                 }}>
-                  Settings saved!
+                  تنظیمات ذخیره شد!
                 </div>
               )}
               <button
@@ -431,12 +433,13 @@ export default function Short() {
                 }}
               >
                 <Save size={16} />
-                {saving ? 'Saving...' : 'Save Short Settings'}
+                {saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات شورت'}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
+    </Layout>
   )
 }

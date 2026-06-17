@@ -7,7 +7,7 @@ import Logo from '../components/Logo';
 
 const EXCHANGES = ['Nobitex', 'Binance', 'KuCoin', 'Other'];
 
-const STEPS = ['Welcome', 'Connect Exchange', 'Strategy', 'Summary'];
+const STEPS = ['خوش‌آمد', 'اتصال صرافی', 'استراتژی', 'خلاصه'];
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -37,7 +37,7 @@ export default function Onboarding() {
           api_secret: apiSecret,
         });
       } catch (err: any) {
-        setError(err?.response?.data?.detail || 'Failed to connect exchange');
+        setError(err?.response?.data?.detail || 'اتصال به صرافی با خطا مواجه شد');
         setLoading(false);
         return;
       } finally {
@@ -216,7 +216,7 @@ export default function Onboarding() {
             }}>
               <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#00c864', display: 'inline-block' }} />
               <span style={{ fontSize: '13px', color: '#00c864', fontFamily: 'JetBrains Mono, monospace', fontWeight: 500 }}>
-                System Ready
+                سیستم آماده
               </span>
             </div>
 
@@ -229,7 +229,7 @@ export default function Onboarding() {
               marginBlockStart: 0,
               marginBlockEnd: '14px',
             }}>
-              Welcome to NEXA AI Trader
+              به نکسا خوش آمدید
             </h2>
 
             <p style={{
@@ -240,8 +240,7 @@ export default function Onboarding() {
               marginInline: 'auto',
               marginBlockEnd: 0,
             }}>
-              Let's get you set up in just a few steps. Connect your exchange, configure your
-              strategy, and let the AI trade for you.
+              سیستم معاملاتی هوشمند شما آماده است. در چند گام آن را راه‌اندازی کنید.
             </p>
           </div>
         )}
@@ -257,10 +256,10 @@ export default function Onboarding() {
               marginBlockStart: 0,
               marginBlockEnd: '8px',
             }}>
-              Connect Your Exchange
+              اتصال صرافی
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--dim)', lineHeight: 1.7, marginBlockStart: 0, marginBlockEnd: '20px' }}>
-              Select your exchange and provide your API credentials to begin trading.
+              صرافی خود را انتخاب کنید و اطلاعات API را برای شروع معامله وارد کنید.
             </p>
 
             {/* Exchange grid */}
@@ -297,23 +296,23 @@ export default function Onboarding() {
             {exchange && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label style={labelStyle}>API Key</label>
+                  <label style={labelStyle}>کلید API</label>
                   <input
                     type="text"
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Paste your API key here"
+                    placeholder="کلید API خود را اینجا وارد کنید"
                     style={inputStyle}
                   />
                 </div>
                 <div>
-                  <label style={labelStyle}>API Secret</label>
+                  <label style={labelStyle}>رمز API</label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type={showSecret ? 'text' : 'password'}
                       value={apiSecret}
                       onChange={(e) => setApiSecret(e.target.value)}
-                      placeholder="Paste your API secret here"
+                      placeholder="رمز API خود را اینجا وارد کنید"
                       style={{ ...inputStyle, paddingInlineEnd: '44px' }}
                     />
                     <button
@@ -367,10 +366,10 @@ export default function Onboarding() {
               marginBlockStart: 0,
               marginBlockEnd: '8px',
             }}>
-              Configure Strategy
+              تنظیم استراتژی
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--dim)', lineHeight: 1.7, marginBlockStart: 0, marginBlockEnd: '24px' }}>
-              Set your trading preferences. You can adjust these anytime from the dashboard.
+              تنظیمات معاملاتی خود را مشخص کنید. هر زمان می‌توانید آن‌ها را از داشبورد تغییر دهید.
             </p>
 
             {/* Spot / Futures toggle */}
@@ -398,10 +397,9 @@ export default function Onboarding() {
                     background: marketType === mt ? 'var(--accent)' : 'transparent',
                     color: marketType === mt ? '#05121a' : 'var(--dim)',
                     transition: 'all 0.2s',
-                    textTransform: 'capitalize',
                   }}
                 >
-                  {mt}
+                  {mt === 'spot' ? 'اسپات' : 'فیوچرز'}
                 </button>
               ))}
             </div>
@@ -411,7 +409,7 @@ export default function Onboarding() {
               {/* Target Profit */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBlockEnd: '10px' }}>
-                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 500 }}>Target Profit</span>
+                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 500 }}>سود هدف</span>
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent)', fontWeight: 700, fontSize: '15px' }}>
                     {targetProfit}%
                   </span>
@@ -434,7 +432,7 @@ export default function Onboarding() {
               {/* Trades per day */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBlockEnd: '10px' }}>
-                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 500 }}>Trades per Day</span>
+                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 500 }}>معاملات در روز</span>
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent)', fontWeight: 700, fontSize: '15px' }}>
                     {tradesPerDay}×
                   </span>
@@ -457,7 +455,7 @@ export default function Onboarding() {
               {/* Capital percentage */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBlockEnd: '10px' }}>
-                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 500 }}>Capital to Deploy</span>
+                  <span style={{ fontSize: '14px', color: 'var(--text)', fontWeight: 500 }}>سرمایه درگیر</span>
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--accent)', fontWeight: 700, fontSize: '15px' }}>
                     {capitalPct}%
                   </span>
@@ -508,10 +506,10 @@ export default function Onboarding() {
                 marginBlockEnd: '8px',
                 letterSpacing: '-0.02em',
               }}>
-                Ready to Launch
+                آماده معامله!
               </h2>
               <p style={{ fontSize: '14px', color: 'var(--dim)', marginBlockStart: 0, marginBlockEnd: 0 }}>
-                Review your configuration before activating the trading bot.
+                پیش از فعال‌سازی ربات معاملاتی، تنظیمات خود را مرور کنید.
               </p>
             </div>
 
@@ -524,11 +522,11 @@ export default function Onboarding() {
               marginBlockEnd: '20px',
             }}>
               {[
-                { label: 'Exchange', value: exchange || 'Not connected' },
-                { label: 'Market Type', value: marketType.charAt(0).toUpperCase() + marketType.slice(1) },
-                { label: 'Target Profit', value: `${targetProfit}%` },
-                { label: 'Trades / Day', value: `${tradesPerDay}×` },
-                { label: 'Capital Deployed', value: `${capitalPct}%` },
+                { label: 'صرافی', value: exchange || 'متصل نشده' },
+                { label: 'نوع معامله', value: marketType === 'spot' ? 'اسپات' : 'فیوچرز' },
+                { label: 'سود هدف', value: `${targetProfit}%` },
+                { label: 'معاملات در روز', value: `${tradesPerDay}×` },
+                { label: 'سرمایه درگیر', value: `${capitalPct}%` },
               ].map(({ label, value }, i, arr) => (
                 <div
                   key={label}
@@ -549,8 +547,7 @@ export default function Onboarding() {
             </div>
 
             <p style={{ fontSize: '12px', color: 'var(--faint)', textAlign: 'center', marginBlockStart: 0, marginBlockEnd: 0, lineHeight: 1.6 }}>
-              By launching you agree that automated trading carries risk. Past performance is not
-              indicative of future results.
+              با شروع، می‌پذیرید که معاملات خودکار ریسک دارد. عملکرد گذشته تضمینی برای نتایج آینده نیست.
             </p>
           </div>
         )}
@@ -584,7 +581,7 @@ export default function Onboarding() {
                 flexShrink: 0,
               }}
             >
-              <ArrowLeft size={15} /> Back
+              <ArrowLeft size={15} /> قبلی
             </button>
           )}
 
@@ -603,7 +600,7 @@ export default function Onboarding() {
                 flexShrink: 0,
               }}
             >
-              Skip
+              رد کردن
             </button>
           )}
 
@@ -631,12 +628,12 @@ export default function Onboarding() {
               gap: '8px',
             }}
           >
-            {loading ? 'Please wait...' : step === 3 ? (
-              <>Launch Trading Bot <Rocket size={16} /></>
+            {loading ? 'لطفاً صبر کنید...' : step === 3 ? (
+              <>شروع معاملات <Rocket size={16} /></>
             ) : step === 0 ? (
-              <>Get Started <ArrowRight size={16} /></>
+              <>شروع کنید <ArrowRight size={16} /></>
             ) : (
-              <>Next <ArrowRight size={16} /></>
+              <>بعدی <ArrowRight size={16} /></>
             )}
           </button>
         </div>

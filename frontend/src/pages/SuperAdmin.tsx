@@ -51,7 +51,7 @@ export default function SuperAdmin() {
       setStats(statsRes.data);
       setUsers(usersRes.data);
     } catch (e: any) {
-      setError(e.response?.data?.detail || 'Failed to load');
+      setError(e.response?.data?.detail || 'بارگذاری با خطا مواجه شد');
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export default function SuperAdmin() {
       setNewUser({ full_name: '', email: '', password: '' });
       fetchAll();
     } catch (e: any) {
-      alert(e.response?.data?.detail || 'Failed to add user');
+      alert(e.response?.data?.detail || 'افزودن کاربر با خطا مواجه شد');
     } finally {
       setAddLoading(false);
     }
@@ -92,14 +92,14 @@ export default function SuperAdmin() {
   );
 
   const statCards = [
-    { label: 'Total Users', value: stats?.total_users ?? 0, icon: Users, color: 'var(--accent)' },
-    { label: 'Active Bots', value: stats?.active_bots ?? 0, icon: Bot, color: 'var(--green)' },
-    { label: 'Total Trades', value: stats?.total_trades ?? 0, icon: BarChart3, color: 'var(--accent2)' },
-    { label: 'Platform P&L', value: fmtMoney(stats?.platform_pnl ?? 0), icon: DollarSign, color: (stats?.platform_pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' },
+    { label: 'کل کاربران', value: stats?.total_users ?? 0, icon: Users, color: 'var(--accent)' },
+    { label: 'ربات‌های فعال', value: stats?.active_bots ?? 0, icon: Bot, color: 'var(--green)' },
+    { label: 'کل معاملات', value: stats?.total_trades ?? 0, icon: BarChart3, color: 'var(--accent2)' },
+    { label: 'سود/زیان پلتفرم', value: fmtMoney(stats?.platform_pnl ?? 0), icon: DollarSign, color: (stats?.platform_pnl ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' },
   ];
 
   return (
-    <Layout title={t.navAdmin} subtitle="Manage platform users and shared ML engine">
+    <Layout title={t.navAdmin} subtitle="مدیریت کاربران پلتفرم و موتور یادگیری مشترک">
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
@@ -120,14 +120,14 @@ export default function SuperAdmin() {
       <div style={{ background: 'linear-gradient(135deg, rgba(75,224,255,0.08) 0%, rgba(255,92,200,0.08) 100%)', border: '1px solid var(--border)', borderRadius: 18, padding: '20px 28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 8px var(--green)' }} />
-          <span style={{ fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>Shared ML Model</span>
-          <span style={{ background: 'rgba(75,224,255,0.12)', border: '1px solid var(--accent)', borderRadius: 20, padding: '3px 12px', fontSize: 12, color: 'var(--accent)' }}>Operational</span>
+          <span style={{ fontFamily: 'Space Grotesk', fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>مدل یادگیری مشترک</span>
+          <span style={{ background: 'rgba(75,224,255,0.12)', border: '1px solid var(--accent)', borderRadius: 20, padding: '3px 12px', fontSize: 12, color: 'var(--accent)' }}>عملیاتی</span>
         </div>
         <div style={{ display: 'flex', gap: 32 }}>
           {[
-            { label: 'Serving', value: `${stats?.total_users ?? 0} users` },
-            { label: 'Requests/day', value: '12,847' },
-            { label: 'Uptime', value: '99.9%' },
+            { label: 'در حال سرویس', value: `${stats?.total_users ?? 0} کاربر` },
+            { label: 'درخواست در روز', value: '۱۲٬۸۴۷' },
+            { label: 'آپ‌تایم', value: '۹۹٫۹٪' },
           ].map(item => (
             <div key={item.label} style={{ textAlign: 'center' }}>
               <div style={{ fontFamily: 'JetBrains Mono', fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>{item.value}</div>
@@ -140,16 +140,16 @@ export default function SuperAdmin() {
       {/* Users table */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ fontFamily: 'Space Grotesk', fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)' }}>Platform Users</h2>
+          <h2 style={{ fontFamily: 'Space Grotesk', fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)' }}>مدیریت کاربران</h2>
           <button onClick={() => setShowAddModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--accent)', color: '#05121a', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 700, cursor: 'pointer' }}>
-            <Plus size={16} /> Add User
+            <Plus size={16} /> افزودن کاربر
           </button>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['User', 'Exchanges', 'Balance', 'Bot Status', 'P&L', 'Actions'].map(col => (
+                {['کاربر', 'صرافی‌ها', 'موجودی', 'وضعیت ربات', 'سود/زیان', 'عملیات'].map(col => (
                   <th key={col} style={{ textAlign: 'start', padding: '10px 12px', color: 'var(--faint)', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>{col}</th>
                 ))}
               </tr>
@@ -172,16 +172,16 @@ export default function SuperAdmin() {
                   <td style={{ padding: '14px 12px', fontFamily: 'JetBrains Mono', color: 'var(--text)' }}>{fmtMoney(user.balance)}</td>
                   <td style={{ padding: '14px 12px' }}>
                     <span style={{ background: user.bot_active ? 'rgba(74,222,128,0.12)' : 'rgba(148,163,184,0.1)', border: `1px solid ${user.bot_active ? 'var(--green)' : 'var(--border)'}`, borderRadius: 20, padding: '4px 12px', fontSize: 12, color: user.bot_active ? 'var(--green)' : 'var(--dim)', fontWeight: 600 }}>
-                      {user.bot_active ? 'Active' : 'Paused'}
+                      {user.bot_active ? 'فعال' : 'متوقف'}
                     </span>
                   </td>
                   <td style={{ padding: '14px 12px', fontFamily: 'JetBrains Mono', color: user.pnl >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 700 }}>{user.pnl >= 0 ? '+' : ''}{fmtMoney(user.pnl)}</td>
                   <td style={{ padding: '14px 12px' }}>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => toggleBot(user.id)} title={user.bot_active ? 'Pause Bot' : 'Resume Bot'} style={{ background: user.bot_active ? 'rgba(251,191,36,0.12)' : 'rgba(74,222,128,0.12)', border: `1px solid ${user.bot_active ? 'var(--amber)' : 'var(--green)'}`, borderRadius: 8, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: user.bot_active ? 'var(--amber)' : 'var(--green)' }}>
+                      <button onClick={() => toggleBot(user.id)} title={user.bot_active ? 'توقف ربات' : 'ادامه ربات'} style={{ background: user.bot_active ? 'rgba(251,191,36,0.12)' : 'rgba(74,222,128,0.12)', border: `1px solid ${user.bot_active ? 'var(--amber)' : 'var(--green)'}`, borderRadius: 8, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: user.bot_active ? 'var(--amber)' : 'var(--green)' }}>
                         {user.bot_active ? <Pause size={15} /> : <Play size={15} />}
                       </button>
-                      <button onClick={() => navigate(`/admin/users/${user.id}`)} title="View Details" style={{ background: 'rgba(75,224,255,0.1)', border: '1px solid var(--accent)', borderRadius: 8, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent)' }}>
+                      <button onClick={() => navigate(`/admin/users/${user.id}`)} title="مشاهده جزئیات" style={{ background: 'rgba(75,224,255,0.1)', border: '1px solid var(--accent)', borderRadius: 8, width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent)' }}>
                         <Eye size={15} />
                       </button>
                     </div>
@@ -191,7 +191,7 @@ export default function SuperAdmin() {
             </tbody>
           </table>
           {users.length === 0 && (
-            <div style={{ textAlign: 'center', padding: 48, color: 'var(--faint)' }}>No users found</div>
+            <div style={{ textAlign: 'center', padding: 48, color: 'var(--faint)' }}>کاربری یافت نشد</div>
           )}
         </div>
       </div>
@@ -201,16 +201,20 @@ export default function SuperAdmin() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 20, padding: 32, width: 420, position: 'relative' }}>
             <button onClick={() => setShowAddModal(false)} style={{ position: 'absolute', insetBlockStart: 16, insetInlineEnd: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dim)' }}><X size={20} /></button>
-            <h3 style={{ fontFamily: 'Space Grotesk', margin: '0 0 24px', color: 'var(--text)' }}>Add New User</h3>
-            {['full_name', 'email', 'password'].map(field => (
+            <h3 style={{ fontFamily: 'Space Grotesk', margin: '0 0 24px', color: 'var(--text)' }}>افزودن کاربر جدید</h3>
+            {([
+              { field: 'full_name', label: 'نام کامل' },
+              { field: 'email', label: 'ایمیل' },
+              { field: 'password', label: 'رمز عبور' },
+            ] as const).map(({ field, label }) => (
               <div key={field} style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', color: 'var(--faint)', fontSize: 12, marginBottom: 6, textTransform: 'capitalize' }}>{field.replace('_', ' ')}</label>
+                <label style={{ display: 'block', color: 'var(--faint)', fontSize: 12, marginBottom: 6 }}>{label}</label>
                 <input type={field === 'password' ? 'password' : 'text'} value={newUser[field as keyof typeof newUser]} onChange={e => setNewUser(p => ({ ...p, [field]: e.target.value }))}
                   style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
               </div>
             ))}
             <button onClick={addUser} disabled={addLoading} style={{ width: '100%', background: 'var(--accent)', color: '#05121a', border: 'none', borderRadius: 12, padding: '12px 0', fontWeight: 700, fontSize: 15, cursor: 'pointer', marginTop: 8 }}>
-              {addLoading ? 'Adding...' : 'Add User'}
+              {addLoading ? 'در حال افزودن...' : 'افزودن کاربر'}
             </button>
           </div>
         </div>

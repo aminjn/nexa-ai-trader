@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Save, TrendingUp, Shield, Activity, Zap } from 'lucide-react'
+import Layout from '../components/Layout'
 import { useAppStore } from '../stores/appStore'
 import api from '../lib/api'
 
@@ -38,10 +39,10 @@ export default function Strategy() {
     targetProfit < 2 ? 'Conservative' :
     targetProfit > 5 ? 'Aggressive' : 'Balanced'
 
-  const riskMeta: Record<RiskLevel, { icon: React.ReactNode; desc: string; color: string }> = {
-    Conservative: { icon: <Shield size={16} />, desc: 'Low risk, steady returns', color: '#22c55e' },
-    Balanced:     { icon: <Activity size={16} />, desc: 'Moderate risk and reward', color: 'var(--accent)' },
-    Aggressive:   { icon: <Zap size={16} />, desc: 'High risk, high reward', color: '#ef4444' },
+  const riskMeta: Record<RiskLevel, { icon: React.ReactNode; label: string; desc: string; color: string }> = {
+    Conservative: { icon: <Shield size={16} />, label: 'محافظه‌کارانه', desc: 'ریسک پایین، بازده پایدار', color: '#22c55e' },
+    Balanced:     { icon: <Activity size={16} />, label: 'متعادل', desc: 'ریسک و بازده متوسط', color: 'var(--accent)' },
+    Aggressive:   { icon: <Zap size={16} />, label: 'تهاجمی', desc: 'ریسک بالا، بازده بالا', color: '#ef4444' },
   }
 
   const handleSave = async () => {
@@ -96,6 +97,7 @@ export default function Strategy() {
   )
 
   return (
+    <Layout title={t.navStrategy} subtitle="تنظیم استراتژی و پارامترهای معاملاتی">
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 24, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
@@ -104,7 +106,7 @@ export default function Strategy() {
       </div>
 
       {loading ? (
-        <div style={{ color: 'var(--dim)', textAlign: 'center', padding: 40 }}>Loading...</div>
+        <div style={{ color: 'var(--dim)', textAlign: 'center', padding: 40 }}>در حال بارگذاری...</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
 
@@ -114,10 +116,10 @@ export default function Strategy() {
             {/* Market Settings */}
             <div style={cardStyle}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 16 }}>
-                Market Settings
+                تنظیمات بازار
               </div>
-              <div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Market Type
+              <div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 10, letterSpacing: '0.08em' }}>
+                نوع بازار
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 {(['spot', 'futures'] as const).map(type => (
@@ -134,10 +136,9 @@ export default function Strategy() {
                       background: marketType === type ? 'var(--accent)' : 'var(--bg2)',
                       color: marketType === type ? '#05121a' : 'var(--text)',
                       transition: 'all 0.2s',
-                      textTransform: 'capitalize',
                     }}
                   >
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                    {type === 'spot' ? 'اسپات' : 'فیوچرز'}
                   </button>
                 ))}
               </div>
@@ -146,12 +147,12 @@ export default function Strategy() {
             {/* Trading Parameters */}
             <div style={cardStyle}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 20 }}>
-                Trading Parameters
+                پارامترهای معاملاتی
               </div>
-              {sliderRow('Target Profit per Trade', targetProfit, 1, 8, 0.5, '%', setTargetProfit)}
-              {sliderRow('Trades per Day', tradesPerDay, 10, 120, 5, '', setTradesPerDay)}
-              {sliderRow('Capital Allocation', capitalPct, 10, 100, 5, '%', setCapitalPct)}
-              {sliderRow('Stop Loss', stopLoss, 0.5, 6, 0.5, '%', setStopLoss)}
+              {sliderRow('سود هدف هر معامله', targetProfit, 1, 8, 0.5, '%', setTargetProfit)}
+              {sliderRow('تعداد معاملات روزانه', tradesPerDay, 10, 120, 5, '', setTradesPerDay)}
+              {sliderRow('درصد سرمایه فعال', capitalPct, 10, 100, 5, '%', setCapitalPct)}
+              {sliderRow('حد ضرر', stopLoss, 0.5, 6, 0.5, '%', setStopLoss)}
             </div>
           </div>
 
@@ -162,7 +163,7 @@ export default function Strategy() {
             <div style={cardStyle}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TrendingUp size={18} style={{ color: 'var(--accent)' }} />
-                Daily Projection
+                پیش‌بینی روزانه
               </div>
               <div style={{ textAlign: 'center', padding: '24px 0' }}>
                 <div style={{
@@ -175,15 +176,15 @@ export default function Strategy() {
                 }}>
                   +{estimatedDaily}%
                 </div>
-                <div style={{ color: 'var(--dim)', fontSize: 14 }}>Estimated Daily Return</div>
+                <div style={{ color: 'var(--dim)', fontSize: 14 }}>سود روزانه تخمینی</div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
                 <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '12px 16px' }}>
-                  <div style={{ color: 'var(--faint)', fontSize: 11, marginBottom: 4 }}>Trades/Day</div>
+                  <div style={{ color: 'var(--faint)', fontSize: 11, marginBottom: 4 }}>معاملات روزانه</div>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text)', fontWeight: 600 }}>{tradesPerDay}</div>
                 </div>
                 <div style={{ background: 'var(--bg2)', borderRadius: 10, padding: '12px 16px' }}>
-                  <div style={{ color: 'var(--faint)', fontSize: 11, marginBottom: 4 }}>Capital Used</div>
+                  <div style={{ color: 'var(--faint)', fontSize: 11, marginBottom: 4 }}>سرمایه استفاده‌شده</div>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--text)', fontWeight: 600 }}>{capitalPct}%</div>
                 </div>
               </div>
@@ -192,7 +193,7 @@ export default function Strategy() {
             {/* Risk Level */}
             <div style={cardStyle}>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 16, fontWeight: 600, color: 'var(--text)', marginBottom: 16 }}>
-                Risk Level
+                سطح ریسک
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 {(['Conservative', 'Balanced', 'Aggressive'] as const).map(level => {
@@ -214,7 +215,7 @@ export default function Strategy() {
                       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6, color: isActive ? meta.color : 'var(--faint)' }}>
                         {meta.icon}
                       </div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? meta.color : 'var(--dim)', marginBottom: 4 }}>{level}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? meta.color : 'var(--dim)', marginBottom: 4 }}>{meta.label}</div>
                       <div style={{ fontSize: 11, color: 'var(--faint)' }}>{meta.desc}</div>
                     </div>
                   )
@@ -235,7 +236,7 @@ export default function Strategy() {
                   textAlign: 'center',
                   marginBottom: 12,
                 }}>
-                  Settings saved!
+                  تنظیمات ذخیره شد!
                 </div>
               )}
               <button
@@ -260,12 +261,13 @@ export default function Strategy() {
                 }}
               >
                 <Save size={16} />
-                {saving ? 'Saving...' : 'Save Settings'}
+                {saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
+    </Layout>
   )
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserCheck, Shield, TrendingDown, BarChart2, AlertTriangle, Save, Check } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { useAuthStore } from '../stores/authStore';
+import Layout from '../components/Layout';
 import api from '../lib/api';
 
 interface Settings {
@@ -38,7 +39,7 @@ export default function AdminSettings() {
       const res = await api.get('/admin/settings');
       setSettings(res.data);
     } catch (e: any) {
-      setError(e.response?.data?.detail || 'Failed to load settings');
+      setError(e.response?.data?.detail || 'بارگذاری تنظیمات با خطا مواجه شد');
     } finally {
       setLoading(false);
     }
@@ -51,7 +52,7 @@ export default function AdminSettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: any) {
-      setError(e.response?.data?.detail || 'Failed to save');
+      setError(e.response?.data?.detail || 'ذخیره با خطا مواجه شد');
     } finally {
       setSaving(false);
     }
@@ -60,18 +61,18 @@ export default function AdminSettings() {
   const setVal = <K extends keyof Settings>(key: K, val: Settings[K]) => setSettings(p => ({ ...p, [key]: val }));
 
   const sliders = [
-    { key: 'max_profit' as const, label: 'Max Profit per Trade', min: 1, max: 10, step: 0.5, suffix: '%' },
-    { key: 'max_trades_per_day' as const, label: 'Max Trades per Day', min: 10, max: 200, step: 5, suffix: '' },
-    { key: 'max_leverage' as const, label: 'Max Leverage', min: 1, max: 25, step: 1, suffix: 'x' },
-    { key: 'platform_fee' as const, label: 'Platform Fee', min: 0, max: 40, step: 1, suffix: '%' },
+    { key: 'max_profit' as const, label: 'حداکثر سود هر معامله', min: 1, max: 10, step: 0.5, suffix: '%' },
+    { key: 'max_trades_per_day' as const, label: 'حداکثر معاملات روزانه', min: 10, max: 200, step: 5, suffix: '' },
+    { key: 'max_leverage' as const, label: 'حداکثر اهرم', min: 1, max: 25, step: 1, suffix: 'x' },
+    { key: 'platform_fee' as const, label: 'کارمزد پلتفرم', min: 0, max: 40, step: 1, suffix: '%' },
   ];
 
   const toggles = [
-    { key: 'auto_approve' as const, label: 'Auto Approve Users', desc: 'Automatically approve new user registrations', icon: UserCheck },
-    { key: 'require_kyc' as const, label: 'Require KYC', desc: 'Require identity verification before trading', icon: Shield },
-    { key: 'allow_short' as const, label: 'Allow Short Selling', desc: 'Enable short trading for all users', icon: TrendingDown },
-    { key: 'allow_futures' as const, label: 'Allow Futures Trading', desc: 'Enable futures contracts for all users', icon: BarChart2 },
-    { key: 'maintenance_mode' as const, label: 'Maintenance Mode', desc: 'Pause all trading activities platform-wide', icon: AlertTriangle, danger: true },
+    { key: 'auto_approve' as const, label: 'تأیید خودکار کاربران', desc: 'تأیید خودکار ثبت‌نام کاربران جدید', icon: UserCheck },
+    { key: 'require_kyc' as const, label: 'الزام احراز هویت', desc: 'الزام احراز هویت پیش از معامله', icon: Shield },
+    { key: 'allow_short' as const, label: 'اجازه معاملات شورت', desc: 'فعال‌سازی معاملات شورت برای همه کاربران', icon: TrendingDown },
+    { key: 'allow_futures' as const, label: 'اجازه معاملات فیوچرز', desc: 'فعال‌سازی قراردادهای فیوچرز برای همه کاربران', icon: BarChart2 },
+    { key: 'maintenance_mode' as const, label: 'حالت تعمیرات', desc: 'توقف تمام فعالیت‌های معاملاتی در کل پلتفرم', icon: AlertTriangle, danger: true },
   ];
 
   if (loading) return (
@@ -81,17 +82,18 @@ export default function AdminSettings() {
   );
 
   return (
+    <Layout title={t.navSettings} subtitle="تنظیمات و محدودیت‌های کل پلتفرم">
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid var(--red)', borderRadius: 12, padding: '12px 16px', color: 'var(--red)' }}>{error}</div>}
       {saved && (
         <div style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid var(--green)', borderRadius: 12, padding: '12px 16px', color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Check size={16} /> Settings saved successfully
+          <Check size={16} /> تنظیمات با موفقیت ذخیره شد
         </div>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         {/* Left - Guardrails */}
         <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 24 }}>
-          <h2 style={{ fontFamily: 'Space Grotesk', fontSize: 18, fontWeight: 700, margin: '0 0 24px', color: 'var(--text)' }}>Trading Guardrails</h2>
+          <h2 style={{ fontFamily: 'Space Grotesk', fontSize: 18, fontWeight: 700, margin: '0 0 24px', color: 'var(--text)' }}>محدودیت‌های معاملاتی</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
             {sliders.map(s => (
               <div key={s.key}>
@@ -113,7 +115,7 @@ export default function AdminSettings() {
 
         {/* Right - Platform Controls */}
         <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 24 }}>
-          <h2 style={{ fontFamily: 'Space Grotesk', fontSize: 18, fontWeight: 700, margin: '0 0 24px', color: 'var(--text)' }}>Platform Controls</h2>
+          <h2 style={{ fontFamily: 'Space Grotesk', fontSize: 18, fontWeight: 700, margin: '0 0 24px', color: 'var(--text)' }}>کنترل‌های پلتفرم</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {toggles.map((tog, i) => {
               const Icon = tog.icon;
@@ -140,9 +142,10 @@ export default function AdminSettings() {
       {/* Save button */}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button onClick={save} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--accent)', color: '#05121a', border: 'none', borderRadius: 14, padding: '14px 32px', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'Space Grotesk', boxShadow: '0 0 20px rgba(75,224,255,0.3)', opacity: saving ? 0.7 : 1 }}>
-          <Save size={18} /> {saving ? 'Saving...' : 'Save Settings'}
+          <Save size={18} /> {saving ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
         </button>
       </div>
     </div>
+    </Layout>
   );
 }

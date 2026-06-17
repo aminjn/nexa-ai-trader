@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Globe, Sun, Moon, Check, Shield, Zap, BarChart3, Eye, EyeOff, ChevronRight } from 'lucide-react';
+import { Sun, Moon, Check, Shield, Zap, BarChart3, Eye, EyeOff, ChevronRight } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { useAuthStore } from '../stores/authStore';
 import api from '../lib/api';
@@ -11,7 +11,7 @@ type Tab = 'email' | 'mobile';
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { lang, theme, t, dir, toggleLang, toggleTheme } = useAppStore();
+  const { lang, theme, t, dir, toggleTheme } = useAppStore();
   const { login } = useAuthStore();
 
   const [mode, setMode] = useState<Mode>('login');
@@ -51,7 +51,7 @@ export default function Auth() {
       await api.post('/auth/send-otp', { phone });
       setOtpSent(true);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to send OTP');
+      setError(err?.response?.data?.detail || 'ارسال کد با خطا مواجه شد');
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function Auth() {
         navigate('/onboarding');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Authentication failed');
+      setError(err?.response?.data?.detail || 'احراز هویت ناموفق بود');
     } finally {
       setLoading(false);
     }
@@ -119,9 +119,9 @@ export default function Auth() {
   };
 
   const features = [
-    { icon: <BarChart3 size={14} />, text: 'AI-powered market analysis' },
-    { icon: <Zap size={14} />, text: 'Automated portfolio management' },
-    { icon: <Shield size={14} />, text: 'Real-time risk assessment' },
+    { icon: <BarChart3 size={14} />, text: 'تحلیل بازار با هوش مصنوعی' },
+    { icon: <Zap size={14} />, text: 'مدیریت خودکار سبد دارایی' },
+    { icon: <Shield size={14} />, text: 'ارزیابی ریسک به‌صورت لحظه‌ای' },
   ];
 
   return (
@@ -204,7 +204,7 @@ export default function Auth() {
             animation: 'statusPulse 2s infinite',
           }} />
           <span style={{ fontSize: '13px', color: '#00ff78', fontWeight: 500, fontFamily: 'JetBrains Mono, monospace' }}>
-            Live System Active
+            سیستم فعال · مدل آماده
           </span>
         </div>
 
@@ -219,7 +219,7 @@ export default function Auth() {
           letterSpacing: '-0.03em',
           fontFamily: 'Space Grotesk, sans-serif',
         }}>
-          Trade Smarter
+          معاملات ارز دیجیتال
           <br />
           <span style={{
             background: 'linear-gradient(90deg, var(--accent), #ff00c8)',
@@ -227,7 +227,7 @@ export default function Auth() {
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
           }}>
-            with AI Precision
+            با هوش مصنوعی
           </span>
         </h1>
 
@@ -239,8 +239,7 @@ export default function Auth() {
           marginBlockStart: 0,
           maxWidth: '420px',
         }}>
-          Your intelligent trading companion. Analyze markets, manage portfolios, and execute
-          strategies automatically — 24/7.
+          مدل یادگیری ماشین آموزش‌دیده با ۵ سال داده بازار برای شناسایی بهترین فرصت‌های معاملاتی.
         </p>
 
         {/* Feature bullets */}
@@ -276,8 +275,7 @@ export default function Auth() {
           maxWidth: '400px',
           fontFamily: 'JetBrains Mono, monospace',
         }}>
-          Trading cryptocurrencies involves significant risk of loss. Past performance does not
-          guarantee future results. Only invest what you can afford to lose.
+          * سود تضمین‌شده نیست. معامله ریسک دارد. عملکرد گذشته تضمینی برای نتایج آینده نیست؛ تنها مبلغی را وارد کنید که توان از دست دادن آن را دارید.
         </p>
       </div>
 
@@ -299,27 +297,8 @@ export default function Auth() {
           gap: '8px',
         }}>
           <button
-            onClick={toggleLang}
-            title="Toggle language"
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '8px',
-              background: 'var(--panel)',
-              border: '1px solid var(--border)',
-              color: 'var(--dim)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s',
-            }}
-          >
-            <Globe size={16} />
-          </button>
-          <button
             onClick={toggleTheme}
-            title="Toggle theme"
+            title="تغییر تم"
             style={{
               width: '36px',
               height: '36px',
@@ -357,7 +336,7 @@ export default function Auth() {
             letterSpacing: '-0.02em',
             fontFamily: 'Space Grotesk, sans-serif',
           }}>
-            {mode === 'login' ? 'Welcome back' : 'Create account'}
+            {mode === 'login' ? 'خوش آمدید' : 'ساخت حساب'}
           </h2>
 
           {/* Login / Register tab toggle */}
@@ -387,7 +366,7 @@ export default function Auth() {
                   transition: 'all 0.2s',
                 }}
               >
-                {m === 'login' ? 'Login' : 'Register'}
+                {m === 'login' ? 'ورود' : 'ثبت‌نام'}
               </button>
             ))}
           </div>
@@ -422,7 +401,7 @@ export default function Auth() {
                   marginBlockEnd: '-1px',
                 }}
               >
-                {tb === 'email' ? 'Email' : 'Mobile'}
+                {tb === 'email' ? 'ایمیل' : 'موبایل'}
               </button>
             ))}
           </div>
@@ -431,12 +410,12 @@ export default function Auth() {
             {/* Full name — register only */}
             {mode === 'register' && (
               <div>
-                <label style={labelStyle}>Full Name</label>
+                <label style={labelStyle}>نام کامل</label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="John Doe"
+                  placeholder="نام و نام خانوادگی"
                   required
                   style={inputStyle}
                 />
@@ -446,19 +425,20 @@ export default function Auth() {
             {tab === 'email' ? (
               <>
                 <div>
-                  <label style={labelStyle}>Email</label>
+                  <label style={labelStyle}>ایمیل</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder="ایمیل خود را وارد کنید"
                     required
                     style={inputStyle}
+                    dir="ltr"
                   />
                 </div>
 
                 <div>
-                  <label style={labelStyle}>Password</label>
+                  <label style={labelStyle}>رمز عبور</label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type={showPass ? 'text' : 'password'}
@@ -493,13 +473,13 @@ export default function Auth() {
             ) : (
               <>
                 <div>
-                  <label style={labelStyle}>Phone Number</label>
+                  <label style={labelStyle}>شماره موبایل</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      placeholder="+1 555 000 0000"
+                      placeholder="۰۹۱۲ ۰۰۰ ۰۰۰۰"
                       required
                       style={{ ...inputStyle, flex: 1 }}
                     />
@@ -524,7 +504,7 @@ export default function Auth() {
                           flexShrink: 0,
                         }}
                       >
-                        Send OTP
+                        ارسال کد
                       </button>
                     )}
                   </div>
@@ -532,7 +512,7 @@ export default function Auth() {
 
                 {otpSent && (
                   <div>
-                    <label style={labelStyle}>Enter OTP</label>
+                    <label style={labelStyle}>کد تأیید را وارد کنید</label>
                     <div style={{ display: 'flex', gap: '10px', direction: 'ltr' }}>
                       {otp.map((digit, i) => (
                         <input
@@ -576,7 +556,7 @@ export default function Auth() {
                         padding: 0,
                       }}
                     >
-                      Resend OTP
+                      ارسال مجدد کد
                     </button>
                   </div>
                 )}
@@ -623,10 +603,10 @@ export default function Auth() {
               }}
             >
               {loading
-                ? 'Please wait...'
+                ? 'لطفاً صبر کنید...'
                 : mode === 'login'
-                  ? 'Sign In'
-                  : 'Create Account'}
+                  ? 'ورود'
+                  : 'ساخت حساب'}
               {!loading && <ChevronRight size={16} />}
             </button>
           </form>
@@ -639,7 +619,7 @@ export default function Auth() {
             fontSize: '14px',
             color: 'var(--dim)',
           }}>
-            {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+            {mode === 'login' ? 'حساب ندارید؟ ' : 'حساب دارید؟ '}
             <button
               onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
               style={{
@@ -653,7 +633,7 @@ export default function Auth() {
                 padding: 0,
               }}
             >
-              {mode === 'login' ? 'Register' : 'Login'}
+              {mode === 'login' ? 'ثبت‌نام' : 'ورود'}
             </button>
           </p>
         </div>

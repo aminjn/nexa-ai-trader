@@ -39,7 +39,7 @@ export default function UserDetail() {
       const res = await api.get(`/admin/users/${id}`);
       setUser(res.data);
     } catch (e: any) {
-      setError(e.response?.data?.detail || 'Failed to load user');
+      setError(e.response?.data?.detail || 'بارگذاری کاربر با خطا مواجه شد');
     } finally {
       setLoading(false);
     }
@@ -66,13 +66,14 @@ export default function UserDetail() {
   );
 
   if (error || !user) return (
-    <div style={{ padding: 40, textAlign: 'center', color: 'var(--red)' }}>{error || 'User not found'}</div>
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--red)' }}>{error || 'کاربر یافت نشد'}</div>
   );
 
   const statusColor = { active: 'var(--green)', paused: 'var(--amber)', inactive: 'var(--dim)' }[user.status];
+  const statusLabel = { active: 'فعال', paused: 'متوقف', inactive: 'غیرفعال' }[user.status];
 
   return (
-    <Layout title={user.full_name} subtitle="User account details and trading history">
+    <Layout title={user.full_name} subtitle="جزئیات حساب کاربر و تاریخچه معاملات">
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
@@ -86,24 +87,24 @@ export default function UserDetail() {
           <div>
             <h1 style={{ fontFamily: 'Space Grotesk', fontSize: 24, fontWeight: 800, margin: '0 0 6px', color: 'var(--text)' }}>{user.full_name}</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ background: `${statusColor}20`, border: `1px solid ${statusColor}`, borderRadius: 20, padding: '3px 12px', fontSize: 12, color: statusColor, fontWeight: 600 }}>{user.status}</span>
+              <span style={{ background: `${statusColor}20`, border: `1px solid ${statusColor}`, borderRadius: 20, padding: '3px 12px', fontSize: 12, color: statusColor, fontWeight: 600 }}>{statusLabel}</span>
               <span style={{ color: 'var(--dim)', fontSize: 13 }}>{user.email}</span>
-              <span style={{ color: 'var(--faint)', fontSize: 12 }}>Joined {fmtDate(user.created_at)}</span>
+              <span style={{ color: 'var(--faint)', fontSize: 12 }}>عضویت از {fmtDate(user.created_at)}</span>
             </div>
           </div>
         </div>
         <button onClick={toggleBot} disabled={toggling} style={{ display: 'flex', alignItems: 'center', gap: 8, background: user.bot_active ? 'rgba(251,191,36,0.12)' : 'var(--accent)', border: user.bot_active ? '1px solid var(--amber)' : 'none', borderRadius: 12, padding: '12px 24px', fontWeight: 700, cursor: 'pointer', color: user.bot_active ? 'var(--amber)' : '#05121a' }}>
-          {user.bot_active ? <><Pause size={16} /> Pause Bot</> : <><Play size={16} /> Resume Bot</>}
+          {user.bot_active ? <><Pause size={16} /> توقف ربات</> : <><Play size={16} /> ادامه ربات</>}
         </button>
       </div>
 
       {/* Stats row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {[
-          { label: 'Balance', value: fmtMoney(user.balance), color: 'var(--text)' },
-          { label: 'Today P&L', value: (user.today_pnl >= 0 ? '+' : '') + fmtMoney(user.today_pnl), color: user.today_pnl >= 0 ? 'var(--green)' : 'var(--red)' },
-          { label: 'Total Trades', value: user.total_trades.toString(), color: 'var(--text)' },
-          { label: 'Win Rate', value: user.win_rate.toFixed(1) + '%', color: 'var(--accent)' },
+          { label: 'موجودی', value: fmtMoney(user.balance), color: 'var(--text)' },
+          { label: 'سود/زیان امروز', value: (user.today_pnl >= 0 ? '+' : '') + fmtMoney(user.today_pnl), color: user.today_pnl >= 0 ? 'var(--green)' : 'var(--red)' },
+          { label: 'کل معاملات', value: user.total_trades.toString(), color: 'var(--text)' },
+          { label: 'نرخ موفقیت', value: user.win_rate.toFixed(1) + '%', color: 'var(--accent)' },
         ].map(stat => (
           <div key={stat.label} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 24 }}>
             <div style={{ color: 'var(--faint)', fontSize: 12, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
@@ -114,7 +115,7 @@ export default function UserDetail() {
 
       {/* Equity Curve */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 24 }}>
-        <h3 style={{ fontFamily: 'Space Grotesk', margin: '0 0 20px', color: 'var(--text)' }}>Equity Curve</h3>
+        <h3 style={{ fontFamily: 'Space Grotesk', margin: '0 0 20px', color: 'var(--text)' }}>نمودار دارایی</h3>
         <ResponsiveContainer width="100%" height={280}>
           <AreaChart data={user.equity_curve} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
             <defs>
@@ -126,7 +127,7 @@ export default function UserDetail() {
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="date" stroke="var(--faint)" tick={{ fontSize: 11 }} />
             <YAxis stroke="var(--faint)" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter={v => '$' + v.toLocaleString()} />
-            <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)' }} formatter={(v: number) => ['$' + v.toLocaleString(), 'Equity']} />
+            <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)' }} formatter={(v: number) => ['$' + v.toLocaleString(), 'دارایی']} />
             <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} fill="url(#userEquityGrad)" />
           </AreaChart>
         </ResponsiveContainer>
@@ -134,9 +135,9 @@ export default function UserDetail() {
 
       {/* API Keys */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 24 }}>
-        <h3 style={{ fontFamily: 'Space Grotesk', margin: '0 0 16px', color: 'var(--text)' }}>Connected Exchanges</h3>
+        <h3 style={{ fontFamily: 'Space Grotesk', margin: '0 0 16px', color: 'var(--text)' }}>صرافی‌های متصل</h3>
         {user.exchanges.length === 0 ? (
-          <p style={{ color: 'var(--faint)' }}>No exchanges connected</p>
+          <p style={{ color: 'var(--faint)' }}>هیچ صرافی متصل نیست</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {user.exchanges.map((ex, i) => (
@@ -148,7 +149,7 @@ export default function UserDetail() {
                     <Key size={11} /> {maskKey(ex.api_key || '0000000000000000')}
                   </div>
                 </div>
-                <span style={{ background: 'rgba(74,222,128,0.12)', border: '1px solid var(--green)', borderRadius: 20, padding: '3px 12px', fontSize: 11, color: 'var(--green)' }}>Connected</span>
+                <span style={{ background: 'rgba(74,222,128,0.12)', border: '1px solid var(--green)', borderRadius: 20, padding: '3px 12px', fontSize: 11, color: 'var(--green)' }}>متصل</span>
               </div>
             ))}
           </div>
@@ -157,11 +158,11 @@ export default function UserDetail() {
 
       {/* Recent Trades */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 24 }}>
-        <h3 style={{ fontFamily: 'Space Grotesk', margin: '0 0 16px', color: 'var(--text)' }}>Recent Trades</h3>
+        <h3 style={{ fontFamily: 'Space Grotesk', margin: '0 0 16px', color: 'var(--text)' }}>معاملات اخیر</h3>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              {['Pair', 'Side', 'P&L', 'Date'].map(col => (
+              {['جفت‌ارز', 'جهت', 'سود/زیان', 'تاریخ'].map(col => (
                 <th key={col} style={{ textAlign: 'start', padding: '8px 12px', color: 'var(--faint)', fontSize: 12, textTransform: 'uppercase', borderBottom: '1px solid var(--border)' }}>{col}</th>
               ))}
             </tr>
@@ -179,7 +180,7 @@ export default function UserDetail() {
             ))}
           </tbody>
         </table>
-        {user.recent_trades.length === 0 && <p style={{ color: 'var(--faint)', textAlign: 'center', padding: 24 }}>No trades yet</p>}
+        {user.recent_trades.length === 0 && <p style={{ color: 'var(--faint)', textAlign: 'center', padding: 24 }}>هنوز معامله‌ای نیست</p>}
       </div>
     </div>
     </Layout>

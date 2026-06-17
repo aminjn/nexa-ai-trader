@@ -53,7 +53,7 @@ export default function Dashboard() {
     { name:'BTC', pct:45, color:'var(--amber)' },
     { name:'ETH', pct:30, color:'var(--accent)' },
     { name:'SOL', pct:15, color:'var(--accent2)' },
-    { name:'Other', pct:10, color:'var(--green)' },
+    { name:'سایر', pct:10, color:'var(--green)' },
   ]
 
   return (
@@ -63,7 +63,7 @@ export default function Dashboard() {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16 }}>
           <StatCard label={t.totalEquity} value={`$${stats?.total_equity?.toFixed(2)||'0.00'}`} sub={stats?.today_pnl_pct ? `${stats.today_pnl_pct>=0?'+':''}${stats.today_pnl_pct}%` : undefined} subColor={pnlColor(stats?.today_pnl_pct||0)} />
           <StatCard label={t.todayPnl} value={`$${stats?.today_pnl?.toFixed(4)||'0'}`} subColor={pnlColor(stats?.today_pnl||0)} />
-          <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub="↑ win rate" subColor="var(--green)" />
+          <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub="↑ نرخ موفقیت" subColor="var(--green)" />
           <StatCard label={t.trades24h} value={`${stats?.total_trades_24h||0}`} sub="معاملات" />
         </div>
 
@@ -76,7 +76,7 @@ export default function Dashboard() {
                 <div style={{ fontSize:12, color:'var(--dim)' }}>{t.last90}</div>
               </div>
               <div style={{ display:'flex', gap:6 }}>
-                <span style={{ padding:'6px 12px', borderRadius:8, background:'var(--accent)', color:'#05121a', fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono'" }}>90D</span>
+                <span style={{ padding:'6px 12px', borderRadius:8, background:'var(--accent)', color:'#05121a', fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono'" }}>۹۰ روز</span>
               </div>
             </div>
             <div style={{ height:280 }}>
@@ -109,7 +109,7 @@ export default function Dashboard() {
                 <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>BTC/USDT</div>
                 <div style={{ fontFamily:"'JetBrains Mono'", fontSize:22, fontWeight:700, marginTop:4 }}>${btcPrice.toLocaleString()}</div>
               </div>
-              <span style={{ padding:'5px 10px', borderRadius:8, background:'color-mix(in srgb,var(--green) 16%,transparent)', color:'var(--green)', fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono'" }}>Live</span>
+              <span style={{ padding:'5px 10px', borderRadius:8, background:'color-mix(in srgb,var(--green) 16%,transparent)', color:'var(--green)', fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono'" }}>زنده</span>
             </div>
             <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--faint)', fontSize:13 }}>
               {btcPrice > 0 ? `$${btcPrice.toLocaleString()}` : 'در حال دریافت...'}

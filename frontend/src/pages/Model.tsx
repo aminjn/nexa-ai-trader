@@ -17,7 +17,7 @@ function AccuracyDial({ pct }: { pct: number }) {
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--bg3)" strokeWidth={12} />
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--accent)" strokeWidth={12} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} style={{ transition: 'stroke-dashoffset .8s ease' }} />
       <text x={cx} y={cy - 8} textAnchor="middle" fill="var(--text)" fontSize={28} fontWeight={700} fontFamily="'JetBrains Mono'">{pct.toFixed(1)}%</text>
-      <text x={cx} y={cy + 16} textAnchor="middle" fill="var(--dim)" fontSize={12}>Accuracy</text>
+      <text x={cx} y={cy + 16} textAnchor="middle" fill="var(--dim)" fontSize={12}>دقت</text>
     </svg>
   )
 }
@@ -59,7 +59,7 @@ export default function Model() {
     { label: t.modelAcc, value: `${acc.toFixed(1)}%`, note: status?.is_trained ? '✓ آماده' : '⏳ آموزش نیافته' },
     { label: t.trainingData, value: `${status?.training_data_days || 1825} روز`, note: t.days5year },
     { label: t.totalSamples, value: '~2,000', note: 'کندل روزانه' },
-    { label: t.epochs, value: '100', note: 'Gradient Boost' },
+    { label: t.epochs, value: '100', note: 'گرادیان بوست' },
   ]
 
   return (

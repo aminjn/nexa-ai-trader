@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Vazirmatn:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  [data-theme="dark"]{
+    --bg:#08081c; --bg2:rgba(255,255,255,0.045); --bg3:rgba(255,255,255,0.07); --panel:rgba(255,255,255,0.04);
+    --border:rgba(255,255,255,0.09); --border2:rgba(255,255,255,0.17);
+    --text:#eef0ff; --dim:#a59fce; --faint:#6f6a99;
+    --accent2:#ff5cc8; --green:#4be0aa; --red:#ff6f8b; --amber:#ffc24b;
+    --grid:rgba(255,255,255,0.04); --glass:rgba(255,255,255,0.03);
+  }
+  [data-theme="light"]{
+    --bg:#eef1f6; --bg2:#ffffff; --bg3:#f6f8fb; --panel:#ffffff;
+    --border:#e1e6ee; --border2:#d2dae6;
+    --text:#0d1626; --dim:#5a6678; --faint:#9aa6b6;
+    --accent2:#6d5cf0; --green:#0fae66; --red:#e23b4e; --amber:#d98a06;
+    --grid:rgba(10,20,40,0.05); --glass:rgba(10,20,40,0.015);
+  }
+  @keyframes gridmove{from{background-position:0 0}to{background-position:48px 48px}}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  input::placeholder{color:var(--faint)}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" dir="{{ dir }}" style="min-height:100vh;background:var(--bg);color:var(--text);font-family:Vazirmatn,'Space Grotesk',system-ui,sans-serif;position:relative;overflow-x:hidden;transition:background .3s,color .3s;--accentVar:{{ accentVar }}">
+
+  <div style="position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:48px 48px;animation:gridmove 14s linear infinite;z-index:0"></div>
+  <div style="position:fixed;top:-140px;inset-inline-start:-90px;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,var(--accentVar) 0%,transparent 70%);opacity:.22;filter:blur(48px);pointer-events:none;z-index:0"></div>
+  <div style="position:fixed;bottom:-180px;inset-inline-end:-90px;width:540px;height:540px;border-radius:50%;background:radial-gradient(circle,var(--accent2) 0%,transparent 70%);opacity:.2;filter:blur(48px);pointer-events:none;z-index:0"></div>
+
+  <!-- ============ AUTH ============ -->
+  <sc-if value="{{ showAuth }}" hint-placeholder-val="{{ true }}">
+  <div style="position:relative;z-index:1;min-height:100vh;display:grid;grid-template-columns:1.05fr 1fr;gap:0">
+    <div style="position:relative;padding:56px 60px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(155deg,var(--bg2),var(--bg));border-inline-end:1px solid var(--border);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center">{{ logo }}</div>
+        <div style="font-family:'Space Grotesk';font-weight:700;font-size:22px;letter-spacing:.04em">{{ brand }}</div>
+      </div>
+      <div style="position:relative">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border:1px solid var(--border2);border-radius:999px;font-size:13px;color:var(--accentVar);background:var(--glass);margin-bottom:26px;font-family:'JetBrains Mono'">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--accentVar);box-shadow:0 0 8px var(--accentVar);animation:pulse 2s infinite"></span>{{ t.statusLine }}
+        </div>
+        <h1 style="font-family:'Space Grotesk';font-size:46px;line-height:1.12;margin:0 0 18px;font-weight:700;max-width:14ch">{{ t.heroTitle }}</h1>
+        <p style="font-size:17px;color:var(--dim);line-height:1.7;max-width:42ch;margin:0">{{ t.heroSub }}</p>
+        <div style="display:flex;flex-direction:column;gap:14px;margin-top:34px">
+          <div style="display:flex;align-items:center;gap:12px;font-size:15px"><span style="color:var(--accentVar)">{{ check }}</span>{{ t.bullet1 }}</div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:15px"><span style="color:var(--accentVar)">{{ check }}</span>{{ t.bullet2 }}</div>
+          <div style="display:flex;align-items:center;gap:12px;font-size:15px"><span style="color:var(--accentVar)">{{ check }}</span>{{ t.bullet3 }}</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--faint);font-family:'JetBrains Mono'">{{ t.disclaimer }}</div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:center;padding:48px 56px;position:relative">
+      <div style="position:absolute;top:30px;inset-inline-end:40px;display:flex;gap:10px">
+        <button onClick="{{ toggleLang }}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-family:'JetBrains Mono'">{{ langLabel }}</button>
+        <button onClick="{{ toggleTheme }}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);width:38px;height:36px;border-radius:10px;cursor:pointer;font-size:15px">{{ themeIcon }}</button>
+      </div>
+      <div style="width:100%;max-width:400px">
+        <div style="font-family:'Space Grotesk';font-size:28px;font-weight:700;margin-bottom:6px">{{ authTitle }}</div>
+        <div style="color:var(--dim);font-size:14px;margin-bottom:28px">{{ authSubtitle }}</div>
+
+        <div style="display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:22px">
+          <button onClick="{{ setTabEmail }}" style="flex:1;padding:10px;border:none;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;background:{{ emailTabBg }};color:{{ emailTabColor }};transition:.2s">{{ t.email }}</button>
+          <button onClick="{{ setTabMobile }}" style="flex:1;padding:10px;border:none;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;background:{{ mobileTabBg }};color:{{ mobileTabColor }};transition:.2s">{{ t.mobile }}</button>
+        </div>
+
+        <sc-if value="{{ showEmailForm }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dim)">{{ t.emailLabel }}
+            <input type="email" placeholder="you@example.com" style="background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:13px 14px;color:var(--text);font-size:15px;font-family:'JetBrains Mono';outline:none" style-focus="border-color:var(--accentVar)">
+          </label>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dim)">{{ t.passLabel }}
+            <input type="password" placeholder="••••••••••" style="background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:13px 14px;color:var(--text);font-size:15px;font-family:'JetBrains Mono';outline:none" style-focus="border-color:var(--accentVar)">
+          </label>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ showMobileForm }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dim)">{{ t.mobileLabel }}
+            <div style="display:flex;gap:8px">
+              <span style="display:flex;align-items:center;padding:0 14px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;font-family:'JetBrains Mono';color:var(--dim)">+98</span>
+              <input type="tel" placeholder="912 345 6789" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:13px 14px;color:var(--text);font-size:15px;font-family:'JetBrains Mono';outline:none;direction:ltr;text-align:start" style-focus="border-color:var(--accentVar)">
+            </div>
+          </label>
+          <div style="font-size:13px;color:var(--dim);margin-top:-2px">{{ t.otpHint }}</div>
+          <div style="display:flex;gap:10px;direction:ltr;justify-content:center">
+            <input maxlength="1" value="4" style="width:54px;height:60px;text-align:center;font-size:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;color:var(--text);font-family:'JetBrains Mono';outline:none">
+            <input maxlength="1" value="8" style="width:54px;height:60px;text-align:center;font-size:24px;background:var(--bg3);border:1px solid var(--border2);border-radius:12px;color:var(--text);font-family:'JetBrains Mono';outline:none">
+            <input maxlength="1" style="width:54px;height:60px;text-align:center;font-size:24px;background:var(--bg3);border:1px solid var(--accentVar);border-radius:12px;color:var(--text);font-family:'JetBrains Mono';outline:none">
+            <input maxlength="1" style="width:54px;height:60px;text-align:center;font-size:24px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'JetBrains Mono';outline:none">
+          </div>
+        </div>
+        </sc-if>
+
+        <button onClick="{{ doLogin }}" style="width:100%;margin-top:24px;padding:15px;border:none;border-radius:12px;background:var(--accentVar);color:#05121a;font-weight:700;font-size:15px;font-family:'Space Grotesk';cursor:pointer;box-shadow:0 8px 28px -8px var(--accentVar);transition:.2s" style-hover="filter:brightness(1.08)">{{ submitLabel }}</button>
+
+        <div style="text-align:center;margin-top:20px;font-size:14px;color:var(--dim)">{{ switchPrompt }} <span onClick="{{ toggleAuthMode }}" style="color:var(--accentVar);cursor:pointer;font-weight:600">{{ switchAction }}</span></div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ ONBOARDING ============ -->
+  <sc-if value="{{ showOnboarding }}" hint-placeholder-val="{{ true }}">
+  <div style="position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px">
+    <div style="position:absolute;top:30px;inset-inline-end:40px;display:flex;gap:10px">
+      <button onClick="{{ toggleLang }}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-family:'JetBrains Mono'">{{ langLabel }}</button>
+      <button onClick="{{ toggleTheme }}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);width:38px;height:36px;border-radius:10px;cursor:pointer;font-size:15px">{{ themeIcon }}</button>
+    </div>
+    <div style="width:100%;max-width:580px;background:var(--bg2);border:1px solid var(--border2);border-radius:24px;padding:38px;box-shadow:0 40px 100px -50px rgba(0,0,0,.7)">
+      <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:30px">
+        <div style="width:46px;height:46px;margin-bottom:12px">{{ logo }}</div>
+        <div style="font-family:'Space Grotesk';font-weight:700;font-size:18px;letter-spacing:.04em">{{ brand }}</div>
+      </div>
+
+      <div style="position:relative;display:flex;justify-content:space-between;margin-bottom:34px;padding:0 6px">
+        <div style="position:absolute;top:15px;inset-inline-start:18px;inset-inline-end:18px;height:2px;background:var(--border);z-index:0"></div>
+        <sc-for list="{{ obSteps }}" as="s" hint-placeholder-count="4">
+          <div style="position:relative;z-index:1;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-weight:700;font-size:14px;background:{{ s.dotBg }};color:{{ s.dotColor }};transition:.25s">{{ s.n }}</div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ obIs0 }}" hint-placeholder-val="{{ true }}">
+      <div style="text-align:center;padding:8px 0 4px">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:7px 15px;border-radius:999px;background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green);font-size:12.5px;font-weight:600;margin-bottom:20px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green)"></span>{{ t.obReady }}</div>
+        <div style="font-family:'Space Grotesk';font-size:26px;font-weight:700;margin-bottom:12px">{{ t.obWelcomeT }}</div>
+        <p style="font-size:14.5px;color:var(--dim);line-height:1.8;margin:0 auto;max-width:42ch">{{ t.obWelcomeS }}</p>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ obIs1 }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;margin-bottom:6px">{{ t.ob1T }}</div>
+        <p style="font-size:13.5px;color:var(--dim);line-height:1.7;margin:0 0 20px">{{ t.ob1S }}</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+          <sc-for list="{{ obExchOpts }}" as="ex" hint-placeholder-count="4">
+            <button onClick="{{ ex.onSel }}" style="padding:14px;border:1px solid {{ ex.border }};border-radius:12px;background:{{ ex.bg }};color:{{ ex.color }};font-family:'JetBrains Mono';font-weight:600;font-size:14px;cursor:pointer;transition:.18s">{{ ex.name }}</button>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:13px">
+          <input placeholder="{{ t.apiKey }}" style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;color:var(--text);font-family:'JetBrains Mono';font-size:13px;outline:none" style-focus="border-color:var(--accentVar)">
+          <input type="password" placeholder="{{ t.apiSecret }}" style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:14px;color:var(--text);font-family:'JetBrains Mono';font-size:13px;outline:none" style-focus="border-color:var(--accentVar)">
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ obIs2 }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="font-family:'Space Grotesk';font-size:22px;font-weight:700;margin-bottom:6px">{{ t.ob2T }}</div>
+        <p style="font-size:13.5px;color:var(--dim);line-height:1.7;margin:0 0 20px">{{ t.ob2S }}</p>
+        <div style="display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:4px;margin-bottom:24px">
+          <button onClick="{{ setSpot }}" style="flex:1;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;font-family:inherit;font-size:14px;background:{{ obSpotBg }};color:{{ obSpotColor }}">{{ t.spot }}</button>
+          <button onClick="{{ setFutures }}" style="flex:1;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;font-family:inherit;font-size:14px;background:{{ obFutBg }};color:{{ obFutColor }}">{{ t.futures }}</button>
+        </div>
+        <div style="margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.targetProfit }}</span><span style="font-family:'JetBrains Mono';color:var(--accentVar);font-weight:700">{{ targetProfit }}%</span></div>
+          <input type="range" min="1" max="8" step="0.5" value="{{ targetProfit }}" onInput="{{ onTarget }}" style="width:100%;accent-color:var(--accentVar)">
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.tradesPerDay }}</span><span style="font-family:'JetBrains Mono';color:var(--accentVar);font-weight:700">{{ tradesPerDay }}×</span></div>
+          <input type="range" min="10" max="120" step="5" value="{{ tradesPerDay }}" onInput="{{ onTrades }}" style="width:100%;accent-color:var(--accentVar)">
+        </div>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ obIs3 }}" hint-placeholder-val="{{ true }}">
+      <div style="text-align:center;padding:4px 0">
+        <div style="width:60px;height:60px;border-radius:50%;background:color-mix(in srgb,var(--green) 18%,transparent);display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:28px;color:var(--green)">✓</div>
+        <div style="font-family:'Space Grotesk';font-size:24px;font-weight:700;margin-bottom:10px">{{ t.ob3T }}</div>
+        <p style="font-size:13.5px;color:var(--dim);line-height:1.7;margin:0 auto 24px;max-width:40ch">{{ t.ob3S }}</p>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:start">
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px;color:var(--dim)">{{ t.obSumEx }}</span><span style="font-family:'JetBrains Mono';font-weight:600">{{ obExchange }}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px;color:var(--dim)">{{ t.obSumMode }}</span><span style="font-weight:600">{{ obModeLabel }}</span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0"><span style="font-size:13px;color:var(--dim)">{{ t.obSumProfit }}</span><span style="font-family:'JetBrains Mono';font-weight:600;color:var(--green)">{{ targetProfit }}%</span></div>
+        </div>
+      </div>
+      </sc-if>
+
+      <div style="display:flex;gap:12px;margin-top:32px">
+        <sc-if value="{{ obShowBack }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ obBack }}" style="padding:14px 22px;border:1px solid var(--border2);border-radius:12px;background:transparent;color:var(--dim);font-weight:600;font-family:inherit;font-size:14px;cursor:pointer">{{ t.obBackBtn }}</button>
+        </sc-if>
+        <sc-if value="{{ obIs3 }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ obFinish }}" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--green);color:#05121a;font-weight:700;font-family:'Space Grotesk';font-size:15px;cursor:pointer;box-shadow:0 8px 28px -8px var(--green)">{{ t.obStartBtn }}</button>
+        </sc-if>
+        <sc-if value="{{ obIsNotLast }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ obNext }}" style="flex:1;padding:14px;border:none;border-radius:12px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:'Space Grotesk';font-size:15px;cursor:pointer;box-shadow:0 8px 28px -8px var(--accentVar)">{{ t.obNextBtn }}</button>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ============ APP SHELL ============ -->
+  <sc-if value="{{ showApp }}" hint-placeholder-val="{{ true }}">
+  <div style="position:relative;z-index:1;display:flex;min-height:100vh">
+
+    <aside style="width:248px;flex-shrink:0;background:var(--bg2);border-inline-end:1px solid var(--border);display:flex;flex-direction:column;padding:22px 16px;position:sticky;top:0;height:100vh">
+      <div style="display:flex;align-items:center;gap:12px;padding:0 8px 22px;border-bottom:1px solid var(--border);margin-bottom:16px">
+        <div style="width:36px;height:36px">{{ logo }}</div>
+        <div>
+          <div style="font-family:'Space Grotesk';font-weight:700;font-size:17px;letter-spacing:.03em">{{ brand }}</div>
+          <div style="font-size:11px;color:var(--accentVar);font-family:'JetBrains Mono'">{{ t.versionTag }}</div>
+        </div>
+      </div>
+
+      <nav style="display:flex;flex-direction:column;gap:4px;flex:1">
+        <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="8">
+          <button onClick="{{ item.onClick }}" style="display:flex;align-items:center;gap:13px;padding:11px 13px;border:none;border-radius:11px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;text-align:start;background:{{ item.bg }};color:{{ item.color }};transition:.18s;position:relative">
+            <span style="position:absolute;inset-inline-start:0;top:50%;transform:translateY(-50%);width:3px;height:18px;border-radius:3px;background:var(--accentVar);opacity:{{ item.barOpacity }}"></span>
+            <span style="display:flex;width:20px;height:20px">{{ item.icon }}</span>{{ item.label }}
+          </button>
+        </sc-for>
+      </nav>
+
+      <div style="display:flex;flex-direction:column;gap:5px;padding:5px;background:var(--bg3);border:1px solid var(--border);border-radius:12px;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--faint);padding:3px 6px 1px;font-family:'JetBrains Mono';letter-spacing:.06em">{{ t.viewAs }}</div>
+        <div style="display:flex;gap:4px">
+          <button onClick="{{ setRoleAdmin }}" style="flex:1;padding:8px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:{{ roleAdminBg }};color:{{ roleAdminColor }}">{{ t.roleAdmin }}</button>
+          <button onClick="{{ setRoleUser }}" style="flex:1;padding:8px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:{{ roleUserBg }};color:{{ roleUserColor }}">{{ t.roleUser }}</button>
+        </div>
+      </div>
+      <div style="padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--bg3)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accentVar),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#05121a;font-size:13px">{{ acctInitial }}</div>
+          <div style="overflow:hidden">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ acctName }}</div>
+            <div style="font-size:11px;color:var(--dim);font-family:'JetBrains Mono'">{{ acctEmail }}</div>
+          </div>
+        </div>
+        <button onClick="{{ doLogout }}" style="width:100%;padding:9px;border:1px solid var(--border2);border-radius:9px;background:transparent;color:var(--dim);cursor:pointer;font-size:13px;font-family:inherit" style-hover="color:var(--red);border-color:var(--red)">{{ t.logout }}</button>
+      </div>
+    </aside>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <header style="height:72px;flex-shrink:0;border-bottom:1px solid var(--border);background:color-mix(in srgb,var(--bg2) 70%,transparent);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:5">
+        <div>
+          <div style="font-family:'Space Grotesk';font-size:20px;font-weight:700">{{ screenTitle }}</div>
+          <div style="font-size:12px;color:var(--dim)">{{ screenSub }}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:12px">
+            <span style="font-size:11px;color:var(--dim)">{{ t.totalEquity }}</span>
+            <span style="font-family:'JetBrains Mono';font-weight:700;font-size:15px">${{ equityNow }}</span>
+          </div>
+          <button onClick="{{ toggleBot }}" style="display:flex;align-items:center;gap:9px;padding:10px 16px;border:1px solid {{ botBorder }};border-radius:12px;background:{{ botBg }};color:{{ botColor }};cursor:pointer;font-family:inherit;font-weight:600;font-size:13px;transition:.2s">
+            <span style="width:8px;height:8px;border-radius:50%;background:{{ botColor }};box-shadow:0 0 8px {{ botColor }};animation:{{ botAnim }}"></span>{{ botLabel }}
+          </button>
+          <button onClick="{{ toggleLang }}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:11px;cursor:pointer;font-size:13px;font-family:'JetBrains Mono'">{{ langLabel }}</button>
+          <button onClick="{{ toggleTheme }}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);width:40px;height:38px;border-radius:11px;cursor:pointer;font-size:15px">{{ themeIcon }}</button>
+        </div>
+      </header>
+
+      <main style="flex:1;padding:28px;overflow:auto">
+
+        <!-- DASHBOARD -->
+        <sc-if value="{{ showDash }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Dashboard" style="display:flex;flex-direction:column;gap:22px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+            <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:18px 20px;position:relative;overflow:hidden">
+                <div style="font-size:13px;color:var(--dim);margin-bottom:8px">{{ s.label }}</div>
+                <div style="font-family:'JetBrains Mono';font-size:26px;font-weight:700">{{ s.value }}</div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:{{ s.deltaColor }};font-family:'JetBrains Mono'">{{ s.delta }}</div>
+                <div style="position:absolute;inset-inline-end:14px;bottom:12px;width:84px;height:30px">{{ s.spark }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:22px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div>
+                  <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">{{ t.equityCurve }}</div>
+                  <div style="font-size:12px;color:var(--dim)">{{ t.last90 }}</div>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <span style="padding:6px 12px;border-radius:8px;background:var(--accentVar);color:#05121a;font-size:12px;font-weight:600;font-family:'JetBrains Mono'">90D</span>
+                  <span style="padding:6px 12px;border-radius:8px;background:var(--bg3);color:var(--dim);font-size:12px;font-family:'JetBrains Mono'">1Y</span>
+                </div>
+              </div>
+              <div style="height:280px">{{ equityChart }}</div>
+            </div>
+
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:22px;display:flex;flex-direction:column">
+              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:14px">
+                <div>
+                  <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">BTC/USDT</div>
+                  <div style="font-family:'JetBrains Mono';font-size:22px;font-weight:700;margin-top:4px">${{ btcPrice }}</div>
+                </div>
+                <span style="padding:5px 10px;border-radius:8px;background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);font-size:12px;font-weight:600;font-family:'JetBrains Mono'">+2.4%</span>
+              </div>
+              <div style="flex:1;min-height:200px">{{ priceChart }}</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:22px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">{{ t.recentTrades }}</div>
+                <span style="font-size:13px;color:var(--accentVar);cursor:pointer">{{ t.viewAll }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:2px">
+                <div style="display:grid;grid-template-columns:1.4fr .8fr 1fr 1fr .8fr;gap:8px;padding:0 12px 10px;font-size:12px;color:var(--faint)">
+                  <span>{{ t.pair }}</span><span>{{ t.side }}</span><span>{{ t.entry }}</span><span>{{ t.exit }}</span><span style="text-align:end">{{ t.pnl }}</span>
+                </div>
+                <sc-for list="{{ trades }}" as="tr" hint-placeholder-count="6">
+                  <div style="display:grid;grid-template-columns:1.4fr .8fr 1fr 1fr .8fr;gap:8px;padding:12px;border-radius:11px;align-items:center;background:{{ tr.rowBg }};font-size:13px;font-family:'JetBrains Mono'">
+                    <span style="font-weight:600;font-family:Vazirmatn,sans-serif">{{ tr.pair }}</span>
+                    <span style="color:{{ tr.sideColor }};font-weight:600">{{ tr.sideLabel }}</span>
+                    <span style="color:var(--dim)">{{ tr.entry }}</span>
+                    <span style="color:var(--dim)">{{ tr.exit }}</span>
+                    <span style="text-align:end;font-weight:700;color:{{ tr.pnlColor }}">{{ tr.pnl }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:16px">
+              <div style="background:linear-gradient(150deg,color-mix(in srgb,var(--accent2) 18%,var(--bg2)),var(--bg2));border:1px solid var(--border2);border-radius:18px;padding:20px">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+                  <span style="width:26px;height:26px;display:flex">{{ aiSpark }}</span>
+                  <span style="font-family:'Space Grotesk';font-weight:600;font-size:15px">{{ t.aiInsight }}</span>
+                </div>
+                <p style="font-size:13.5px;line-height:1.7;color:var(--text);margin:0">{{ t.aiInsightText }}</p>
+              </div>
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:20px">
+                <div style="font-family:'Space Grotesk';font-weight:600;font-size:15px;margin-bottom:14px">{{ t.allocation }}</div>
+                <sc-for list="{{ allocation }}" as="a" hint-placeholder-count="4">
+                  <div style="margin-bottom:13px">
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span>{{ a.name }}</span><span style="font-family:'JetBrains Mono';color:var(--dim)">{{ a.pct }}%</span></div>
+                    <div style="height:7px;background:var(--bg3);border-radius:4px;overflow:hidden"><div style="height:100%;width:{{ a.pct }}%;background:{{ a.color }};border-radius:4px"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- MODEL -->
+        <sc-if value="{{ showModel }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Model" style="display:flex;flex-direction:column;gap:22px">
+          <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">{{ t.learningCurve }}</div>
+                <div style="display:flex;gap:14px;font-size:12px;font-family:'JetBrains Mono'">
+                  <span style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:var(--green)"></span>{{ t.accuracy }}</span>
+                  <span style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:var(--red)"></span>{{ t.lossLabel }}</span>
+                </div>
+              </div>
+              <div style="height:260px">{{ accChart }}</div>
+            </div>
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center">
+              <div style="position:relative;width:160px;height:160px;margin-bottom:18px">{{ accDial }}</div>
+              <div style="font-family:'Space Grotesk';font-size:15px;font-weight:600;margin-bottom:6px">{{ t.modelStatus }}</div>
+              <div style="display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border-radius:999px;background:color-mix(in srgb,var(--green) 16%,transparent);color:var(--green);font-size:13px;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite"></span>{{ t.ready }}</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+            <sc-for list="{{ modelStats }}" as="m" hint-placeholder-count="4">
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:20px">
+                <div style="font-size:13px;color:var(--dim);margin-bottom:8px">{{ m.label }}</div>
+                <div style="font-family:'JetBrains Mono';font-size:22px;font-weight:700">{{ m.value }}</div>
+                <div style="font-size:12px;color:var(--accentVar);margin-top:4px">{{ m.note }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+            <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600;margin-bottom:18px">{{ t.featuresLearned }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px">
+              <sc-for list="{{ features }}" as="f" hint-placeholder-count="8">
+                <span style="padding:8px 15px;border:1px solid var(--border2);border-radius:999px;font-size:13px;background:var(--bg3);color:var(--dim)">{{ f }}</span>
+              </sc-for>
+            </div>
+            <div style="display:flex;gap:12px">
+              <button style="padding:13px 24px;border:none;border-radius:12px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:'Space Grotesk';font-size:14px;cursor:pointer">{{ t.retrain }}</button>
+              <button style="padding:13px 24px;border:1px solid var(--border2);border-radius:12px;background:transparent;color:var(--text);font-weight:600;font-family:inherit;font-size:14px;cursor:pointer">{{ t.exportModel }}</button>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- STRATEGY -->
+        <sc-if value="{{ showStrategy }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Strategy" style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600;margin-bottom:6px">{{ t.marketType }}</div>
+              <div style="font-size:13px;color:var(--dim);margin-bottom:16px">{{ t.marketTypeSub }}</div>
+              <div style="display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:4px">
+                <button onClick="{{ setSpot }}" style="flex:1;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;font-family:inherit;font-size:14px;background:{{ spotBg }};color:{{ spotColor }}">{{ t.spot }}</button>
+                <button onClick="{{ setFutures }}" style="flex:1;padding:12px;border:none;border-radius:9px;cursor:pointer;font-weight:600;font-family:inherit;font-size:14px;background:{{ futBg }};color:{{ futColor }}">{{ t.futures }}</button>
+              </div>
+            </div>
+
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:26px">
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.targetProfit }}</span><span style="font-family:'JetBrains Mono';color:var(--accentVar);font-weight:700;font-size:16px">{{ targetProfit }}%</span></div>
+                <input type="range" min="1" max="8" step="0.5" value="{{ targetProfit }}" onInput="{{ onTarget }}" style="width:100%;accent-color:var(--accentVar)">
+                <div style="font-size:12px;color:var(--faint);margin-top:6px">{{ t.targetProfitHint }}</div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.tradesPerDay }}</span><span style="font-family:'JetBrains Mono';color:var(--accentVar);font-weight:700;font-size:16px">{{ tradesPerDay }}×</span></div>
+                <input type="range" min="10" max="120" step="5" value="{{ tradesPerDay }}" onInput="{{ onTrades }}" style="width:100%;accent-color:var(--accentVar)">
+                <div style="font-size:12px;color:var(--faint);margin-top:6px">{{ t.tradesHint }}</div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.capitalAlloc }}</span><span style="font-family:'JetBrains Mono';color:var(--accentVar);font-weight:700;font-size:16px">{{ capitalPct }}%</span></div>
+                <input type="range" min="10" max="100" step="5" value="{{ capitalPct }}" onInput="{{ onCapital }}" style="width:100%;accent-color:var(--accentVar)">
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.stopLoss }}</span><span style="font-family:'JetBrains Mono';color:var(--red);font-weight:700;font-size:16px">{{ stopLoss }}%</span></div>
+                <input type="range" min="0.5" max="6" step="0.5" value="{{ stopLoss }}" onInput="{{ onStop }}" style="width:100%;accent-color:var(--red)">
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:linear-gradient(150deg,color-mix(in srgb,var(--accentVar) 14%,var(--bg2)),var(--bg2));border:1px solid var(--border2);border-radius:18px;padding:24px">
+              <div style="font-family:'Space Grotesk';font-size:15px;font-weight:600;margin-bottom:16px">{{ t.projection }}</div>
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:var(--dim)">{{ t.perTrade }}</span><span style="font-family:'JetBrains Mono';font-weight:700">{{ targetProfit }}%</span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:var(--dim)">{{ t.dailyCycles }}</span><span style="font-family:'JetBrains Mono';font-weight:700">{{ tradesPerDay }}×</span></div>
+                <div style="height:1px;background:var(--border)"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:var(--dim)">{{ t.estDaily }}</span><span style="font-family:'JetBrains Mono';font-weight:700;color:var(--green);font-size:18px">{{ estDaily }}</span></div>
+              </div>
+              <div style="font-size:11px;color:var(--faint);margin-top:16px;line-height:1.6">{{ t.projectionNote }}</div>
+            </div>
+
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="font-family:'Space Grotesk';font-size:15px;font-weight:600;margin-bottom:14px">{{ t.riskLevel }}</div>
+              <div style="display:flex;gap:8px">
+                <span style="flex:1;text-align:center;padding:14px 0;border-radius:11px;background:var(--bg3);font-size:13px;color:var(--dim)">{{ t.conservative }}</span>
+                <span style="flex:1;text-align:center;padding:14px 0;border-radius:11px;background:color-mix(in srgb,var(--amber) 18%,transparent);color:var(--amber);font-size:13px;font-weight:600;border:1px solid var(--amber)">{{ t.balanced }}</span>
+                <span style="flex:1;text-align:center;padding:14px 0;border-radius:11px;background:var(--bg3);font-size:13px;color:var(--dim)">{{ t.aggressive }}</span>
+              </div>
+            </div>
+
+            <button style="padding:15px;border:none;border-radius:12px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:'Space Grotesk';font-size:15px;cursor:pointer;box-shadow:0 8px 28px -8px var(--accentVar)">{{ t.applyChanges }}</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- SHORT -->
+        <sc-if value="{{ showShort }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Short" style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">{{ t.enableShort }}</div>
+                  <div style="font-size:13px;color:var(--dim);margin-top:4px;max-width:38ch">{{ t.shortSub }}</div>
+                </div>
+                <button onClick="{{ toggleShort }}" style="width:54px;height:30px;border-radius:999px;border:none;cursor:pointer;background:{{ shortToggleBg }};position:relative;transition:.2s;flex-shrink:0"><span style="position:absolute;top:3px;inset-inline-start:{{ shortKnobPos }};width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s"></span></button>
+              </div>
+            </div>
+
+            <div style="background:color-mix(in srgb,var(--amber) 9%,var(--bg2));border:1px solid color-mix(in srgb,var(--amber) 35%,var(--border));border-radius:18px;padding:18px 20px;display:flex;gap:13px;align-items:start">
+              <span style="color:var(--amber);font-size:18px;flex-shrink:0">{{ warnIcon }}</span>
+              <div style="font-size:13px;line-height:1.7;color:var(--text)">{{ t.shortWarning }}</div>
+            </div>
+
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:24px;opacity:{{ shortPanelOpacity }}">
+              <div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.maxLeverage }}</span><span style="font-family:'JetBrains Mono';color:var(--accent2);font-weight:700;font-size:16px">{{ leverage }}×</span></div>
+                <input type="range" min="1" max="20" step="1" value="{{ leverage }}" onInput="{{ onLeverage }}" style="width:100%;accent-color:var(--accent2)">
+                <div style="font-size:12px;color:var(--faint);margin-top:6px">{{ t.leverageHint }}</div>
+              </div>
+              <div>
+                <div style="font-size:14px;font-weight:600;margin-bottom:12px">{{ t.shortPairs }}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:9px">
+                  <sc-for list="{{ shortPairs }}" as="p" hint-placeholder-count="5">
+                    <span style="padding:9px 15px;border-radius:10px;font-size:13px;font-family:'JetBrains Mono';background:{{ p.bg }};color:{{ p.color }};border:1px solid {{ p.border }};cursor:pointer">{{ p.name }}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="font-family:'Space Grotesk';font-size:15px;font-weight:600;margin-bottom:16px">{{ t.shortStats }}</div>
+              <sc-for list="{{ shortStats }}" as="s" hint-placeholder-count="3">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:13px;color:var(--dim)">{{ s.label }}</span><span style="font-family:'JetBrains Mono';font-weight:700;color:{{ s.color }}">{{ s.value }}</span></div>
+              </sc-for>
+            </div>
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.liqBuffer }}</span><span style="font-family:'JetBrains Mono';color:var(--accentVar);font-weight:700">18%</span></div>
+              <div style="height:8px;background:var(--bg3);border-radius:5px;overflow:hidden"><div style="height:100%;width:18%;background:var(--green);border-radius:5px"></div></div>
+              <div style="font-size:12px;color:var(--faint);margin-top:10px;line-height:1.6">{{ t.liqHint }}</div>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- EXCHANGES -->
+        <sc-if value="{{ showExchanges }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="Exchanges" style="display:flex;flex-direction:column;gap:22px">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px">
+            <sc-for list="{{ exchanges }}" as="ex" hint-placeholder-count="4">
+              <div style="background:var(--bg2);border:1px solid {{ ex.cardBorder }};border-radius:18px;padding:22px">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:18px">
+                  <div style="display:flex;align-items:center;gap:13px">
+                    <div style="width:46px;height:46px;border-radius:13px;background:{{ ex.iconBg }};display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;font-size:18px;color:{{ ex.iconColor }}">{{ ex.initial }}</div>
+                    <div>
+                      <div style="font-family:'Space Grotesk';font-weight:600;font-size:16px;display:flex;align-items:center;gap:8px">{{ ex.name }} <span style="font-size:10px;padding:3px 8px;border-radius:6px;background:var(--accentVar);color:#05121a;font-weight:700;display:{{ ex.primaryDisplay }}">{{ t.primary }}</span></div>
+                      <div style="font-size:12px;color:var(--dim);font-family:'JetBrains Mono'">{{ ex.region }}</div>
+                    </div>
+                  </div>
+                  <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:{{ ex.statusBg }};color:{{ ex.statusColor }};font-size:12px;font-weight:600"><span style="width:7px;height:7px;border-radius:50%;background:{{ ex.statusColor }}"></span>{{ ex.statusLabel }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--border)">
+                  <div><div style="font-size:12px;color:var(--dim)">{{ t.balanceLabel }}</div><div style="font-family:'JetBrains Mono';font-weight:700;font-size:16px;margin-top:2px">{{ ex.balance }}</div></div>
+                  <button style="padding:9px 18px;border:1px solid var(--border2);border-radius:10px;background:{{ ex.btnBg }};color:{{ ex.btnColor }};font-size:13px;font-weight:600;font-family:inherit;cursor:pointer">{{ ex.btnLabel }}</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background:var(--bg2);border:1px dashed var(--border2);border-radius:18px;padding:28px">
+            <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600;margin-bottom:6px">{{ t.addExchange }}</div>
+            <div style="font-size:13px;color:var(--dim);margin-bottom:20px">{{ t.addExchangeSub }}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+              <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dim)">{{ t.apiKey }}<input placeholder="xxxx-xxxx-xxxx-xxxx" style="background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:13px;color:var(--text);font-family:'JetBrains Mono';outline:none;font-size:13px"></label>
+              <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dim)">{{ t.apiSecret }}<input type="password" placeholder="••••••••••••••••" style="background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:13px;color:var(--text);font-family:'JetBrains Mono';outline:none;font-size:13px"></label>
+            </div>
+            <button style="padding:13px 26px;border:none;border-radius:12px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:'Space Grotesk';font-size:14px;cursor:pointer">{{ t.connect }}</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- HISTORY -->
+        <sc-if value="{{ showHistory }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="History" style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;gap:8px">
+              <span style="padding:9px 18px;border-radius:10px;background:var(--accentVar);color:#05121a;font-size:13px;font-weight:600;cursor:pointer">{{ t.allTrades }}</span>
+              <span style="padding:9px 18px;border-radius:10px;background:var(--bg3);color:var(--dim);font-size:13px;cursor:pointer">{{ t.profitOnly }}</span>
+              <span style="padding:9px 18px;border-radius:10px;background:var(--bg3);color:var(--dim);font-size:13px;cursor:pointer">{{ t.lossOnly }}</span>
+            </div>
+            <button style="padding:9px 18px;border:1px solid var(--border2);border-radius:10px;background:transparent;color:var(--text);font-size:13px;font-family:inherit;cursor:pointer">{{ t.export }}</button>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:8px 0;overflow:hidden">
+            <div style="display:grid;grid-template-columns:1.4fr 1fr .8fr 1fr 1fr 1fr .9fr;gap:8px;padding:14px 24px;font-size:12px;color:var(--faint);border-bottom:1px solid var(--border)">
+              <span>{{ t.pair }}</span><span>{{ t.dateTime }}</span><span>{{ t.side }}</span><span>{{ t.entry }}</span><span>{{ t.exit }}</span><span>{{ t.amount }}</span><span style="text-align:end">{{ t.pnl }}</span>
+            </div>
+            <sc-for list="{{ history }}" as="h" hint-placeholder-count="10">
+              <div style="display:grid;grid-template-columns:1.4fr 1fr .8fr 1fr 1fr 1fr .9fr;gap:8px;padding:14px 24px;font-size:13px;font-family:'JetBrains Mono';align-items:center;border-bottom:1px solid var(--border)">
+                <span style="font-weight:600;font-family:Vazirmatn,sans-serif">{{ h.pair }}</span>
+                <span style="color:var(--dim)">{{ h.date }}</span>
+                <span style="color:{{ h.sideColor }};font-weight:600">{{ h.sideLabel }}</span>
+                <span style="color:var(--dim)">{{ h.entry }}</span>
+                <span style="color:var(--dim)">{{ h.exit }}</span>
+                <span style="color:var(--dim)">{{ h.amount }}</span>
+                <span style="text-align:end;font-weight:700;color:{{ h.pnlColor }}">{{ h.pnl }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- AI -->
+        <sc-if value="{{ showAI }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="AI" style="display:grid;grid-template-columns:1fr 1.1fr;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:linear-gradient(150deg,color-mix(in srgb,var(--accent2) 20%,var(--bg2)),var(--bg2));border:1px solid var(--border2);border-radius:18px;padding:24px">
+              <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px">
+                <div style="width:48px;height:48px;display:flex">{{ aiSparkLg }}</div>
+                <div>
+                  <div style="font-family:'Space Grotesk';font-size:18px;font-weight:700">{{ t.aiEngine }}</div>
+                  <div style="font-size:12px;color:var(--dim);font-family:'JetBrains Mono'">GPT · {{ t.connected }}</div>
+                </div>
+              </div>
+              <p style="font-size:13.5px;line-height:1.75;color:var(--text);margin:0">{{ t.aiRoleText }}</p>
+            </div>
+
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="font-size:12px;color:var(--accentVar);font-family:'JetBrains Mono';letter-spacing:.08em;margin-bottom:14px">{{ t.adminControls }}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border:1px solid {{ aiToggleBorder }};border-radius:14px;background:{{ aiToggleCardBg }}">
+                <div style="max-width:30ch">
+                  <div style="font-weight:600;font-size:14.5px;margin-bottom:5px">{{ t.aiTradingLink }}</div>
+                  <div style="font-size:12.5px;color:var(--dim);line-height:1.6">{{ aiLinkDesc }}</div>
+                </div>
+                <button onClick="{{ toggleAI }}" style="width:54px;height:30px;border-radius:999px;border:none;cursor:pointer;background:{{ aiToggleBg }};position:relative;transition:.2s;flex-shrink:0"><span style="position:absolute;top:3px;inset-inline-start:{{ aiKnobPos }};width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s"></span></button>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:16px;padding:14px;border-radius:12px;background:{{ modeBannerBg }}">
+                <span style="width:9px;height:9px;border-radius:50%;background:{{ modeBannerColor }};box-shadow:0 0 8px {{ modeBannerColor }}"></span>
+                <span style="font-size:13px;font-weight:600;color:{{ modeBannerColor }}">{{ modeLabel }}</span>
+              </div>
+            </div>
+
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="font-family:'Space Grotesk';font-size:14px;font-weight:600;margin-bottom:14px">{{ t.aiTasks }}</div>
+              <sc-for list="{{ aiTasks }}" as="task" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:11px;padding:10px 0;font-size:13.5px"><span style="color:var(--green)">{{ checkSm }}</span>{{ task }}</div>
+              </sc-for>
+            </div>
+
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="font-family:'Space Grotesk';font-size:15px;font-weight:600;margin-bottom:4px">{{ t.aiConnTitle }}</div>
+              <div style="font-size:12.5px;color:var(--dim);margin-bottom:16px;line-height:1.6">{{ t.aiConnSub }}</div>
+              <sc-for list="{{ aiProviders }}" as="p" hint-placeholder-count="3">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;border:1px solid {{ p.cardBorder }};border-radius:13px;margin-bottom:10px;background:var(--bg3)">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:38px;height:38px;border-radius:11px;background:{{ p.iconBg }};display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;color:{{ p.iconColor }}">{{ p.initial }}</div>
+                    <div><div style="font-weight:600;font-size:13.5px">{{ p.name }}</div><div style="font-family:'JetBrains Mono';font-size:11.5px;color:var(--dim);margin-top:3px">{{ p.detail }}</div></div>
+                  </div>
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:{{ p.statusBg }};color:{{ p.statusColor }};font-size:11px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:{{ p.statusColor }}"></span>{{ p.statusLabel }}</span>
+                </div>
+              </sc-for>
+              <div style="display:flex;gap:10px;margin-top:14px">
+                <input placeholder="{{ t.aiKeyPlaceholder }}" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:12px 14px;color:var(--text);font-family:'JetBrains Mono';font-size:12.5px;outline:none" style-focus="border-color:var(--accentVar)">
+                <button style="padding:0 20px;border:none;border-radius:11px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">{{ t.connect }}</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;display:flex;flex-direction:column;overflow:hidden;height:640px">
+            <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px">
+              <span style="width:22px;height:22px;display:flex">{{ aiSpark }}</span>
+              <span style="font-family:'Space Grotesk';font-weight:600;font-size:15px">{{ t.aiChat }}</span>
+            </div>
+            <div style="flex:1;overflow:auto;padding:22px;display:flex;flex-direction:column;gap:16px">
+              <sc-for list="{{ chat }}" as="msg" hint-placeholder-count="3">
+                <div style="display:flex;flex-direction:column;align-items:{{ msg.align }};gap:4px">
+                  <div style="max-width:82%;padding:13px 16px;border-radius:16px;font-size:13.5px;line-height:1.7;background:{{ msg.bg }};color:{{ msg.color }};border:1px solid {{ msg.border }}">{{ msg.text }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="padding:16px 18px;border-top:1px solid var(--border);display:flex;gap:10px">
+              <input value="{{ chatInput }}" onInput="{{ onChatInput }}" placeholder="{{ t.chatPlaceholder }}" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:13px 16px;color:var(--text);font-family:inherit;font-size:14px;outline:none" style-focus="border-color:var(--accentVar)">
+              <button onClick="{{ sendChat }}" style="padding:0 22px;border:none;border-radius:12px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:inherit;cursor:pointer">{{ t.send }}</button>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- SUPER ADMIN -->
+        <sc-if value="{{ showAdmin }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="SuperAdmin" style="display:flex;flex-direction:column;gap:22px">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+            <sc-for list="{{ adminStats }}" as="s" hint-placeholder-count="4">
+              <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:18px 20px">
+                <div style="font-size:13px;color:var(--dim);margin-bottom:8px">{{ s.label }}</div>
+                <div style="font-family:'JetBrains Mono';font-size:26px;font-weight:700">{{ s.value }}</div>
+                <div style="font-size:12px;color:var(--accentVar);margin-top:5px">{{ s.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background:linear-gradient(150deg,color-mix(in srgb,var(--accent2) 18%,var(--bg2)),var(--bg2));border:1px solid var(--border2);border-radius:18px;padding:24px;display:flex;justify-content:space-between;align-items:center;gap:24px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:16px;max-width:54ch">
+              <div style="width:48px;height:48px;flex-shrink:0">{{ aiSparkLg }}</div>
+              <div>
+                <div style="font-family:'Space Grotesk';font-size:18px;font-weight:700;margin-bottom:6px">{{ t.spSharedModel }}</div>
+                <div style="font-size:13px;color:var(--dim);line-height:1.7">{{ t.spSharedDesc }}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:26px">
+              <div style="text-align:center"><div style="font-family:'JetBrains Mono';font-size:24px;font-weight:700;color:var(--green)">{{ servingCount }}</div><div style="font-size:11px;color:var(--dim);margin-top:4px">{{ t.spServing }}</div></div>
+              <div style="text-align:center"><div style="font-family:'JetBrains Mono';font-size:24px;font-weight:700">1,284</div><div style="font-size:11px;color:var(--dim);margin-top:4px">{{ t.spReqs }}</div></div>
+              <div style="text-align:center"><div style="font-family:'JetBrains Mono';font-size:24px;font-weight:700">99.9%</div><div style="font-size:11px;color:var(--dim);margin-top:4px">{{ t.spUptime }}</div></div>
+            </div>
+          </div>
+
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:8px 0;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 24px 14px">
+              <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">{{ t.spUsersTable }}</div>
+              <button style="padding:9px 18px;border:none;border-radius:10px;background:var(--accentVar);color:#05121a;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer">+ {{ t.spAddUser }}</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1.5fr 1.5fr .9fr .9fr .8fr 1fr;gap:10px;padding:10px 24px;font-size:12px;color:var(--faint);border-bottom:1px solid var(--border)">
+              <span>{{ t.spUser }}</span><span>{{ t.spExch }}</span><span>{{ t.spBal }}</span><span>{{ t.spBotStatus }}</span><span>{{ t.spPnlCol }}</span><span style="text-align:end">{{ t.spControl }}</span>
+            </div>
+            <sc-for list="{{ users }}" as="u" hint-placeholder-count="6">
+              <div style="display:grid;grid-template-columns:1.5fr 1.5fr .9fr .9fr .8fr 1fr;gap:10px;padding:14px 24px;align-items:center;border-bottom:1px solid var(--border);background:{{ u.rowBg }}">
+                <div style="display:flex;align-items:center;gap:11px;min-width:0">
+                  <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accentVar),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#05121a;flex-shrink:0">{{ u.initial }}</div>
+                  <span style="font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ u.name }}</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <sc-for list="{{ u.exchanges }}" as="ex" hint-placeholder-count="2">
+                    <span style="padding:4px 10px;border-radius:7px;background:var(--bg3);border:1px solid var(--border);font-size:11px;font-family:'JetBrains Mono';color:var(--dim)">{{ ex }}</span>
+                  </sc-for>
+                </div>
+                <span style="font-family:'JetBrains Mono';font-weight:700;font-size:13.5px">{{ u.balance }}</span>
+                <span style="display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;background:{{ u.statusBg }};color:{{ u.statusColor }};font-size:12px;font-weight:600;width:fit-content"><span style="width:6px;height:6px;border-radius:50%;background:{{ u.statusColor }}"></span>{{ u.statusLabel }}</span>
+                <span style="font-family:'JetBrains Mono';font-weight:700;color:{{ u.pnlColor }};font-size:13.5px">{{ u.pnl }}</span>
+                <div style="display:flex;gap:7px;justify-content:flex-end">
+                  <button onClick="{{ u.onToggle }}" style="padding:7px 13px;border:1px solid var(--border2);border-radius:8px;background:transparent;color:{{ u.ctrlColor }};font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">{{ u.ctrlLabel }}</button>
+                  <button onClick="{{ u.onView }}" style="padding:7px 13px;border:1px solid var(--border2);border-radius:8px;background:transparent;color:var(--dim);font-size:12px;font-family:inherit;cursor:pointer" style-hover="color:var(--accentVar);border-color:var(--accentVar)">{{ t.spView }}</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- USER DETAIL -->
+        <sc-if value="{{ showUserDetail }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="UserDetail" style="display:flex;flex-direction:column;gap:20px">
+          <button onClick="{{ backToAdmin }}" style="align-self:flex-start;display:flex;align-items:center;gap:8px;padding:9px 16px;border:1px solid var(--border2);border-radius:10px;background:transparent;color:var(--dim);font-size:13px;font-family:inherit;cursor:pointer" style-hover="color:var(--text)">→ {{ t.dBack }}</button>
+
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px;display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,var(--accentVar),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#05121a;font-size:22px;font-family:'Space Grotesk'">{{ dInitial }}</div>
+              <div>
+                <div style="font-family:'Space Grotesk';font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px">{{ dName }}
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;background:{{ dStatusBg }};color:{{ dStatusColor }};font-size:12px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:{{ dStatusColor }}"></span>{{ dStatusLabel }}</span>
+                </div>
+                <div style="font-size:13px;color:var(--dim);font-family:'JetBrains Mono';margin-top:5px">{{ dEmail }} · {{ t.dMember }} {{ dJoined }}</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+              <span style="font-size:11px;color:var(--faint)">{{ t.dControlBot }}</span>
+              <button onClick="{{ toggleSelectedBot }}" style="padding:11px 22px;border:1px solid var(--border2);border-radius:11px;background:{{ dToggleBg }};color:{{ dToggleColor }};font-weight:700;font-family:'Space Grotesk';font-size:14px;cursor:pointer">{{ dToggleLabel }}</button>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px"><div style="font-size:13px;color:var(--dim);margin-bottom:7px">{{ t.totalEquity }}</div><div style="font-family:'JetBrains Mono';font-size:23px;font-weight:700">{{ dBalance }}</div></div>
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px"><div style="font-size:13px;color:var(--dim);margin-bottom:7px">{{ t.stTodayPnl }}</div><div style="font-family:'JetBrains Mono';font-size:23px;font-weight:700;color:{{ dPnlColor }}">{{ dPnl }}</div></div>
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px"><div style="font-size:13px;color:var(--dim);margin-bottom:7px">{{ t.stTrades }}</div><div style="font-family:'JetBrains Mono';font-size:23px;font-weight:700">38</div></div>
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:18px"><div style="font-size:13px;color:var(--dim);margin-bottom:7px">{{ t.stWin }}</div><div style="font-family:'JetBrains Mono';font-size:23px;font-weight:700">68.4%</div></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:22px">
+              <div style="font-family:'Space Grotesk';font-size:16px;font-weight:600;margin-bottom:10px">{{ t.equityCurve }}</div>
+              <div style="height:220px">{{ dEquityChart }}</div>
+            </div>
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:22px">
+              <div style="font-family:'Space Grotesk';font-size:16px;font-weight:600;margin-bottom:6px">{{ t.dApiTitle }}</div>
+              <div style="font-size:12px;color:var(--faint);line-height:1.6;margin-bottom:16px">{{ t.dApiNote }}</div>
+              <sc-for list="{{ dExchanges }}" as="ex" hint-placeholder-count="2">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:13px;border:1px solid var(--border);border-radius:12px;margin-bottom:10px;background:var(--bg3)">
+                  <div><div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:7px">{{ ex.name }}</div><div style="font-family:'JetBrains Mono';font-size:12px;color:var(--dim);margin-top:4px">{{ ex.api }}</div></div>
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:color-mix(in srgb,var(--green) 15%,transparent);color:var(--green);font-size:11px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:var(--green)"></span>{{ t.connected }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:22px">
+            <div style="font-family:'Space Grotesk';font-size:16px;font-weight:600;margin-bottom:14px">{{ t.recentTrades }}</div>
+            <div style="display:grid;grid-template-columns:1.4fr .8fr 1fr 1fr .8fr;gap:8px;padding:0 12px 10px;font-size:12px;color:var(--faint)">
+              <span>{{ t.pair }}</span><span>{{ t.side }}</span><span>{{ t.entry }}</span><span>{{ t.exit }}</span><span style="text-align:end">{{ t.pnl }}</span>
+            </div>
+            <sc-for list="{{ dTrades }}" as="tr" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:1.4fr .8fr 1fr 1fr .8fr;gap:8px;padding:12px;border-radius:11px;align-items:center;font-size:13px;font-family:'JetBrains Mono'">
+                <span style="font-weight:600;font-family:Vazirmatn,sans-serif">{{ tr.pair }}</span>
+                <span style="color:{{ tr.sideColor }};font-weight:600">{{ tr.sideLabel }}</span>
+                <span style="color:var(--dim)">{{ tr.entry }}</span>
+                <span style="color:var(--dim)">{{ tr.exit }}</span>
+                <span style="text-align:end;font-weight:700;color:{{ tr.pnlColor }}">{{ tr.pnl }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ADMIN SETTINGS -->
+        <sc-if value="{{ showSettings }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="AdminSettings" style="display:grid;grid-template-columns:1.2fr 1fr;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600;margin-bottom:4px">{{ t.setGuardrails }}</div>
+              <div style="font-size:13px;color:var(--dim);margin-bottom:22px">{{ t.setGuardrailsSub }}</div>
+              <div style="display:flex;flex-direction:column;gap:24px">
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.setMaxProfit }}</span><span style="font-family:'JetBrains Mono';color:var(--accentVar);font-weight:700">{{ maxProfit }}%</span></div>
+                  <input type="range" min="1" max="10" step="0.5" value="{{ maxProfit }}" onInput="{{ onMaxProfit }}" style="width:100%;accent-color:var(--accentVar)">
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.setMaxTrades }}</span><span style="font-family:'JetBrains Mono';color:var(--accentVar);font-weight:700">{{ maxTrades }}×</span></div>
+                  <input type="range" min="10" max="200" step="10" value="{{ maxTrades }}" onInput="{{ onMaxTrades }}" style="width:100%;accent-color:var(--accentVar)">
+                </div>
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:14px;font-weight:600">{{ t.setMaxLev }}</span><span style="font-family:'JetBrains Mono';color:var(--accent2);font-weight:700">{{ maxLev }}×</span></div>
+                  <input type="range" min="1" max="25" step="1" value="{{ maxLev }}" onInput="{{ onMaxLev }}" style="width:100%;accent-color:var(--accent2)">
+                </div>
+              </div>
+            </div>
+
+            <div style="background:linear-gradient(150deg,color-mix(in srgb,var(--accentVar) 12%,var(--bg2)),var(--bg2));border:1px solid var(--border2);border-radius:18px;padding:24px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-family:'Space Grotesk';font-size:16px;font-weight:600">{{ t.setFee }}</span><span style="font-family:'JetBrains Mono';color:var(--green);font-weight:700;font-size:20px">{{ fee }}%</span></div>
+              <div style="font-size:12.5px;color:var(--dim);margin-bottom:16px;line-height:1.6">{{ t.setFeeSub }}</div>
+              <input type="range" min="0" max="40" step="1" value="{{ fee }}" onInput="{{ onFee }}" style="width:100%;accent-color:var(--green)">
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+              <div style="font-family:'Space Grotesk';font-size:16px;font-weight:600;margin-bottom:18px">{{ t.setNewUsers }}</div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ cfgToggles }}" as="c" hint-placeholder-count="5">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)">
+                    <div style="max-width:34ch"><div style="font-weight:600;font-size:13.5px;margin-bottom:4px">{{ c.label }}</div><div style="font-size:12px;color:var(--dim);line-height:1.5">{{ c.desc }}</div></div>
+                    <button onClick="{{ c.onToggle }}" style="width:50px;height:28px;border-radius:999px;border:none;cursor:pointer;background:{{ c.bg }};position:relative;flex-shrink:0;transition:.2s"><span style="position:absolute;top:3px;inset-inline-start:{{ c.knob }};width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s"></span></button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <button style="padding:15px;border:none;border-radius:12px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:'Space Grotesk';font-size:15px;cursor:pointer;box-shadow:0 8px 28px -8px var(--accentVar)">{{ t.setSave }}</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- CONTENT STUDIO -->
+        <sc-if value="{{ showContent }}" hint-placeholder-val="{{ true }}">
+        <div data-screen-label="ContentStudio" style="display:flex;flex-direction:column;gap:18px">
+
+          <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:16px">
+
+            <!-- Telegram channels -->
+            <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:22px">
+              <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+                <div>
+                  <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">{{ t.ctTgSection }}</div>
+                  <div style="font-size:12.5px;color:var(--dim);margin-top:4px;max-width:42ch;line-height:1.6">{{ t.ctTgSub }}</div>
+                </div>
+                <span style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:color-mix(in srgb,var(--accent2) 15%,transparent);color:var(--accent2);font-size:12px;font-weight:600;white-space:nowrap">{{ tgLinkedCount }}/{{ tgTotal }} {{ t.ctLinked }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px">
+                <sc-for list="{{ tgChannels }}" as="c" hint-placeholder-count="3">
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:13px 15px;border:1px solid var(--border);border-radius:13px;background:var(--bg3)">
+                    <div style="display:flex;align-items:center;gap:12px;min-width:0">
+                      <span style="font-size:20px;width:24px;text-align:center">{{ c.initial }}</span>
+                      <div style="min-width:0">
+                        <div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px">{{ c.name }}<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:var(--bg);color:var(--dim);font-weight:500">{{ c.typeLabel }}</span></div>
+                        <div style="font-family:'JetBrains Mono';font-size:11.5px;color:var(--dim);margin-top:3px">{{ c.handle }} · {{ c.members }}</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+                      <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:{{ c.statusBg }};color:{{ c.statusColor }};font-size:11px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:{{ c.statusColor }}"></span>{{ c.statusLabel }}</span>
+                      <button onClick="{{ c.onToggle }}" style="padding:7px 13px;border:1px solid var(--border2);border-radius:9px;background:transparent;color:{{ c.toggleColor }};font-size:12px;font-weight:600;font-family:inherit;cursor:pointer">{{ c.toggleLabel }}</button>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:10px;margin-top:16px">
+                <input placeholder="{{ t.ctTgPlaceholder }}" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:12px 14px;color:var(--text);font-family:'JetBrains Mono';font-size:12.5px;outline:none" style-focus="border-color:var(--accentVar)">
+                <button style="padding:0 18px;border:none;border-radius:11px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap">+ {{ t.ctAddTg }}</button>
+              </div>
+            </div>
+
+            <!-- Xray proxy -->
+            <div style="background:linear-gradient(150deg,color-mix(in srgb,var(--accent2) 12%,var(--bg2)),var(--bg2));border:1px solid var(--border2);border-radius:18px;padding:22px">
+              <div style="display:flex;justify-content:space-between;align-items:start">
+                <div>
+                  <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">{{ t.ctXraySection }}</div>
+                  <div style="font-size:12.5px;color:var(--dim);margin-top:4px;max-width:38ch;line-height:1.6">{{ t.ctXraySub }}</div>
+                </div>
+                <button onClick="{{ toggleXray }}" style="width:50px;height:28px;border-radius:999px;border:none;cursor:pointer;background:{{ xrayToggleBg }};position:relative;flex-shrink:0;transition:.2s"><span style="position:absolute;top:3px;inset-inline-start:{{ xrayKnob }};width:22px;height:22px;border-radius:50%;background:#fff;transition:.2s"></span></button>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;margin:16px 0;padding:11px 14px;border-radius:11px;background:var(--bg3)">
+                <span style="width:8px;height:8px;border-radius:50%;background:{{ xrayStatusColor }};box-shadow:0 0 8px {{ xrayStatusColor }}"></span>
+                <span style="font-size:13px;font-weight:600;color:{{ xrayStatusColor }}">{{ xrayStatusLabel }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:11px">
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)">{{ t.ctXrayServer }}<input value="vless.nexa-node.net:443" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:'JetBrains Mono';font-size:12.5px;outline:none"></label>
+                <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:10px">
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)">{{ t.ctXrayUuid }}<input value="d342aa9c-••••-••••-a18f" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:'JetBrains Mono';font-size:12.5px;outline:none"></label>
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)">{{ t.ctXrayProtocol }}<input value="VLESS / Reality" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:'JetBrains Mono';font-size:12.5px;outline:none"></label>
+                </div>
+                <button style="margin-top:4px;padding:12px;border:1px solid var(--border2);border-radius:11px;background:transparent;color:var(--text);font-weight:600;font-family:inherit;font-size:13px;cursor:pointer">{{ t.ctTestConn }}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI content generation -->
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:24px">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:18px;flex-wrap:wrap;gap:14px">
+              <div style="display:flex;align-items:center;gap:13px">
+                <span style="width:30px;height:30px;display:flex">{{ aiSpark }}</span>
+                <div>
+                  <div style="font-family:'Space Grotesk';font-size:17px;font-weight:600">{{ t.ctGenSection }}</div>
+                  <div style="font-size:12.5px;color:var(--dim);margin-top:3px;max-width:50ch;line-height:1.6">{{ t.ctGenSub }}</div>
+                </div>
+              </div>
+              <div style="display:flex;background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:4px">
+                <button onClick="{{ setCtTelegram }}" style="padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-family:inherit;font-size:13px;background:{{ ctTgBg }};color:{{ ctTgColor }}">{{ t.ctForTelegram }}</button>
+                <button onClick="{{ setCtBlog }}" style="padding:9px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-family:inherit;font-size:13px;background:{{ ctBlogBg }};color:{{ ctBlogColor }}">{{ t.ctForBlog }}</button>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1.15fr;gap:18px">
+              <div style="display:flex;flex-direction:column;gap:13px">
+                <label style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--dim)">{{ t.ctTopicLabel }}
+                  <textarea value="{{ contentTopic }}" onInput="{{ onTopic }}" placeholder="{{ t.ctTopicPh }}" rows="5" style="background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:13px 15px;color:var(--text);font-family:inherit;font-size:14px;outline:none;resize:vertical;line-height:1.7" style-focus="border-color:var(--accentVar)"></textarea>
+                </label>
+                <button onClick="{{ doGenerate }}" style="padding:14px;border:none;border-radius:12px;background:var(--accentVar);color:#05121a;font-weight:700;font-family:'Space Grotesk';font-size:14px;cursor:pointer;box-shadow:0 8px 28px -10px var(--accentVar);display:flex;align-items:center;justify-content:center;gap:9px"><span style="width:18px;height:18px;display:flex">{{ aiSpark }}</span>{{ genBtnLabel }}</button>
+                <div style="font-size:11.5px;color:var(--faint);line-height:1.6">{{ t.aiInsightText }}</div>
+              </div>
+
+              <div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;min-height:280px">
+                <div style="font-size:12px;color:var(--faint);font-family:'JetBrains Mono';letter-spacing:.06em;margin-bottom:12px">{{ t.ctOutput }}</div>
+                <sc-if value="{{ genDone }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;flex-direction:column">
+                  <div style="flex:1;white-space:pre-wrap;font-size:13.5px;line-height:1.85;color:var(--text)">{{ genOutput }}</div>
+                  <div style="display:flex;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+                    <button style="flex:1;padding:12px;border:none;border-radius:11px;background:var(--green);color:#05121a;font-weight:700;font-family:inherit;font-size:13px;cursor:pointer">{{ publishLabel }}</button>
+                    <button onClick="{{ doGenerate }}" style="padding:12px 18px;border:1px solid var(--border2);border-radius:11px;background:transparent;color:var(--text);font-weight:600;font-family:inherit;font-size:13px;cursor:pointer">{{ t.ctRegen }}</button>
+                  </div>
+                </div>
+                </sc-if>
+                <sc-if value="{{ ctEmptyShow }}" hint-placeholder-val="{{ true }}">
+                <div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--faint);font-size:13px;line-height:1.7;padding:20px">{{ t.ctEmpty }}</div>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        </sc-if>
+
+      </main>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1320,&quot;height&quot;:860},&quot;brandName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;NEXA AI&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#3df0e0&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;defaultLang&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;fa&quot;,&quot;en&quot;],&quot;default&quot;:&quot;fa&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.state = {
+      loggedIn:false, screen:'dashboard',
+      theme: props.defaultTheme || 'dark',
+      lang: props.defaultLang || 'fa',
+      authTab:'email', authMode:'login', role:'admin',
+      userOn:[true,true,true,false,true,true], selectedUserIdx:1,
+      cfg:{require2fa:true, ipWhitelist:false, autoRetrain:true, autoDeploy:false, shortForNew:false}, maxProfit:5, maxTrades:100, maxLev:10, fee:15,
+      obStep:0, obExchange:'Nobitex',
+      tgOn:[true,true,false], xrayOn:true, contentType:'telegram', contentTopic:'', genState:'idle', genOutput:'',
+      botRunning:true, aiConnected:true,
+      mode:'spot', shortEnabled:true,
+      targetProfit:3.5, tradesPerDay:50, capitalPct:60, stopLoss:2, leverage:3,
+      chatInput:'',
+      chat:[
+        {role:'ai', text_fa:'سلام ادمین 👋 مدل یادگیری ماشین با موفقیت روی دادهٔ ۵ سال اخیر آموزش دید. دقت فعلی ۹۳.۴٪ است. آماده‌ام برای کمک به تحلیل بازار.', text_en:'Hi admin 👋 The ML model finished training on 5 years of data. Current accuracy is 93.4%. Ready to assist with market analysis.'},
+        {role:'user', text_fa:'وضعیت بیت‌کوین برای امروز چطوره؟', text_en:'How does Bitcoin look for today?'},
+        {role:'ai', text_fa:'بر اساس الگوهای یادگرفته‌شده، روند صعودی کوتاه‌مدت با احتمال ۷۱٪ تشخیص داده شد. سه نقطهٔ ورود اسپات با هدف سود ۳.۵٪ علامت‌گذاری شد.', text_en:'Based on learned patterns, a short-term uptrend is detected with 71% probability. Marked 3 spot entry points targeting 3.5% profit.'}
+      ]
+    };
+    this.build();
+  }
+
+  build(){
+    let s = 991; const R = () => { s = (s*1103515245+12345) & 0x7fffffff; return s/0x7fffffff; };
+    let v = 24800; this.equity = [];
+    for(let i=0;i<90;i++){ v *= 1+0.011+Math.sin(i/6)*0.006+(R()-0.5)*0.012; this.equity.push(v); }
+    this.equityNow = this.equity[this.equity.length-1];
+    const mkSpk = (start,vol,drift)=>{ let p=start, a=[]; for(let i=0;i<22;i++){ p*=1+(R()-0.5+drift)*vol; a.push(p);} return a; };
+    this.spkBal = mkSpk(100,0.03,0.06);
+    this.spkPnl = mkSpk(100,0.04,0.05);
+    this.spkTr  = mkSpk(100,0.05,0.02);
+    this.spkWin = mkSpk(100,0.02,0.03);
+    this.candles = []; let c = 63800;
+    for(let i=0;i<34;i++){ const o=c; c=o+(R()-0.45)*820; const hi=Math.max(o,c)+R()*340; const lo=Math.min(o,c)-R()*340; this.candles.push({o,c,hi,lo,up:c>=o}); }
+    this.btc = c;
+    this.acc=[]; let a=0.51; for(let i=0;i<40;i++){ a+=(0.94-a)*0.10+(R()-0.5)*0.005; this.acc.push(Math.min(0.96,a)); }
+    this.lossArr = this.acc.map(x=>Math.max(0.04,1-x));
+  }
+
+  fmt(n){ return Math.round(n).toLocaleString('en-US'); }
+  fmt2(n){ return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+
+  // ---------- chart builders ----------
+  mkArea(vals,color,h){
+    const ce=React.createElement, W=1000, H=h||280, pT=16, pB=14;
+    const mn=Math.min(...vals), mx=Math.max(...vals), rng=(mx-mn)||1;
+    const X=i=>i/(vals.length-1)*W, Y=val=>pT+(1-(val-mn)/rng)*(H-pT-pB);
+    let d='M'+X(0).toFixed(1)+' '+Y(vals[0]).toFixed(1);
+    vals.forEach((val,i)=>{ if(i) d+=' L'+X(i).toFixed(1)+' '+Y(val).toFixed(1); });
+    const area=d+(' L'+W+' '+H+' L0 '+H+' Z');
+    const id='ar'+Math.floor(Math.random()*1e6);
+    return ce('svg',{viewBox:'0 0 '+W+' '+H,preserveAspectRatio:'none',style:{width:'100%',height:H+'px',display:'block'}},
+      ce('defs',null, ce('linearGradient',{id:id,x1:0,y1:0,x2:0,y2:1},
+        ce('stop',{offset:'0%',stopColor:color,stopOpacity:0.34}),
+        ce('stop',{offset:'100%',stopColor:color,stopOpacity:0}))),
+      [0.25,0.5,0.75].map((g,i)=>ce('line',{key:'g'+i,x1:0,x2:W,y1:H*g,y2:H*g,stroke:'var(--grid)',strokeWidth:1})),
+      ce('path',{d:area,fill:'url(#'+id+')'}),
+      ce('path',{d:d,fill:'none',stroke:color,strokeWidth:2.5,strokeLinejoin:'round',strokeLinecap:'round',style:{filter:'drop-shadow(0 0 6px '+color+')'}}),
+      ce('circle',{cx:X(vals.length-1),cy:Y(vals[vals.length-1]),r:5,fill:color,style:{filter:'drop-shadow(0 0 7px '+color+')'}})
+    );
+  }
+  mkSpark(vals,color){
+    const ce=React.createElement, W=100, H=32;
+    const mn=Math.min(...vals), mx=Math.max(...vals), rng=(mx-mn)||1;
+    const X=i=>i/(vals.length-1)*W, Y=val=>4+(1-(val-mn)/rng)*(H-8);
+    let d='M'+X(0).toFixed(1)+' '+Y(vals[0]).toFixed(1);
+    vals.forEach((val,i)=>{ if(i) d+=' L'+X(i).toFixed(1)+' '+Y(val).toFixed(1); });
+    return ce('svg',{viewBox:'0 0 '+W+' '+H,preserveAspectRatio:'none',style:{width:'100%',height:'100%'}},
+      ce('path',{d:d,fill:'none',stroke:color,strokeWidth:2,strokeLinecap:'round',strokeLinejoin:'round'}));
+  }
+  mkCandles(){
+    const ce=React.createElement, W=1000, H=300, pad=10;
+    const cs=this.candles, n=cs.length;
+    const lo=Math.min(...cs.map(c=>c.lo)), hi=Math.max(...cs.map(c=>c.hi)), rng=(hi-lo)||1;
+    const slot=W/n, bw=slot*0.56;
+    const Y=val=>pad+(1-(val-lo)/rng)*(H-2*pad);
+    const els=[];
+    cs.forEach((c,i)=>{
+      const cx=i*slot+slot/2;
+      const col=c.up?'var(--green)':'var(--red)';
+      els.push(ce('line',{key:'w'+i,x1:cx,x2:cx,y1:Y(c.hi),y2:Y(c.lo),stroke:col,strokeWidth:1.4}));
+      const top=Y(Math.max(c.o,c.c)), bot=Y(Math.min(c.o,c.c));
+      els.push(ce('rect',{key:'b'+i,x:cx-bw/2,y:top,width:bw,height:Math.max(2,bot-top),rx:1.5,fill:col}));
+    });
+    return ce('svg',{viewBox:'0 0 '+W+' '+H,preserveAspectRatio:'none',style:{width:'100%',height:'100%',display:'block'}}, els);
+  }
+  mkAcc(){
+    const ce=React.createElement, W=1000, H=260, pT=14, pB=14;
+    const line=(vals,color)=>{ const X=i=>i/(vals.length-1)*W, Y=val=>pT+(1-val)*(H-pT-pB);
+      let d='M'+X(0).toFixed(1)+' '+Y(vals[0]).toFixed(1); vals.forEach((val,i)=>{ if(i) d+=' L'+X(i).toFixed(1)+' '+Y(val).toFixed(1);});
+      return ce('path',{d:d,fill:'none',stroke:color,strokeWidth:2.5,strokeLinejoin:'round',style:{filter:'drop-shadow(0 0 5px '+color+')'}}); };
+    return ce('svg',{viewBox:'0 0 '+W+' '+H,preserveAspectRatio:'none',style:{width:'100%',height:H+'px',display:'block'}},
+      [0.25,0.5,0.75].map((g,i)=>ce('line',{key:'g'+i,x1:0,x2:W,y1:H*g,y2:H*g,stroke:'var(--grid)',strokeWidth:1})),
+      line(this.acc,'var(--green)'), line(this.lossArr,'var(--red)'));
+  }
+  mkDial(pct,color){
+    const ce=React.createElement, R0=68, C=2*Math.PI*R0;
+    return ce('svg',{viewBox:'0 0 160 160',style:{width:'100%',height:'100%',transform:'rotate(-90deg)'}},
+      ce('circle',{cx:80,cy:80,r:R0,fill:'none',stroke:'var(--bg3)',strokeWidth:12}),
+      ce('circle',{cx:80,cy:80,r:R0,fill:'none',stroke:color,strokeWidth:12,strokeLinecap:'round',strokeDasharray:C,strokeDashoffset:C*(1-pct),style:{filter:'drop-shadow(0 0 6px '+color+')'}}),
+      ce('text',{x:80,y:80,textAnchor:'middle',dominantBaseline:'central',transform:'rotate(90 80 80)',style:{fontFamily:'JetBrains Mono',fontWeight:700,fontSize:'30px',fill:'var(--text)'}},Math.round(pct*100)+'%'));
+  }
+
+  // ---------- icons ----------
+  ic(children){ return React.createElement('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round',style:{width:'100%',height:'100%'}}, children); }
+  icon(name){
+    const ce=React.createElement;
+    const m={
+      dashboard:[ce('rect',{key:1,x:3,y:3,width:7,height:7,rx:1.5}),ce('rect',{key:2,x:14,y:3,width:7,height:7,rx:1.5}),ce('rect',{key:3,x:14,y:14,width:7,height:7,rx:1.5}),ce('rect',{key:4,x:3,y:14,width:7,height:7,rx:1.5})],
+      model:[ce('rect',{key:1,x:7,y:7,width:10,height:10,rx:2}),ce('path',{key:2,d:'M12 3v2M12 19v2M3 12h2M19 12h2M5.5 5.5l1.5 1.5M17 17l1.5 1.5M18.5 5.5L17 7M7 17l-1.5 1.5'})],
+      strategy:[ce('path',{key:1,d:'M4 7h10M18 7h2M4 17h2M10 17h10'}),ce('circle',{key:2,cx:16,cy:7,r:2.4}),ce('circle',{key:3,cx:8,cy:17,r:2.4})],
+      short:[ce('path',{key:1,d:'M6 8l6 8 6-8'}),ce('path',{key:2,d:'M12 4v12'})],
+      exchanges:[ce('path',{key:1,d:'M4 8h13l-3-3M20 16H7l3 3'})],
+      history:[ce('circle',{key:1,cx:12,cy:12,r:8}),ce('path',{key:2,d:'M12 8v4l3 2'})],
+      ai:[ce('path',{key:1,d:'M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z'})],
+      admin:[ce('circle',{key:1,cx:9,cy:8,r:3}),ce('path',{key:2,d:'M3.5 20a5.5 5.5 0 0111 0'}),ce('path',{key:3,d:'M16 4l4 1.5v3c0 2.2-1.6 3.7-4 4.5'})],
+      settings:[ce('circle',{key:1,cx:12,cy:12,r:3.2}),ce('path',{key:2,d:'M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1'})],
+      content:[ce('path',{key:1,d:'M21.5 3.5L2.8 10.3c-.7.25-.66 1.27.06 1.46l5.6 1.48 1.48 5.6c.19.72 1.21.76 1.46.06z'}),ce('path',{key:2,d:'M21.5 3.5L9.94 12.94'})]
+    };
+    return this.ic(m[name]);
+  }
+
+  T(){
+    const fa={
+      statusLine:'مدل آماده · معاملات فعال',
+      heroTitle:'موتور معاملاتی هوشمند رمزارز',
+      heroSub:'یادگیری ماشین آموزش‌دیده روی ۵ سال داده، در کنار هوش مصنوعی، به‌صورت خودکار در اسپات و فیوچرز معامله می‌کند.',
+      bullet1:'آموزش روی دادهٔ ۵ سالهٔ کل بازار رمزارز',
+      bullet2:'اتصال به نوبیتکس و هر صرافی دلخواه',
+      bullet3:'کنترل کامل استراتژی، سود هدف و ریسک',
+      disclaimer:'این یک نمونهٔ اولیه است · بازدهی نمایش‌داده‌شده تضمین سود نیست',
+      email:'ایمیل', mobile:'شماره موبایل',
+      emailLabel:'آدرس ایمیل', passLabel:'رمز عبور', mobileLabel:'شماره موبایل',
+      otpHint:'کد ۴ رقمی ارسال‌شده را وارد کنید', loginTitle:'ورود به حساب', signupTitle:'ساخت حساب کاربری',
+      loginSub:'به پنل معاملاتی هوشمند خود وارد شوید', signupSub:'حساب جدید بسازید و شروع کنید',
+      login:'ورود', signup:'ثبت‌نام', noAccount:'حساب ندارید؟', haveAccount:'حساب دارید؟',
+      versionTag:'v۲.۴ · موتور ML',
+      accountName:'مدیر سیستم', logout:'خروج',
+      totalEquity:'دارایی کل', botRunning:'ربات فعال', botStopped:'ربات متوقف',
+      equityCurve:'منحنی رشد سرمایه', last90:'۹۰ روز اخیر',
+      recentTrades:'معاملات اخیر', viewAll:'مشاهدهٔ همه',
+      pair:'جفت‌ارز', side:'نوع', entry:'ورود', exit:'خروج', pnl:'سود/زیان',
+      buy:'خرید', sell:'فروش', long:'لانگ', short:'شورت',
+      aiInsight:'تحلیل هوش مصنوعی', aiInsightText:'بازار در فاز انباشت قرار دارد. مدل سه فرصت اسپات با احتمال موفقیت بالای ۷۰٪ شناسایی کرده و در حال اجرای چرخهٔ معاملاتی است.',
+      allocation:'تخصیص دارایی',
+      // stats
+      stTodayPnl:'سود امروز', stTrades:'معاملات ۲۴ ساعت', stWin:'نرخ موفقیت', stOpen:'پوزیشن باز',
+      // model
+      learningCurve:'منحنی یادگیری', accuracy:'دقت', lossLabel:'خطا', modelStatus:'وضعیت مدل', ready:'آماده و آموزش‌دیده',
+      mDataRange:'بازهٔ داده', mDataset:'حجم دیتاست', mEpochs:'دورهٔ آموزش', mVersion:'نسخهٔ مدل',
+      featuresLearned:'ویژگی‌های یادگرفته‌شده', retrain:'آموزش مجدد', exportModel:'خروجی مدل',
+      // strategy
+      marketType:'نوع بازار', marketTypeSub:'بازار معاملاتی مدل را انتخاب کنید', spot:'اسپات', futures:'فیوچرز / شورت',
+      targetProfit:'سود هدف هر معامله', targetProfitHint:'سود هدف برای هر چرخهٔ معاملاتی', tradesPerDay:'تعداد معاملات روزانه', tradesHint:'تعداد چرخه‌های معاملاتی در هر روز',
+      capitalAlloc:'درصد سرمایهٔ درگیر', stopLoss:'حد ضرر',
+      projection:'برآورد عملکرد', perTrade:'هر معامله', dailyCycles:'چرخهٔ روزانه', estDaily:'برآورد روزانه',
+      projectionNote:'این عدد یک برآورد ریاضی بر اساس تنظیمات شماست و تضمین سود واقعی نیست. بازار رمزارز پرنوسان و پرریسک است.',
+      riskLevel:'سطح ریسک', conservative:'محافظه‌کار', balanced:'متعادل', aggressive:'تهاجمی', applyChanges:'ذخیرهٔ استراتژی',
+      // short
+      enableShort:'فعال‌سازی معاملات شورت', shortSub:'اجازهٔ باز کردن پوزیشن فروش در بازار نزولی برای سود از کاهش قیمت.',
+      shortWarning:'معاملات شورت و اهرمی ریسک بالایی دارند و امکان لیکویید شدن (از دست رفتن کامل سرمایه) وجود دارد. با احتیاط استفاده کنید.',
+      maxLeverage:'حداکثر اهرم', leverageHint:'اهرم بالاتر = سود و ریسک بیشتر', shortPairs:'جفت‌ارزهای مجاز برای شورت',
+      shortStats:'آمار شورت', liqBuffer:'فاصله تا لیکویید', liqHint:'هرچه این عدد بزرگ‌تر باشد، پوزیشن از قیمت لیکویید فاصلهٔ امن بیشتری دارد.',
+      // exchanges
+      primary:'اصلی', balanceLabel:'موجودی', connect:'اتصال', manage:'مدیریت',
+      addExchange:'افزودن صرافی جدید', addExchangeSub:'با وارد کردن کلید API به هر صرافی دلخواه متصل شوید.', apiKey:'کلید API', apiSecret:'رمز API',
+      connected:'متصل', disconnected:'قطع',
+      // history
+      allTrades:'همه', profitOnly:'فقط سود', lossOnly:'فقط زیان', export:'خروجی CSV', dateTime:'تاریخ', amount:'مقدار',
+      // ai
+      aiEngine:'موتور هوش مصنوعی', aiRoleText:'هوش مصنوعی به مدل یادگیری ماشین کمک می‌کند سریع‌تر آموزش ببیند، الگوهای بازار را تفسیر کند و در کنار آن تصمیم‌های معاملاتی را تأیید کند. این دو دائماً با هم در ارتباط‌اند.',
+      adminControls:'کنترل ادمین',
+      aiTradingLink:'اتصال هوش مصنوعی به معاملات', adminDescOn:'هوش مصنوعی در تصمیم‌های معاملاتی مشارکت می‌کند. برای واگذاری کامل معاملات به ماشین‌لرنینگ، این را خاموش کنید.', adminDescOff:'هوش مصنوعی از معاملات قطع شده است. فقط ماشین‌لرنینگ معامله می‌کند (حالت فقط ML).',
+      modeAI:'حالت ترکیبی: AI + ماشین‌لرنینگ فعال', modeML:'حالت فقط ماشین‌لرنینگ فعال',
+      aiTasks:'وظایف فعال هوش مصنوعی', aiChat:'گفتگو با هوش مصنوعی', chatPlaceholder:'سؤال خود را بنویسید…', send:'ارسال',
+      aiConnTitle:'اتصال به سرویس‌های هوش مصنوعی', aiConnSub:'کلید API هر ارائه‌دهنده را وارد کنید تا به موتور ML کمک کند. می‌توانید چند سرویس را هم‌زمان وصل کنید.', aiKeyPlaceholder:'کلید API را اینجا وارد کنید…',
+      spUsers:'کاربران فعال', spVolume:'حجم کل معاملات', spEngineCol:'موتور ML مشترک', spPlatformPnl:'سود کل پلتفرم',
+      spSharedModel:'موتور یادگیری ماشین مشترک', spSharedDesc:'یک مدل مرکزی که به‌صورت هم‌زمان برای همهٔ کاربران معامله می‌کند. هر کاربر با API و سرمایهٔ کاملاً مجزای خودش از هر صرافی.',
+      spServing:'در حال سرویس‌دهی', spReqs:'درخواست/ثانیه', spUptime:'آپ‌تایم', spUsersTable:'کاربران پلتفرم',
+      spUser:'کاربر', spExch:'صرافی‌ها (API اختصاصی)', spBal:'موجودی', spBotStatus:'وضعیت ربات', spPnlCol:'سود امروز', spControl:'کنترل',
+      spActive:'فعال', spPaused:'متوقف', spPause:'مکث', spResume:'فعال‌سازی', spView:'مشاهده', spYou:'شما · سوپر ادمین', spAddUser:'افزودن کاربر',
+      viewAs:'نمای نقش', roleAdmin:'سوپر ادمین', roleUser:'کاربر',
+      dBack:'بازگشت به کاربران', dApiTitle:'صرافی‌ها و کلیدهای API کاربر', dApiNote:'این کلیدها متعلق به همین کاربر است؛ معاملاتش کاملاً مجزا و با سرمایهٔ خودش اجرا می‌شود.', dMember:'عضو از', dControlBot:'کنترل ربات این کاربر',
+      ctTgSection:'کانال‌ها و گروه‌های تلگرام', ctTgSub:'کانال‌ها و گروه‌های متصل را مدیریت کنید و هوش مصنوعی را به هرکدام وصل یا قطع کنید.', ctAddTg:'افزودن کانال / گروه', ctTgPlaceholder:'توکن ربات یا @یوزرنیم کانال…', ctLinked:'متصل به AI',
+      ctXraySection:'پروکسی Xray (اتصال ایران)', ctXraySub:'برای ارسال پایدار و مستقیم محتوا به تلگرام از داخل ایران، پروکسی Xray را تنظیم کنید.', ctXrayServer:'آدرس سرور', ctXrayUuid:'شناسه UUID', ctXrayProtocol:'پروتکل', ctTestConn:'تست اتصال',
+      ctGenSection:'تولید محتوا با هوش مصنوعی', ctGenSub:'موضوع را بنویسید؛ هوش مصنوعی بر اساس داده‌های بازار و مدل ML محتوا می‌سازد.', ctForTelegram:'پست تلگرام', ctForBlog:'مقالهٔ بلاگ', ctTopicLabel:'موضوع یا دستور', ctTopicPh:'مثلاً: تحلیل امروز بیت‌کوین برای کانال سیگنال…', ctOutput:'پیش‌نمایش محتوا', ctRegen:'تولید مجدد', ctEmpty:'برای دیدن پیش‌نمایش، موضوعی بنویسید و «تولید با هوش مصنوعی» را بزنید.',
+      setGuardrails:'محدودیت‌های استراتژی کاربران', setGuardrailsSub:'سقف‌هایی که هیچ کاربری در تنظیمات خود نمی‌تواند از آن عبور کند', setMaxProfit:'حداکثر سود هدف هر معامله', setMaxTrades:'حداکثر معاملات روزانه', setMaxLev:'حداکثر اهرم مجاز', setFee:'کارمزد پلتفرم (٪ از سود)', setFeeSub:'درصدی از سود کاربران که به پلتفرم تعلق می‌گیرد', setNewUsers:'موتور ML، پیش‌فرض و امنیت', setSave:'ذخیرهٔ تنظیمات',
+      obWelcomeT:'به نکسا خوش آمدید', obWelcomeS:'در سه قدم کوتاه ربات معامله‌گر خود را راه‌اندازی کنید. موتور یادگیری ماشین آمادهٔ کار برای شماست.', obReady:'موتور ML آماده · آموزش‌دیده روی ۵ سال داده',
+      ob1T:'صرافی خود را وصل کنید', ob1S:'صرافی‌ای که می‌خواهید ربات در آن معامله کند را انتخاب و کلید API اختصاصی خود را وارد کنید.',
+      ob2T:'استراتژی خود را انتخاب کنید', ob2S:'نوع بازار و سود هدف را مشخص کنید — بعداً هم قابل تغییر است.',
+      ob3T:'همه‌چیز آماده است!', ob3S:'ربات شما پیکربندی شد. با زدن شروع، موتور ML مطابق تنظیمات شما معامله را آغاز می‌کند.',
+      obNextBtn:'ادامه', obBackBtn:'قبلی', obStartBtn:'شروع معاملات', obSumEx:'صرافی', obSumMode:'بازار', obSumProfit:'سود هدف'
+    };
+    const en={
+      statusLine:'Model ready · Trading active',
+      heroTitle:'Intelligent Crypto Trading Engine',
+      heroSub:'A machine-learning model trained on 5 years of data, paired with AI, trades automatically across spot and futures.',
+      bullet1:'Trained on 5 years of full crypto-market data',
+      bullet2:'Connects to Nobitex and any exchange you add',
+      bullet3:'Full control of strategy, target profit and risk',
+      disclaimer:'This is a prototype · Displayed returns are not a profit guarantee',
+      email:'Email', mobile:'Mobile',
+      emailLabel:'Email address', passLabel:'Password', mobileLabel:'Mobile number',
+      otpHint:'Enter the 4-digit code we sent you', loginTitle:'Welcome back', signupTitle:'Create account',
+      loginSub:'Sign in to your AI trading panel', signupSub:'Create a new account to get started',
+      login:'Log in', signup:'Sign up', noAccount:"Don't have an account?", haveAccount:'Already have an account?',
+      versionTag:'v2.4 · ML Engine',
+      accountName:'System Admin', logout:'Log out',
+      totalEquity:'Total equity', botRunning:'Bot active', botStopped:'Bot stopped',
+      equityCurve:'Equity Curve', last90:'Last 90 days',
+      recentTrades:'Recent trades', viewAll:'View all',
+      pair:'Pair', side:'Side', entry:'Entry', exit:'Exit', pnl:'PnL',
+      buy:'Buy', sell:'Sell', long:'Long', short:'Short',
+      aiInsight:'AI Insight', aiInsightText:'The market is in an accumulation phase. The model identified three spot opportunities with >70% success probability and is running its trading cycle.',
+      allocation:'Asset allocation',
+      stTodayPnl:"Today's PnL", stTrades:'24h trades', stWin:'Win rate', stOpen:'Open positions',
+      learningCurve:'Learning Curve', accuracy:'Accuracy', lossLabel:'Loss', modelStatus:'Model status', ready:'Trained & ready',
+      mDataRange:'Data range', mDataset:'Dataset size', mEpochs:'Epochs', mVersion:'Model version',
+      featuresLearned:'Features learned', retrain:'Retrain', exportModel:'Export model',
+      marketType:'Market type', marketTypeSub:'Choose the market the model trades on', spot:'Spot', futures:'Futures / Short',
+      targetProfit:'Target profit per trade', targetProfitHint:'Profit target for each trading cycle', tradesPerDay:'Trades per day', tradesHint:'Number of trading cycles each day',
+      capitalAlloc:'Capital allocation', stopLoss:'Stop loss',
+      projection:'Performance projection', perTrade:'Per trade', dailyCycles:'Daily cycles', estDaily:'Est. daily',
+      projectionNote:'This is a mathematical estimate based on your settings, not a guarantee of real profit. Crypto markets are volatile and high-risk.',
+      riskLevel:'Risk level', conservative:'Conservative', balanced:'Balanced', aggressive:'Aggressive', applyChanges:'Save strategy',
+      enableShort:'Enable short trading', shortSub:'Allow opening sell positions in a falling market to profit from price drops.',
+      shortWarning:'Short and leveraged trades carry high risk, including liquidation (total loss of capital). Use with caution.',
+      maxLeverage:'Max leverage', leverageHint:'Higher leverage = more profit and more risk', shortPairs:'Allowed pairs for short',
+      shortStats:'Short stats', liqBuffer:'Liquidation buffer', liqHint:'The larger this value, the safer the position is from its liquidation price.',
+      primary:'Primary', balanceLabel:'Balance', connect:'Connect', manage:'Manage',
+      addExchange:'Add new exchange', addExchangeSub:'Connect any exchange by entering its API key.', apiKey:'API Key', apiSecret:'API Secret',
+      connected:'Connected', disconnected:'Disconnected',
+      allTrades:'All', profitOnly:'Profit', lossOnly:'Loss', export:'Export CSV', dateTime:'Date', amount:'Amount',
+      aiEngine:'AI Engine', aiRoleText:'The AI helps the machine-learning model train faster, interprets market patterns, and confirms trading decisions alongside it. The two are in constant communication.',
+      adminControls:'Admin controls',
+      aiTradingLink:'AI ↔ Trading link', adminDescOn:'The AI participates in trading decisions. Turn this off to hand trading fully to the ML model.', adminDescOff:'The AI is disconnected from trading. Only the ML model trades (ML-only mode).',
+      modeAI:'Hybrid mode: AI + ML active', modeML:'ML-only mode active',
+      aiTasks:'Active AI tasks', aiChat:'Chat with AI', chatPlaceholder:'Type your question…', send:'Send',
+      aiConnTitle:'AI service connections', aiConnSub:'Enter each provider API key so it can assist the ML engine. You can connect several at once.', aiKeyPlaceholder:'Paste API key here…',
+      spUsers:'Active users', spVolume:'Total volume', spEngineCol:'Shared ML engine', spPlatformPnl:'Platform PnL',
+      spSharedModel:'Shared machine-learning engine', spSharedDesc:'A central model that trades for every user simultaneously. Each user runs fully isolated, with their own API keys and capital on any exchange.',
+      spServing:'Serving', spReqs:'req/sec', spUptime:'Uptime', spUsersTable:'Platform users',
+      spUser:'User', spExch:'Exchanges (own API)', spBal:'Balance', spBotStatus:'Bot status', spPnlCol:"Today's PnL", spControl:'Control',
+      spActive:'Active', spPaused:'Paused', spPause:'Pause', spResume:'Resume', spView:'View', spYou:'You · Super Admin', spAddUser:'Add user',
+      viewAs:'View as', roleAdmin:'Super Admin', roleUser:'User',
+      dBack:'Back to users', dApiTitle:'User exchanges & API keys', dApiNote:'These keys belong to this user; their trades run fully isolated with their own capital.', dMember:'Member since', dControlBot:"Control this user's bot",
+      ctTgSection:'Telegram channels & groups', ctTgSub:'Manage connected channels and groups, and link or unlink the AI from each.', ctAddTg:'Add channel / group', ctTgPlaceholder:'Bot token or @channel username…', ctLinked:'AI linked',
+      ctXraySection:'Xray proxy (Iran connectivity)', ctXraySub:'Configure an Xray proxy for stable, direct delivery to Telegram from inside Iran.', ctXrayServer:'Server address', ctXrayUuid:'UUID', ctXrayProtocol:'Protocol', ctTestConn:'Test connection',
+      ctGenSection:'AI content generation', ctGenSub:'Write a topic; the AI builds content from market data and the ML model.', ctForTelegram:'Telegram post', ctForBlog:'Blog article', ctTopicLabel:'Topic or prompt', ctTopicPh:"e.g. Today's Bitcoin analysis for the signals channel…", ctOutput:'Content preview', ctRegen:'Regenerate', ctEmpty:'Write a topic and hit "Generate with AI" to see a preview.',
+      setGuardrails:'User strategy guardrails', setGuardrailsSub:'Hard caps no user can exceed in their own settings', setMaxProfit:'Max target profit per trade', setMaxTrades:'Max trades per day', setMaxLev:'Max allowed leverage', setFee:'Platform fee (% of profit)', setFeeSub:'Share of user profits that goes to the platform', setNewUsers:'ML engine, defaults & security', setSave:'Save settings',
+      obWelcomeT:'Welcome to NEXA', obWelcomeS:'Set up your trading bot in three short steps. The machine-learning engine is ready to work for you.', obReady:'ML engine ready · trained on 5 years of data',
+      ob1T:'Connect your exchange', ob1S:'Pick the exchange you want the bot to trade on and enter your own API key.',
+      ob2T:'Choose your strategy', ob2S:'Set the market type and target profit — you can change these later.',
+      ob3T:"You're all set!", ob3S:'Your bot is configured. Hit start and the ML engine begins trading per your settings.',
+      obNextBtn:'Continue', obBackBtn:'Back', obStartBtn:'Start trading', obSumEx:'Exchange', obSumMode:'Market', obSumProfit:'Target profit'
+    };
+    return this.state.lang==='fa'?fa:en;
+  }
+
+  renderVals(){
+    const st=this.state, t=this.T(), fa=st.lang==='fa', accent=this.props.accent||'#4be0ff';
+    const I=(faTxt,enTxt)=>fa?faTxt:enTxt;
+    const titles={
+      dashboard:[I('داشبورد','Dashboard'),I('نمای کلی عملکرد ربات','Bot performance overview')],
+      model:[I('مدل یادگیری ماشین','ML Model'),I('وضعیت آموزش و دقت مدل','Training status & accuracy')],
+      strategy:[I('استراتژی معاملاتی','Trading Strategy'),I('پیکربندی سود، ریسک و چرخه','Configure profit, risk & cycles')],
+      short:[I('معاملات شورت','Short Trading'),I('تنظیمات معاملات اهرمی و فروش','Leverage & sell settings')],
+      exchanges:[I('صرافی‌ها','Exchanges'),I('مدیریت اتصال به صرافی‌ها','Manage exchange connections')],
+      history:[I('تاریخچهٔ معاملات','Trade History'),I('سوابق کامل معاملات انجام‌شده','Full record of executed trades')],
+      ai:[I('هوش مصنوعی','AI Engine'),I('کنترل و گفتگو با موتور AI','Control & chat with the AI engine')],
+      admin:[I('پنل سوپر ادمین','Super Admin'),I('مدیریت کل پلتفرم و کاربران','Manage the whole platform & users')],
+      userDetail:[I('جزئیات کاربر','User Detail'),I('نمای کامل حساب و معاملات کاربر','Full view of a user account & trades')],
+      settings:[I('تنظیمات سوپر ادمین','Admin Settings'),I('کنترل‌های سراسری پلتفرم','Platform-wide controls')],
+      content:[I('استودیو محتوا','Content Studio'),I('تولید محتوا با AI و انتشار در تلگرام و بلاگ','AI content for Telegram & blog')]
+    };
+    const tt=titles[st.screen]||titles.dashboard;
+
+    // trades
+    const tdata=[
+      ['BTC/USDT','buy',63420,65310,3.0],['ETH/USDT','buy',3140,3252,3.6],['SOL/USDT','sell',172.4,168.1,2.5],
+      ['BNB/USDT','buy',588,609,3.6],['XRP/USDT','buy',0.612,0.589,-3.8],['ADA/USDT','buy',0.452,0.468,3.5]
+    ];
+    const trades=tdata.map(r=>{
+      const pos=r[4]>=0;
+      return {pair:r[0], sideLabel:r[1]==='buy'?(fa?'خرید':'Buy'):(fa?'فروش':'Sell'),
+        sideColor:r[1]==='buy'?'var(--green)':'var(--red)',
+        entry:r[2].toLocaleString('en-US'), exit:r[3].toLocaleString('en-US'),
+        pnl:(pos?'+':'')+r[4].toFixed(1)+'%', pnlColor:pos?'var(--green)':'var(--red)',
+        rowBg:'transparent'};
+    });
+
+    // history (longer)
+    const hbase=[['BTC/USDT','buy',63420,65310,3.0,'0.42'],['ETH/USDT','buy',3140,3252,3.6,'2.1'],['SOL/USDT','sell',172.4,168.1,2.5,'14'],['BNB/USDT','buy',588,609,3.6,'4.0'],['XRP/USDT','buy',0.612,0.589,-3.8,'3800'],['ADA/USDT','buy',0.452,0.468,3.5,'5200'],['DOGE/USDT','buy',0.158,0.164,3.8,'14000'],['AVAX/USDT','sell',38.2,37.0,3.1,'62'],['LINK/USDT','buy',17.8,18.5,3.9,'130'],['MATIC/USDT','buy',0.71,0.69,-2.8,'3100']];
+    const history=hbase.map((r,i)=>{
+      const pos=r[4]>=0;
+      return {pair:r[0], date:'06/'+(15-Math.floor(i/3))+' '+(9+i)+':'+(10+i*3),
+        sideLabel:r[1]==='buy'?(fa?'خرید':'Buy'):(fa?'فروش':'Sell'), sideColor:r[1]==='buy'?'var(--green)':'var(--red)',
+        entry:r[2].toLocaleString('en-US'), exit:r[3].toLocaleString('en-US'), amount:r[5],
+        pnl:(pos?'+':'')+r[4].toFixed(1)+'%', pnlColor:pos?'var(--green)':'var(--red)'};
+    });
+
+    // nav
+    const isAdminRole=st.role==='admin';
+    const navDef=[['dashboard',I('داشبورد','Dashboard')]]
+      .concat(isAdminRole?[['admin',I('سوپر ادمین','Super Admin')],['content',I('استودیو محتوا','Content Studio')],['settings',I('تنظیمات سوپر ادمین','Admin Settings')]]:[])
+      .concat([['model',I('مدل ML','ML Model')],['strategy',I('استراتژی','Strategy')],['short',I('معاملات شورت','Short')],['exchanges',I('صرافی‌ها','Exchanges')],['history',I('تاریخچه','History')],['ai',I('هوش مصنوعی','AI Engine')]]);
+    const navItems=navDef.map(([k,label])=>{
+      const active=st.screen===k;
+      return {key:k,label,icon:this.icon(k),active,
+        bg:active?'color-mix(in srgb,var(--accentVar) 14%,transparent)':'transparent',
+        color:active?'var(--text)':'var(--dim)',
+        barOpacity:active?'1':'0',
+        onClick:()=>this.setState({screen:k})};
+    });
+
+    // super admin users
+    const uRaw=[
+      {name:t.spYou, you:true, ex:['Nobitex','Binance'], bal:'48,200', email:'admin@nexa.ai', pnl:4.1, joined:'1403/02'},
+      {name:fa?'سارا محمدی':'Sara Mohammadi', ex:['Nobitex'], bal:'12,400', email:'sara@nexa.ai', pnl:3.2, joined:'1403/08'},
+      {name:fa?'علی رضایی':'Ali Rezaei', ex:['Binance','Bybit'], bal:'7,850', email:'ali.r@nexa.ai', pnl:2.8, joined:'1403/11'},
+      {name:fa?'مریم احمدی':'Maryam Ahmadi', ex:['Nobitex'], bal:'3,200', email:'maryam@nexa.ai', pnl:0, joined:'1404/01'},
+      {name:fa?'حسین کریمی':'Hossein Karimi', ex:['KuCoin'], bal:'21,600', email:'h.karimi@nexa.ai', pnl:3.9, joined:'1403/05'},
+      {name:fa?'نگار موسوی':'Negar Mousavi', ex:['Nobitex','Binance'], bal:'5,400', email:'negar@nexa.ai', pnl:-1.2, joined:'1404/02'}
+    ];
+    uRaw.forEach((u,i)=>{u.on=st.userOn[i];});
+    const users=uRaw.map((u,i)=>({
+      name:u.name, you:u.you, initial:u.name.trim().charAt(0),
+      rowBg:u.you?'color-mix(in srgb,var(--accentVar) 9%,transparent)':(i%2?'var(--glass)':'transparent'),
+      exchanges:u.ex, balance:'$'+u.bal,
+      statusLabel:u.on?t.spActive:t.spPaused,
+      statusColor:u.on?'var(--green)':'var(--faint)',
+      statusBg:u.on?'color-mix(in srgb,var(--green) 15%,transparent)':'var(--bg3)',
+      pnl:(u.pnl>0?'+':'')+u.pnl.toFixed(1)+'%', pnlColor:u.pnl>0?'var(--green)':(u.pnl<0?'var(--red)':'var(--faint)'),
+      ctrlLabel:u.on?t.spPause:t.spResume,
+      ctrlColor:u.on?'var(--amber)':'var(--green)',
+      onToggle:()=>this.setState(s=>{const a=s.userOn.slice();a[i]=!a[i];return{userOn:a};}),
+      onView:()=>this.setState({screen:'userDetail', selectedUserIdx:i})
+    }));
+    const activeCount=uRaw.filter(u=>u.on).length;
+
+    // selected user detail
+    const du=uRaw[st.selectedUserIdx]||uRaw[0];
+    const duEquity=this.equity.map((v,i)=>v*(0.4+st.selectedUserIdx*0.12)+Math.sin(i/5+st.selectedUserIdx)*120);
+    const duExchanges=du.ex.map((name,i)=>({name, api:'••••••••'+(['7f3a','b21c','9e4d'][i]||'a18f'), primary:i===0}));
+    const dPos=du.pnl>=0;
+    const adminStats=[
+      {label:t.spUsers, value:activeCount+'/'+uRaw.length, sub:fa?'آنلاین':'online'},
+      {label:t.spVolume, value:'$2.4M', sub:fa?'۲۴ ساعت':'24h'},
+      {label:t.spEngineCol, value:'v2.4', sub:fa?'سالم':'healthy'},
+      {label:t.spPlatformPnl, value:'+3.1%', sub:fa?'میانگین روزانه':'avg/day'}
+    ];
+
+    // ---- content studio ----
+    const tgRaw=[
+      {name:fa?'سیگنال‌های نکسا':'NEXA Signals', handle:'@nexa_signals', type:'channel', members:'12,400'},
+      {name:fa?'تحلیل بازار نکسا':'NEXA Market Insights', handle:'@nexa_insights', type:'channel', members:'5,820'},
+      {name:fa?'گروه پشتیبانی VIP':'VIP Support Group', handle:'@nexa_vip', type:'group', members:'430'}
+    ];
+    const tgChannels=tgRaw.map((c,i)=>{
+      const on=st.tgOn[i];
+      return {name:c.name, handle:c.handle, members:c.members,
+        typeLabel:c.type==='channel'?(fa?'کانال':'Channel'):(fa?'گروه':'Group'),
+        initial:c.type==='channel'?'📢':'👥',
+        statusLabel:on?(fa?'AI متصل':'AI linked'):(fa?'دستی':'Manual'),
+        statusColor:on?'var(--green)':'var(--faint)',
+        statusBg:on?'color-mix(in srgb,var(--green) 15%,transparent)':'var(--bg3)',
+        toggleLabel:on?(fa?'قطع AI':'Unlink AI'):(fa?'اتصال AI':'Link AI'),
+        toggleColor:on?'var(--amber)':'var(--green)',
+        onToggle:()=>this.setState(s=>{const a=s.tgOn.slice();a[i]=!a[i];return{tgOn:a};})};
+    });
+    const tgLinkedCount=st.tgOn.filter(Boolean).length;
+
+    const ctIsTelegram=st.contentType==='telegram', ctIsBlog=st.contentType==='blog';
+    const sampleTg=fa
+      ? '🚀 #بیت‌کوین در آستانهٔ شکست مقاومت ۶۵٪!\n\nمدل ML نکسا روند صعودی کوتاه‌مدت را با احتمال ۷۱٪ تأیید کرد. سه نقطهٔ ورود اسپات با هدف سود ۳.۵٪ علامت‌گذاری شد.\n\n⚡️ ربات هم‌اکنون در حال اجرای چرخهٔ معاملاتی است.\n\n@nexa_signals'
+      : '🚀 #Bitcoin testing the 65K resistance!\n\nNEXA ML model confirms a short-term uptrend at 71% probability. Three spot entries marked, targeting 3.5% profit.\n\n⚡️ The bot is running its trading cycle now.\n\n@nexa_signals';
+    const sampleBlog=fa
+      ? '# تحلیل هفتگی بازار رمزارز\n\nدر هفتهٔ گذشته بازار وارد فاز انباشت شد. مدل یادگیری ماشین نکسا با تحلیل بیش از ۴ میلیون داده، سه الگوی تکرارشونده را شناسایی کرد...\n\n## نقاط کلیدی\n- بیت‌کوین: مقاومت ۶۵٪\n- اتریوم: حمایت قوی\n- روند کلی: صعودی محتاطانه'
+      : '# Weekly Crypto Market Analysis\n\nLast week the market entered an accumulation phase. NEXA ML model, analyzing 4M+ data points, identified three recurring patterns...\n\n## Key takeaways\n- Bitcoin: 65K resistance\n- Ethereum: strong support\n- Overall: cautious uptrend';
+    const genDone=st.genState==='done';
+
+    const adminStats2=adminStats;
+
+    // stats
+    const stats=[
+      {label:t.stTodayPnl, value:'+3.42%', delta:I('▲ نسبت به دیروز','▲ vs yesterday'), deltaColor:'var(--green)', spark:this.mkSpark(this.spkPnl,'var(--green)')},
+      {label:t.totalEquity, value:'$'+this.fmt(this.equityNow), delta:'▲ +12.4%', deltaColor:'var(--green)', spark:this.mkSpark(this.spkBal,accent)},
+      {label:t.stTrades, value:'47', delta:I('۳۴ سود · ۱۳ زیان','34 win · 13 loss'), deltaColor:'var(--dim)', spark:this.mkSpark(this.spkTr,'var(--accent2)')},
+      {label:t.stWin, value:'71.2%', delta:'▲ +2.1%', deltaColor:'var(--green)', spark:this.mkSpark(this.spkWin,'var(--green)')}
+    ];
+
+    const allocation=[
+      {name:'BTC',pct:38,color:accent},{name:'ETH',pct:24,color:'var(--accent2)'},
+      {name:'SOL',pct:16,color:'var(--green)'},{name:'USDT',pct:22,color:'var(--amber)'}
+    ];
+
+    const modelStats=[
+      {label:t.mDataRange,value:'2021–2026',note:I('۵ سال کامل','5 full years')},
+      {label:t.mDataset,value:'4.2M',note:I('کندل + اخبار','candles + news')},
+      {label:t.mEpochs,value:'40',note:I('تکمیل‌شده','completed')},
+      {label:t.mVersion,value:'v2.4',note:I('پایدار','stable')}
+    ];
+    const features=fa
+      ? ['اکشن قیمت','حجم معاملات','RSI / MACD','احساسات بازار','اخبار آن‌چین','الگوهای شمعی','نقدینگی','همبستگی جفت‌ارزها']
+      : ['Price action','Volume','RSI / MACD','Market sentiment','On-chain news','Candle patterns','Liquidity','Pair correlation'];
+
+    // strategy projection
+    const estDaily='≈ '+(st.targetProfit*Math.min(st.tradesPerDay,12)/4).toFixed(1)+'%';
+
+    // short
+    const shortPairsRaw=[['BTC/USDT',1],['ETH/USDT',1],['SOL/USDT',1],['BNB/USDT',0],['XRP/USDT',0]];
+    const shortPairs=shortPairsRaw.map(([name,on])=>({name,
+      bg:on?'color-mix(in srgb,var(--accent2) 18%,transparent)':'var(--bg3)',
+      color:on?'var(--accent2)':'var(--dim)',
+      border:on?'var(--accent2)':'var(--border)'}));
+    const shortStats=[
+      {label:I('پوزیشن‌های شورت باز','Open shorts'),value:'3',color:'var(--text)'},
+      {label:I('سود شورت (هفته)','Short PnL (week)'),value:'+8.6%',color:'var(--green)'},
+      {label:I('بیشترین اهرم استفاده‌شده','Max leverage used'),value:st.leverage+'×',color:'var(--accent2)'}
+    ];
+
+    // exchanges
+    const exRaw=[
+      {name:'Nobitex',initial:'N',region:'Iran · IRT/USDT',primary:true,status:'connected',balance:'12,400 USDT',ic:accent},
+      {name:'Binance',initial:'B',region:'Global · Spot',primary:false,status:'connected',balance:'8,250 USDT',ic:'var(--amber)'},
+      {name:'Bybit',initial:'Y',region:'Global · Futures',primary:false,status:'disconnected',balance:'—',ic:'var(--accent2)'},
+      {name:'KuCoin',initial:'K',region:'Global · Spot',primary:false,status:'disconnected',balance:'—',ic:'var(--green)'}
+    ];
+    const exchanges=exRaw.map(e=>{
+      const con=e.status==='connected';
+      return {name:e.name, initial:e.initial, region:e.region,
+        primaryDisplay:e.primary?'inline-block':'none',
+        iconBg:'color-mix(in srgb,'+e.ic+' 18%,transparent)', iconColor:e.ic,
+        cardBorder:e.primary?'var(--border2)':'var(--border)',
+        statusLabel:con?t.connected:t.disconnected,
+        statusBg:con?'color-mix(in srgb,var(--green) 16%,transparent)':'var(--bg3)',
+        statusColor:con?'var(--green)':'var(--faint)',
+        balance:e.balance,
+        btnLabel:con?t.manage:t.connect,
+        btnBg:con?'transparent':accent, btnColor:con?'var(--text)':'#05121a'};
+    });
+
+    // AI
+    const provRaw=[
+      {name:'OpenAI · ChatGPT', detail:'gpt-4o · sk-••••4f2a', con:true, initial:'G', col:accent},
+      {name:'Anthropic · Claude', detail:'claude-3.5 · sk-ant-••8b1c', con:true, initial:'C', col:'var(--accent2)'},
+      {name:fa?'سرویس سفارشی':'Custom endpoint', detail:fa?'هنوز متصل نشده':'not connected yet', con:false, initial:'+', col:'var(--dim)'}
+    ];
+    const aiProviders=provRaw.map(p=>({
+      name:p.name, detail:p.detail, initial:p.initial,
+      iconBg:'color-mix(in srgb,'+p.col+' 18%,transparent)', iconColor:p.col,
+      cardBorder:p.con?'var(--border)':'var(--border2)',
+      statusLabel:p.con?t.connected:t.disconnected,
+      statusBg:p.con?'color-mix(in srgb,var(--green) 15%,transparent)':'var(--bg3)',
+      statusColor:p.con?'var(--green)':'var(--faint)'
+    }));
+    const aiOn=st.aiConnected;
+    const aiTasks=fa
+      ? ['تسریع آموزش مدل ماشین‌لرنینگ','تفسیر اخبار و احساسات بازار','تأیید سیگنال‌های معاملاتی مدل']
+      : ['Accelerate ML model training','Interpret news & market sentiment','Confirm the model trading signals'];
+    const chat=st.chat.map(m=>{
+      const isAI=m.role==='ai';
+      return {text:fa?m.text_fa:m.text_en, align:isAI?'flex-start':'flex-end',
+        bg:isAI?'var(--bg3)':'var(--accentVar)', color:isAI?'var(--text)':'#05121a',
+        border:isAI?'var(--border)':'var(--accentVar)'};
+    });
+
+    return {
+      theme:st.theme, dir:fa?'rtl':'ltr', brand:this.props.brandName||'NEXA AI',
+      'accentVar':accent,
+      logo:this.logo(accent), check:'✓', checkSm:'✓', aiSpark:this.icon('ai'), aiSparkLg:this.logo(accent), warnIcon:'⚠',
+      langLabel:fa?'EN':'فا', themeIcon:st.theme==='dark'?'☀':'☾',
+      t,
+      // visibility
+      showAuth:!st.loggedIn, showApp:st.loggedIn&&st.screen!=='onboarding', showOnboarding:st.loggedIn&&st.screen==='onboarding',
+      showDash:st.screen==='dashboard', showModel:st.screen==='model', showStrategy:st.screen==='strategy',
+      showShort:st.screen==='short', showExchanges:st.screen==='exchanges', showHistory:st.screen==='history', showAI:st.screen==='ai', showAdmin:st.screen==='admin'&&isAdminRole,
+      showUserDetail:st.screen==='userDetail'&&isAdminRole,
+      showSettings:st.screen==='settings'&&isAdminRole,
+      showContent:st.screen==='content'&&isAdminRole,
+      // content studio
+      tgChannels, tgLinkedCount, tgTotal:tgRaw.length,
+      xrayOn:st.xrayOn,
+      xrayStatusLabel:st.xrayOn?(fa?'متصل · فعال':'Connected · Active'):(fa?'قطع':'Disconnected'),
+      xrayStatusColor:st.xrayOn?'var(--green)':'var(--red)',
+      xrayToggleBg:st.xrayOn?'var(--green)':'var(--border2)',
+      xrayKnob:st.xrayOn?(fa?'auto':'27px'):(fa?'27px':'3px'),
+      toggleXray:()=>this.setState({xrayOn:!st.xrayOn}),
+      ctIsTelegram, ctIsBlog,
+      ctTgBg:ctIsTelegram?'var(--accentVar)':'transparent', ctTgColor:ctIsTelegram?'#05121a':'var(--dim)',
+      ctBlogBg:ctIsBlog?'var(--accentVar)':'transparent', ctBlogColor:ctIsBlog?'#05121a':'var(--dim)',
+      setCtTelegram:()=>this.setState({contentType:'telegram',genState:'idle'}),
+      setCtBlog:()=>this.setState({contentType:'blog',genState:'idle'}),
+      contentTopic:st.contentTopic,
+      onTopic:e=>this.setState({contentTopic:e.target.value}),
+      genState:st.genState, genDone, ctEmptyShow:!genDone,      genBtnLabel:st.genState==='generating'?(fa?'در حال تولید…':'Generating…'):(fa?'تولید با هوش مصنوعی':'Generate with AI'),
+      genOutput:st.genState==='done'?(ctIsTelegram?sampleTg:sampleBlog):'',
+      doGenerate:()=>{
+        this.setState({genState:'generating'});
+        setTimeout(()=>this.setState({genState:'done'}),1100);
+      },
+      publishLabel:ctIsTelegram?(fa?'انتشار در کانال‌های متصل':'Publish to linked channels'):(fa?'انتشار در بلاگ':'Publish to blog'),
+      maxProfit:st.maxProfit, maxTrades:st.maxTrades, maxLev:st.maxLev, fee:st.fee,
+      onMaxProfit:e=>this.setState({maxProfit:parseFloat(e.target.value)}),
+      onMaxTrades:e=>this.setState({maxTrades:parseInt(e.target.value)}),
+      onMaxLev:e=>this.setState({maxLev:parseInt(e.target.value)}),
+      onFee:e=>this.setState({fee:parseInt(e.target.value)}),
+      cfgToggles:[
+        {key:'autoRetrain', label:I('آموزش خودکار دوره‌ای مدل','Auto periodic model retraining'), desc:I('مدل به‌صورت زمان‌بندی‌شده روی داده‌های جدید بازآموزی می‌شود','Model retrains on new data on a schedule')},
+        {key:'autoDeploy', label:I('استقرار خودکار نسخهٔ جدید مدل','Auto-deploy new model version'), desc:I('پس از بازآموزی، نسخهٔ بهتر به‌صورت خودکار برای همهٔ کاربران فعال می‌شود','After retraining, a better version goes live for all users automatically')},
+        {key:'shortForNew', label:I('فعال بودن شورت برای کاربران جدید','Short enabled for new users'), desc:I('پیش‌فرض حساب جدید؛ توصیه می‌شود خاموش بماند','Default for new accounts; recommended to keep off')},
+        {key:'require2fa', label:I('الزام ورود دو مرحله‌ای','Require two-factor login'), desc:I('برای همهٔ کاربران هنگام ورود اجباری است','Enforced for every user at sign-in')},
+        {key:'ipWhitelist', label:I('محدودسازی API به IP مجاز','Restrict API to whitelisted IPs'), desc:I('کلیدهای API فقط از آدرس‌های تأییدشده کار می‌کنند','API keys only work from approved addresses')}
+      ].map(c=>{
+        const on=st.cfg[c.key];
+        return {label:c.label, desc:c.desc, on,
+          bg:on?'var(--accent2)':'var(--border2)', knob:on?(fa?'auto':'27px'):(fa?'27px':'3px'),
+          onToggle:()=>this.setState(s=>({cfg:Object.assign({},s.cfg,{[c.key]:!s.cfg[c.key]})}))};
+      }),
+      users, adminStats, servingCount:activeCount,
+      // user detail
+      dName:du.name, dEmail:du.email, dInitial:du.name.trim().charAt(0), dBalance:'$'+du.bal, dJoined:du.joined,
+      dPnl:(dPos?'+':'')+du.pnl.toFixed(1)+'%', dPnlColor:dPos?'var(--green)':(du.pnl<0?'var(--red)':'var(--faint)'),
+      dOn:du.on, dStatusLabel:du.on?t.spActive:t.spPaused,
+      dStatusColor:du.on?'var(--green)':'var(--faint)', dStatusBg:du.on?'color-mix(in srgb,var(--green) 15%,transparent)':'var(--bg3)',
+      dToggleLabel:du.on?t.spPause:t.spResume, dToggleColor:du.on?'var(--amber)':'#05121a', dToggleBg:du.on?'transparent':'var(--green)',
+      dExchanges:duExchanges, dTrades:trades.slice(0,4), dEquityChart:this.mkArea(duEquity,accent,220),
+      backToAdmin:()=>this.setState({screen:'admin'}),
+      toggleSelectedBot:()=>this.setState(s=>{const a=s.userOn.slice();a[st.selectedUserIdx]=!a[st.selectedUserIdx];return{userOn:a};}),
+      // role switch
+      roleAdminBg:isAdminRole?'var(--accentVar)':'transparent', roleAdminColor:isAdminRole?'#05121a':'var(--dim)',
+      roleUserBg:!isAdminRole?'var(--accentVar)':'transparent', roleUserColor:!isAdminRole?'#05121a':'var(--dim)',
+      setRoleAdmin:()=>this.setState({role:'admin'}),
+      setRoleUser:()=>this.setState({role:'user', screen:(st.screen==='admin'||st.screen==='userDetail')?'dashboard':st.screen}),
+      acctInitial:isAdminRole?'A':'س', acctName:isAdminRole?t.accountName:(fa?'سارا محمدی':'Sara Mohammadi'),
+      acctEmail:isAdminRole?'admin@nexa.ai':'sara@nexa.ai',
+      // auth
+      authTitle:st.authMode==='login'?t.loginTitle:t.signupTitle,
+      authSubtitle:st.authMode==='login'?t.loginSub:t.signupSub,
+      showEmailForm:st.authTab==='email', showMobileForm:st.authTab==='mobile',
+      emailTabBg:st.authTab==='email'?'var(--accentVar)':'transparent', emailTabColor:st.authTab==='email'?'#05121a':'var(--dim)',
+      mobileTabBg:st.authTab==='mobile'?'var(--accentVar)':'transparent', mobileTabColor:st.authTab==='mobile'?'#05121a':'var(--dim)',
+      submitLabel:st.authTab==='mobile'?(fa?'تأیید و ورود':'Verify & continue'):(st.authMode==='login'?t.login:t.signup),
+      switchPrompt:st.authMode==='login'?t.noAccount:t.haveAccount,
+      switchAction:st.authMode==='login'?t.signup:t.login,
+      setTabEmail:()=>this.setState({authTab:'email'}), setTabMobile:()=>this.setState({authTab:'mobile'}),
+      toggleAuthMode:()=>this.setState({authMode:st.authMode==='login'?'signup':'login'}),
+      doLogin:()=>this.setState(st.authMode==='signup'?{loggedIn:true,screen:'onboarding',role:'user',obStep:0}:{loggedIn:true,screen:'dashboard'}),
+      doLogout:()=>this.setState({loggedIn:false}),
+      // onboarding
+      obStep:st.obStep, obExchange:st.obExchange,
+      obSteps:[0,1,2,3].map(i=>({n:i+1, active:i===st.obStep, done:i<st.obStep,
+        dotBg:i<st.obStep?'var(--green)':(i===st.obStep?'var(--accentVar)':'var(--bg3)'),
+        dotColor:i<=st.obStep?'#05121a':'var(--faint)',
+        lineBg:i<st.obStep?'var(--green)':'var(--border)'})),
+      obIs0:st.obStep===0, obIs1:st.obStep===1, obIs2:st.obStep===2, obIs3:st.obStep===3,
+      obExchOpts:['Nobitex','Binance','Bybit','KuCoin'].map(n=>({name:n, sel:st.obExchange===n,
+        bg:st.obExchange===n?'color-mix(in srgb,var(--accentVar) 16%,transparent)':'var(--bg3)',
+        border:st.obExchange===n?'var(--accentVar)':'var(--border)',
+        color:st.obExchange===n?'var(--text)':'var(--dim)',
+        onSel:()=>this.setState({obExchange:n})})),
+      obNext:()=>this.setState(s=>({obStep:Math.min(3,s.obStep+1)})),
+      obBack:()=>this.setState(s=>({obStep:Math.max(0,s.obStep-1)})),
+      obFinish:()=>this.setState({screen:'dashboard'}),
+      obModeLabel:st.mode==='spot'?t.spot:t.futures, obShowBack:st.obStep>0, obIsNotLast:st.obStep<3,
+      obSpotBg:st.mode==='spot'?'var(--accentVar)':'transparent', obSpotColor:st.mode==='spot'?'#05121a':'var(--dim)',
+      obFutBg:st.mode==='futures'?'var(--accentVar)':'transparent', obFutColor:st.mode==='futures'?'#05121a':'var(--dim)',
+      // header
+      screenTitle:tt[0], screenSub:tt[1], equityNow:this.fmt(this.equityNow),
+      botLabel:st.botRunning?t.botRunning:t.botStopped,
+      botColor:st.botRunning?'var(--green)':'var(--red)',
+      botBg:st.botRunning?'color-mix(in srgb,var(--green) 14%,transparent)':'color-mix(in srgb,var(--red) 14%,transparent)',
+      botBorder:st.botRunning?'color-mix(in srgb,var(--green) 40%,var(--border))':'color-mix(in srgb,var(--red) 40%,var(--border))',
+      botAnim:st.botRunning?'pulse 2s infinite':'none',
+      toggleBot:()=>this.setState({botRunning:!st.botRunning}),
+      toggleTheme:()=>this.setState({theme:st.theme==='dark'?'light':'dark'}),
+      toggleLang:()=>this.setState({lang:fa?'en':'fa'}),
+      navItems,
+      // dashboard
+      stats, trades, allocation, btcPrice:this.fmt(this.btc),
+      equityChart:this.mkArea(this.equity,accent,280), priceChart:this.mkCandles(),
+      // model
+      accChart:this.mkAcc(), accDial:this.mkDial(0.934,'var(--green)'), modelStats, features,
+      // strategy
+      targetProfit:st.targetProfit, tradesPerDay:st.tradesPerDay, capitalPct:st.capitalPct, stopLoss:st.stopLoss, leverage:st.leverage,
+      estDaily,
+      spotBg:st.mode==='spot'?'var(--accentVar)':'transparent', spotColor:st.mode==='spot'?'#05121a':'var(--dim)',
+      futBg:st.mode==='futures'?'var(--accentVar)':'transparent', futColor:st.mode==='futures'?'#05121a':'var(--dim)',
+      setSpot:()=>this.setState({mode:'spot'}), setFutures:()=>this.setState({mode:'futures'}),
+      onTarget:e=>this.setState({targetProfit:parseFloat(e.target.value)}),
+      onTrades:e=>this.setState({tradesPerDay:parseInt(e.target.value)}),
+      onCapital:e=>this.setState({capitalPct:parseInt(e.target.value)}),
+      onStop:e=>this.setState({stopLoss:parseFloat(e.target.value)}),
+      onLeverage:e=>this.setState({leverage:parseInt(e.target.value)}),
+      // short
+      shortPairs, shortStats,
+      shortToggleBg:st.shortEnabled?'var(--accent2)':'var(--border2)',
+      shortKnobPos:st.shortEnabled?(fa?'auto':'27px'):(fa?'27px':'3px'),
+      shortPanelOpacity:st.shortEnabled?'1':'0.4',
+      toggleShort:()=>this.setState({shortEnabled:!st.shortEnabled}),
+      // exchanges
+      exchanges,
+      // history
+      history,
+      // ai
+      aiTasks, chat, chatInput:st.chatInput, aiProviders,
+      aiToggleBg:aiOn?'var(--accent2)':'var(--border2)',
+      aiKnobPos:aiOn?(fa?'auto':'27px'):(fa?'27px':'3px'),
+      aiToggleBorder:aiOn?'var(--border2)':'color-mix(in srgb,var(--amber) 40%,var(--border))',
+      aiToggleCardBg:aiOn?'var(--bg3)':'color-mix(in srgb,var(--amber) 8%,var(--bg3))',
+      aiLinkDesc:aiOn?t.adminDescOn:t.adminDescOff,
+      modeLabel:aiOn?t.modeAI:t.modeML,
+      modeBannerColor:aiOn?'var(--accent2)':'var(--amber)',
+      modeBannerBg:aiOn?'color-mix(in srgb,var(--accent2) 12%,transparent)':'color-mix(in srgb,var(--amber) 12%,transparent)',
+      toggleAI:()=>this.setState({aiConnected:!st.aiConnected}),
+      onChatInput:e=>this.setState({chatInput:e.target.value}),
+      sendChat:()=>{
+        const txt=st.chatInput.trim(); if(!txt) return;
+        const reply=fa?'دریافت شد. در حال تحلیل با مدل ماشین‌لرنینگ… سه سناریوی محتمل شناسایی شد.':'Got it. Analyzing with the ML model… three likely scenarios identified.';
+        this.setState({chat:[...st.chat,{role:'user',text_fa:txt,text_en:txt},{role:'ai',text_fa:reply,text_en:reply}],chatInput:''});
+      }
+    };
+  }
+
+  logo(accent){
+    const ce=React.createElement;
+    return ce('svg',{viewBox:'0 0 40 40',style:{width:'100%',height:'100%'}},
+      ce('defs',null,ce('linearGradient',{id:'lg',x1:0,y1:0,x2:1,y2:1},
+        ce('stop',{offset:'0%',stopColor:accent}),ce('stop',{offset:'100%',stopColor:'#8b7bff'}))),
+      ce('path',{d:'M20 2 L35 11 L35 29 L20 38 L5 29 L5 11 Z',fill:'none',stroke:'url(#lg)',strokeWidth:2}),
+      ce('path',{d:'M14 26 L14 14 L26 26 L26 14',fill:'none',stroke:'url(#lg)',strokeWidth:2.4,strokeLinecap:'round',strokeLinejoin:'round'}));
+  }
+}
+</script>
+</body>
+</html>

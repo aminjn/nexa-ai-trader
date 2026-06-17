@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Vazirmatn:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</helmet>
+
+<div dir="rtl" style="min-height:100vh;background:#e7eaf0;padding:44px 40px;font-family:Vazirmatn,sans-serif;color:#1a2030">
+
+  <div style="max-width:1720px;margin:0 auto 38px">
+    <div style="font-family:'Sora';font-size:13px;font-weight:700;letter-spacing:.14em;color:#7d8597;margin-bottom:10px">MOBILE · NEBULA</div>
+    <h1 style="font-family:'Sora';font-size:30px;font-weight:800;margin:0 0 8px">نسخهٔ موبایل — صفحات کلیدی</h1>
+    <p style="font-size:15px;color:#5a6478;margin:0;max-width:64ch;line-height:1.7">چهار صفحهٔ اصلی روی آیفون با همان زبان بصری Nebula. اسلایدرهای استراتژی و کلید قطع AI تعاملی‌اند.</p>
+  </div>
+
+  <div style="max-width:1720px;margin:0 auto;display:flex;gap:34px;justify-content:center;flex-wrap:wrap">
+
+    <!-- LOGIN -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="font-family:'Sora';font-weight:700;font-size:14px;color:#5a6478">ورود</div>
+      <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ tru }}" hint-size="402px,874px">
+        <div style="min-height:100%;display:flex;flex-direction:column;padding:64px 22px 44px;background:radial-gradient(120% 90% at 80% 0%,#1a1140 0%,#0a0a1e 55%);color:#eef0ff">
+          <div style="display:flex;flex-direction:column;align-items:center;text-align:center;margin-top:18px;margin-bottom:32px">
+            <div style="width:56px;height:56px;margin-bottom:16px">{{ logo }}</div>
+            <div style="font-family:'Sora';font-weight:800;font-size:22px;background:linear-gradient(90deg,#ff8edd,#7fd4ff);-webkit-background-clip:text;background-clip:text;color:transparent">NEXA AI</div>
+            <div style="font-size:13px;color:#a59fce;margin-top:6px">موتور معاملاتی هوشمند رمزارز</div>
+          </div>
+          <div style="display:flex;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:4px;margin-bottom:20px">
+            <button onClick="{{ setEmail }}" style="flex:1;padding:11px;border:none;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;background:{{ emBg }};color:{{ emCol }}">ایمیل</button>
+            <button onClick="{{ setMob }}" style="flex:1;padding:11px;border:none;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;background:{{ moBg }};color:{{ moCol }}">شماره موبایل</button>
+          </div>
+          <sc-if value="{{ isEmail }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:7px"><span style="font-size:12px;color:#a59fce">آدرس ایمیل</span><input placeholder="you@example.com" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;color:#eef0ff;font-family:'JetBrains Mono';font-size:14px;outline:none"></div>
+            <div style="display:flex;flex-direction:column;gap:7px"><span style="font-size:12px;color:#a59fce">رمز عبور</span><input type="password" placeholder="••••••••" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;color:#eef0ff;font-family:'JetBrains Mono';font-size:14px;outline:none"></div>
+          </div>
+          </sc-if>
+          <sc-if value="{{ isMob }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:7px"><span style="font-size:12px;color:#a59fce">شماره موبایل</span>
+              <div style="display:flex;gap:8px"><span style="display:flex;align-items:center;padding:0 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;font-family:'JetBrains Mono';color:#a59fce">+98</span><input placeholder="912 345 6789" style="flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;color:#eef0ff;font-family:'JetBrains Mono';font-size:14px;outline:none;direction:ltr;text-align:start"></div>
+            </div>
+            <div style="display:flex;gap:9px;direction:ltr;justify-content:center;margin-top:4px">
+              <input value="4" maxlength="1" style="width:52px;height:58px;text-align:center;font-size:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:13px;color:#eef0ff;font-family:'JetBrains Mono';outline:none">
+              <input value="8" maxlength="1" style="width:52px;height:58px;text-align:center;font-size:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:13px;color:#eef0ff;font-family:'JetBrains Mono';outline:none">
+              <input maxlength="1" style="width:52px;height:58px;text-align:center;font-size:22px;background:rgba(255,255,255,.06);border:1px solid #4be0ff;border-radius:13px;color:#eef0ff;font-family:'JetBrains Mono';outline:none">
+              <input maxlength="1" style="width:52px;height:58px;text-align:center;font-size:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:13px;color:#eef0ff;font-family:'JetBrains Mono';outline:none">
+            </div>
+          </div>
+          </sc-if>
+          <button style="margin-top:22px;padding:15px;border:none;border-radius:13px;background:linear-gradient(90deg,#4be0ff,#7fd4ff);color:#05121a;font-weight:700;font-family:'Sora';font-size:15px;cursor:pointer;box-shadow:0 10px 30px -10px #4be0ff">ورود</button>
+          <div style="text-align:center;margin-top:18px;font-size:13px;color:#a59fce">حساب ندارید؟ <span style="color:#7fd4ff;font-weight:600">ثبت‌نام</span></div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="font-family:'Sora';font-weight:700;font-size:14px;color:#5a6478">داشبورد</div>
+      <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ tru }}" hint-size="402px,874px">
+        <div style="min-height:100%;display:flex;flex-direction:column;background:radial-gradient(120% 70% at 80% 0%,#1a1140 0%,#0a0a1e 50%);color:#eef0ff">
+          <div style="padding:60px 20px 16px;display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;align-items:center;gap:10px"><div style="width:30px;height:30px">{{ logo }}</div><span style="font-family:'Sora';font-weight:700;font-size:16px">NEXA</span></div>
+            <span style="display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;background:rgba(75,224,170,.14);color:#4be0aa;font-size:12px;font-weight:600;border:1px solid rgba(75,224,170,.3)"><span style="width:6px;height:6px;border-radius:50%;background:#4be0aa;animation:pulse 2s infinite"></span>فعال</span>
+          </div>
+          <div style="padding:0 20px;flex:1;overflow:auto">
+            <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:20px;margin-bottom:14px">
+              <div style="font-size:13px;color:#a59fce;margin-bottom:6px">دارایی کل</div>
+              <div style="font-family:'JetBrains Mono';font-size:32px;font-weight:700">${{ equityNow }}</div>
+              <div style="font-family:'JetBrains Mono';font-size:14px;color:#4be0aa;margin-top:4px">▲ +12.4% · سود امروز +3.42%</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:15px"><div style="font-size:12px;color:#a59fce;margin-bottom:5px">معاملات ۲۴س</div><div style="font-family:'JetBrains Mono';font-size:20px;font-weight:700">47</div></div>
+              <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:15px"><div style="font-size:12px;color:#a59fce;margin-bottom:5px">نرخ موفقیت</div><div style="font-family:'JetBrains Mono';font-size:20px;font-weight:700;color:#ff8edd">71.2%</div></div>
+            </div>
+            <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:18px;margin-bottom:14px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-family:'Sora';font-weight:600;font-size:14px">منحنی رشد</span><span style="font-family:'JetBrains Mono';font-size:11px;padding:4px 10px;border-radius:999px;background:linear-gradient(90deg,#ff5cc8,#5b8bff);color:#fff">90D</span></div>
+              <div style="height:120px">{{ mChart }}</div>
+            </div>
+            <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:18px">
+              <div style="font-family:'Sora';font-weight:600;font-size:14px;margin-bottom:12px">معاملات اخیر</div>
+              <sc-for list="{{ trades }}" as="tr" hint-placeholder-count="3">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);font-family:'JetBrains Mono';font-size:13px"><span style="font-family:Vazirmatn;font-weight:600">{{ tr.pair }}</span><span style="color:{{ tr.color }};font-weight:700">{{ tr.pnl }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-around;padding:14px 12px 24px;border-top:1px solid rgba(255,255,255,.08);background:rgba(10,8,28,.6)">
+            <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ tb.color }}"><span style="width:22px;height:22px;display:flex">{{ tb.icon }}</span><span style="font-size:10px">{{ tb.label }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- STRATEGY -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="font-family:'Sora';font-weight:700;font-size:14px;color:#5a6478">استراتژی</div>
+      <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ tru }}" hint-size="402px,874px">
+        <div style="min-height:100%;display:flex;flex-direction:column;padding:60px 20px 44px;background:radial-gradient(120% 70% at 80% 0%,#1a1140 0%,#0a0a1e 50%);color:#eef0ff">
+          <div style="font-family:'Sora';font-weight:700;font-size:20px;margin-bottom:4px">استراتژی معاملاتی</div>
+          <div style="font-size:13px;color:#a59fce;margin-bottom:20px">سود هدف، ریسک و چرخه</div>
+          <div style="display:flex;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:4px;margin-bottom:20px">
+            <button onClick="{{ setSpot }}" style="flex:1;padding:12px;border:none;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;background:{{ spotBg }};color:{{ spotCol }}">اسپات</button>
+            <button onClick="{{ setFut }}" style="flex:1;padding:12px;border:none;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;background:{{ futBg }};color:{{ futCol }}">فیوچرز / شورت</button>
+          </div>
+          <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:24px;margin-bottom:16px">
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:13px;font-weight:600">سود هدف هر معامله</span><span style="font-family:'JetBrains Mono';color:#4be0ff;font-weight:700;font-size:15px">{{ mTarget }}%</span></div>
+              <input type="range" min="1" max="8" step="0.5" value="{{ mTarget }}" onInput="{{ onTarget }}" style="width:100%;accent-color:#4be0ff">
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:13px;font-weight:600">تعداد معاملات روزانه</span><span style="font-family:'JetBrains Mono';color:#4be0ff;font-weight:700;font-size:15px">{{ mTrades }}×</span></div>
+              <input type="range" min="10" max="120" step="5" value="{{ mTrades }}" onInput="{{ onTrades }}" style="width:100%;accent-color:#4be0ff">
+            </div>
+          </div>
+          <div style="background:linear-gradient(150deg,rgba(75,224,170,.14),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:#a59fce">برآورد روزانه</span><span style="font-family:'JetBrains Mono';font-weight:700;color:#4be0aa;font-size:20px">{{ estDaily }}</span></div>
+            <div style="font-size:11px;color:#6f6a99;margin-top:12px;line-height:1.6">برآورد ریاضی بر اساس تنظیمات — تضمین سود نیست.</div>
+          </div>
+          <button style="margin-top:18px;padding:15px;border:none;border-radius:13px;background:linear-gradient(90deg,#4be0ff,#7fd4ff);color:#05121a;font-weight:700;font-family:'Sora';font-size:15px;cursor:pointer">ذخیرهٔ استراتژی</button>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- AI -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+      <div style="font-family:'Sora';font-weight:700;font-size:14px;color:#5a6478">هوش مصنوعی</div>
+      <x-import component="IOSDevice" from="./ios-frame.jsx" dark="{{ tru }}" hint-size="402px,874px">
+        <div style="min-height:100%;display:flex;flex-direction:column;padding:60px 20px 44px;background:radial-gradient(120% 70% at 80% 0%,#1a1140 0%,#0a0a1e 50%);color:#eef0ff">
+          <div style="font-family:'Sora';font-weight:700;font-size:20px;margin-bottom:4px">هوش مصنوعی</div>
+          <div style="font-size:13px;color:#a59fce;margin-bottom:20px">کنترل و گفتگو با موتور AI</div>
+          <div style="background:linear-gradient(150deg,rgba(255,92,200,.2),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:18px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:12px"><div style="width:38px;height:38px">{{ logo }}</div><div><div style="font-family:'Sora';font-weight:700;font-size:15px">موتور AI</div><div style="font-size:11px;color:#a59fce;font-family:'JetBrains Mono'">GPT · متصل</div></div></div>
+            <p style="font-size:12.5px;line-height:1.7;color:#eef0ff;margin:0">هوش مصنوعی به آموزش سریع‌تر مدل ML کمک می‌کند و سیگنال‌های معاملاتی را تأیید می‌کند.</p>
+          </div>
+          <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:18px;margin-bottom:16px">
+            <div style="font-size:11px;color:#7fd4ff;font-family:'JetBrains Mono';letter-spacing:.08em;margin-bottom:14px">کنترل ادمین</div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="max-width:20ch"><div style="font-weight:600;font-size:14px;margin-bottom:4px">اتصال AI به معاملات</div><div style="font-size:12px;color:#a59fce;line-height:1.5">{{ aiDesc }}</div></div>
+              <button onClick="{{ toggleAI }}" style="width:52px;height:30px;border-radius:999px;border:none;cursor:pointer;background:{{ aiBg }};position:relative;flex-shrink:0"><span style="position:absolute;top:3px;inset-inline-start:{{ aiKnob }};width:24px;height:24px;border-radius:50%;background:#fff"></span></button>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;margin-top:14px;padding:12px;border-radius:11px;background:{{ modeBg }}"><span style="width:8px;height:8px;border-radius:50%;background:{{ modeCol }};box-shadow:0 0 8px {{ modeCol }}"></span><span style="font-size:12px;font-weight:600;color:{{ modeCol }}">{{ modeLabel }}</span></div>
+          </div>
+          <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:16px;flex:1;display:flex;flex-direction:column;gap:12px;min-height:140px">
+            <div style="align-self:flex-start;max-width:85%;padding:11px 14px;border-radius:15px;background:rgba(255,255,255,.07);font-size:12.5px;line-height:1.6">روند صعودی کوتاه‌مدت با احتمال ۷۱٪ تشخیص داده شد. سه نقطهٔ ورود اسپات علامت‌گذاری شد.</div>
+            <div style="align-self:flex-end;max-width:85%;padding:11px 14px;border-radius:15px;background:linear-gradient(90deg,#4be0ff,#7fd4ff);color:#05121a;font-size:12.5px;line-height:1.6">عالی، اجرا کن.</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1720,&quot;height&quot;:1080}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.state={ mtab:'email', mode:'spot', mTarget:3.5, mTrades:50, aiOn:true };
+    let s=991; const R=()=>{s=(s*1103515245+12345)&0x7fffffff;return s/0x7fffffff;};
+    let v=24800; this.equity=[]; for(let i=0;i<70;i++){ v*=1+0.011+Math.sin(i/6)*0.006+(R()-0.5)*0.012; this.equity.push(v); }
+    this.equityNow=this.equity[this.equity.length-1];
+  }
+  fmt(n){ return Math.round(n).toLocaleString('en-US'); }
+  mkArea(vals,c1,c2,h){
+    const ce=React.createElement,W=1000,H=h,pT=10,pB=8;
+    const mn=Math.min(...vals),mx=Math.max(...vals),rng=(mx-mn)||1;
+    const X=i=>i/(vals.length-1)*W,Y=val=>pT+(1-(val-mn)/rng)*(H-pT-pB);
+    let d='M'+X(0).toFixed(1)+' '+Y(vals[0]).toFixed(1); vals.forEach((val,i)=>{if(i)d+=' L'+X(i).toFixed(1)+' '+Y(val).toFixed(1);});
+    const g='g'+Math.floor(Math.random()*1e6),f='f'+Math.floor(Math.random()*1e6);
+    return ce('svg',{viewBox:'0 0 '+W+' '+H,preserveAspectRatio:'none',style:{width:'100%',height:H+'px',display:'block'}},
+      ce('defs',null,
+        ce('linearGradient',{id:g,x1:0,y1:0,x2:1,y2:0},ce('stop',{offset:'0%',stopColor:c1}),ce('stop',{offset:'100%',stopColor:c2})),
+        ce('linearGradient',{id:f,x1:0,y1:0,x2:0,y2:1},ce('stop',{offset:'0%',stopColor:c1,stopOpacity:.32}),ce('stop',{offset:'100%',stopColor:c1,stopOpacity:0}))),
+      ce('path',{d:d+(' L'+W+' '+H+' L0 '+H+' Z'),fill:'url(#'+f+')'}),
+      ce('path',{d,fill:'none',stroke:'url(#'+g+')',strokeWidth:3,strokeLinejoin:'round',style:{filter:'drop-shadow(0 0 5px '+c1+')'}}),
+      ce('circle',{cx:X(vals.length-1),cy:Y(vals[vals.length-1]),r:5,fill:c2,style:{filter:'drop-shadow(0 0 6px '+c2+')'}}));
+  }
+  ic(ch){ return React.createElement('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round',style:{width:'100%',height:'100%'}},ch); }
+  icon(name){
+    const ce=React.createElement;
+    const m={
+      dashboard:[ce('rect',{key:1,x:3,y:3,width:7,height:7,rx:1.5}),ce('rect',{key:2,x:14,y:3,width:7,height:7,rx:1.5}),ce('rect',{key:3,x:14,y:14,width:7,height:7,rx:1.5}),ce('rect',{key:4,x:3,y:14,width:7,height:7,rx:1.5})],
+      model:[ce('rect',{key:1,x:7,y:7,width:10,height:10,rx:2}),ce('path',{key:2,d:'M12 3v2M12 19v2M3 12h2M19 12h2'})],
+      strategy:[ce('path',{key:1,d:'M4 7h10M18 7h2M4 17h2M10 17h10'}),ce('circle',{key:2,cx:16,cy:7,r:2.4}),ce('circle',{key:3,cx:8,cy:17,r:2.4})],
+      ai:[ce('path',{key:1,d:'M12 3l2 5 5 2-5 2-2 5-2-5-5-2 5-2z'})]
+    };
+    return this.ic(m[name]);
+  }
+  logo(){
+    const ce=React.createElement,id='lg'+Math.floor(Math.random()*1e6);
+    return ce('svg',{viewBox:'0 0 40 40',style:{width:'100%',height:'100%'}},
+      ce('defs',null,ce('linearGradient',{id,x1:0,y1:0,x2:1,y2:1},ce('stop',{offset:'0%',stopColor:'#4be0ff'}),ce('stop',{offset:'100%',stopColor:'#ff5cc8'}))),
+      ce('path',{d:'M20 2 L35 11 L35 29 L20 38 L5 29 L5 11 Z',fill:'none',stroke:'url(#'+id+')',strokeWidth:2}),
+      ce('path',{d:'M14 26 L14 14 L26 26 L26 14',fill:'none',stroke:'url(#'+id+')',strokeWidth:2.4,strokeLinecap:'round',strokeLinejoin:'round'}));
+  }
+  renderVals(){
+    const st=this.state;
+    const tabsDef=[['dashboard','داشبورد',true],['model','مدل',false],['strategy','استراتژی',false],['ai','AI',false]];
+    const tabs=tabsDef.map(([k,label,active])=>({label,icon:this.icon(k),color:active?'#4be0ff':'#6f6a99'}));
+    const trades=[{pair:'BTC/USDT',pnl:'+3.0%',color:'#4be0aa'},{pair:'ETH/USDT',pnl:'+3.6%',color:'#4be0aa'},{pair:'XRP/USDT',pnl:'-3.8%',color:'#ff7a9c'}];
+    return {
+      tru:true, logo:this.logo(),
+      equityNow:this.fmt(this.equityNow), mChart:this.mkArea(this.equity,'#4be0ff','#7fd4ff',120), trades, tabs,
+      // login tabs
+      isEmail:st.mtab==='email', isMob:st.mtab==='mobile',
+      emBg:st.mtab==='email'?'#4be0ff':'transparent', emCol:st.mtab==='email'?'#05121a':'#a59fce',
+      moBg:st.mtab==='mobile'?'#4be0ff':'transparent', moCol:st.mtab==='mobile'?'#05121a':'#a59fce',
+      setEmail:()=>this.setState({mtab:'email'}), setMob:()=>this.setState({mtab:'mobile'}),
+      // strategy
+      spotBg:st.mode==='spot'?'#4be0ff':'transparent', spotCol:st.mode==='spot'?'#05121a':'#a59fce',
+      futBg:st.mode==='futures'?'#4be0ff':'transparent', futCol:st.mode==='futures'?'#05121a':'#a59fce',
+      setSpot:()=>this.setState({mode:'spot'}), setFut:()=>this.setState({mode:'futures'}),
+      mTarget:st.mTarget, mTrades:st.mTrades,
+      estDaily:'≈ '+(st.mTarget*Math.min(st.mTrades,12)/4).toFixed(1)+'%',
+      onTarget:e=>this.setState({mTarget:parseFloat(e.target.value)}),
+      onTrades:e=>this.setState({mTrades:parseInt(e.target.value)}),
+      // ai
+      aiOn:st.aiOn,
+      aiBg:st.aiOn?'#ff5cc8':'rgba(255,255,255,.18)', aiKnob:st.aiOn?'auto':'25px',
+      aiDesc:st.aiOn?'برای واگذاری کامل به ML خاموش کنید':'فقط ماشین‌لرنینگ معامله می‌کند',
+      modeLabel:st.aiOn?'حالت ترکیبی: AI + ML':'حالت فقط ماشین‌لرنینگ',
+      modeCol:st.aiOn?'#ff8edd':'#ffc24b',
+      modeBg:st.aiOn?'rgba(255,92,200,.12)':'rgba(255,194,75,.12)',
+      toggleAI:()=>this.setState({aiOn:!st.aiOn})
+    };
+  }
+}
+</script>
+</body>
+</html>

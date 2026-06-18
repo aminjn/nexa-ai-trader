@@ -44,6 +44,8 @@ async def get_model_status(db: Session = Depends(get_db), current_user: models.U
         "accumulated_rows": accum_count(),
         "model_name": ml_model.name,
         "version": ml_model.version,
+        # آستانه‌ی تصمیم فعلی مدل (همیشه مقداری دارد، حتی اگر AI تنظیمش نکرده باشد)
+        "confidence_threshold": round(trainer.confidence_threshold * 100, 1),
     }
 
 

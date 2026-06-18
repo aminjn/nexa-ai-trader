@@ -17,7 +17,7 @@ interface ModelStatus {
   status:string; accuracy:number; is_trained:boolean; progress:number; message:string;
   features:string[]; model_name:string; version:string; training_data_days:number;
   feature_importances?: FeatureImportance[]; metrics?: Metrics; ai_explanation?: string; data_source?: string;
-  accumulated_rows?: number;
+  accumulated_rows?: number; confidence_threshold?: number;
 }
 
 function AccuracyDial({ pct }: { pct: number }) {
@@ -167,7 +167,7 @@ export default function Model() {
                 { l:'صحت (Precision)', v: `${status.metrics.precision}٪` },
                 { l:'فراخوانی (Recall)', v: `${status.metrics.recall}٪` },
                 { l:'تعداد اندیکاتور', v: status.metrics.num_features },
-                { l:'🧠 آستانه تصمیم (تنظیم AI)', v: status.metrics.ai_threshold ? `${status.metrics.ai_threshold}٪` : '—' },
+                { l:'🧠 آستانه تصمیم', v: status.metrics.ai_threshold ? `${status.metrics.ai_threshold}٪ (تنظیم AI)` : (status.confidence_threshold ? `${status.confidence_threshold}٪ (پیش‌فرض)` : '—') },
               ].map((x,i)=>(
                 <div key={i} style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--faint)', marginBottom:5 }}>{x.l}</div>

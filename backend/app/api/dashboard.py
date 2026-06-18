@@ -113,6 +113,69 @@ async def get_recent_trades(
     } for t in trades]
 
 
+@router.get("/holdings")
+async def get_holdings(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """دارایی‌های واقعی کاربر در صرافی."""
+    out = []
+    exchanges = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).all()
+    for exch in exchanges:
+        try:
+            ex = get_exchange(exch.exchange_name, exch.api_key, exch.api_secret)
+            if hasattr(ex, "get_holdings"):
+                for h in await ex.get_holdings():
+                    out.append({**h, "exchange": exch.exchange_name})
+        except Exception:
+            continue
+    return {"holdings": out}
+
+
+@router.get("/positions")
+async def get_positions(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """معاملات باز با قیمت فروش هدف و حد ضرر."""
+    open_trades = db.query(models.Trade).filter(
+        models.Trade.user_id == current_user.id,
+        models.Trade.status == "open",
+    ).all()
+    if not open_trades:
+        return {"positions": []}
+
+    exch_rec = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).first()
+    ex = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret) if exch_rec else None
+
+    tp = current_user.target_profit
+    sl = current_user.stop_loss
+    out = []
+    for t in open_trades:
+        cur = 0.0
+        if ex:
+            try:
+                cur = (await ex.get_ticker(t.pair)).get("last", 0)
+            except Exception:
+                cur = 0.0
+        entry = t.entry_price or 0
+        pnl_pct = ((cur - entry) / entry * 100) if (entry and cur) else 0
+        out.append({
+            "id": t.id,
+            "pair": t.pair,
+            "amount": t.amount,
+            "entry_price": entry,
+            "current_price": cur,
+            "target_sell_price": round(entry * (1 + tp / 100), 2),
+            "stop_price": round(entry * (1 - sl / 100), 2),
+            "pnl_pct": round(pnl_pct, 2),
+            "target_profit": tp,
+            "stop_loss": sl,
+            "opened_at": t.opened_at,
+        })
+    return {"positions": out}
+
+
 @router.get("/signals")
 async def get_signals(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """سیگنال واقعی فعلی مدل برای جفت‌ارزهای اصلی."""

@@ -96,6 +96,61 @@ async def run_now(
     return {"message": "بررسی بازار انجام شد"}
 
 
+@router.post("/import-positions")
+async def import_positions(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """خریدهای انجام‌شده در نوبیتکس را که در سیستم ثبت نشده‌اند، به‌عنوان معامله باز وارد می‌کند."""
+    from ..trading.bot import log_bot_event
+    exch_rec = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).first()
+    if not exch_rec:
+        return {"imported": 0, "message": "صرافی متصل نیست"}
+
+    exchange = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret)
+    if not hasattr(exchange, "get_recent_orders"):
+        return {"imported": 0, "message": "پشتیبانی نمی‌شود"}
+
+    orders = await exchange.get_recent_orders(only_buy=True)
+    existing_ids = {t.order_id for t in db.query(models.Trade).filter(
+        models.Trade.user_id == current_user.id).all() if t.order_id}
+
+    imported = 0
+    for o in orders:
+        oid = str(o.get("id", ""))
+        if not oid or oid in existing_ids:
+            continue
+        src = (o.get("srcCurrency", "") or "").upper()
+        dst = (o.get("dstCurrency", "") or "").upper()
+        if dst in ("RLS", "IRR"):
+            dst = "RLS"
+        pair = f"{src}/{dst}"
+        try:
+            entry = float(o.get("averagePrice") or o.get("price") or 0)
+            amount = float(o.get("matchedAmount") or o.get("amount") or 0)
+        except (TypeError, ValueError):
+            continue
+        if entry <= 0 or amount <= 0:
+            continue
+        trade = models.Trade(
+            user_id=current_user.id,
+            exchange=exch_rec.exchange_name,
+            pair=pair, side="buy",
+            entry_price=entry, amount=amount,
+            status="open", trade_type="spot",
+            ai_assisted=False, order_id=oid,
+        )
+        db.add(trade)
+        imported += 1
+    db.commit()
+    if imported:
+        log_bot_event(f"📥 {imported} معامله از نوبیتکس وارد سیستم شد")
+    return {"imported": imported, "message": f"{imported} معامله وارد شد"}
+
+
 class TestTradeRequest(BaseModel):
     pair: str = "BTC/RLS"
 

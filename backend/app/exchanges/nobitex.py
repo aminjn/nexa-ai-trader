@@ -51,6 +51,31 @@ class NobitexExchange(BaseExchange):
         except Exception as e:
             return {}
 
+    async def get_holdings(self) -> List[Dict]:
+        """لیست دارایی‌های غیرصفر با ارزش تومانی."""
+        result = await self._post("/users/wallets/list")
+        out = []
+        for w in result.get("wallets", []):
+            bal = self._safe_float(w.get("balance"))
+            if bal > 0:
+                out.append({
+                    "currency": (w.get("currency", "") or "").upper(),
+                    "amount": bal,
+                    "value_toman": self._safe_float(w.get("rialBalance")) / 10.0,
+                })
+        return sorted(out, key=lambda x: x["value_toman"], reverse=True)
+
+    async def get_recent_orders(self, only_buy: bool = True) -> List[Dict]:
+        """تاریخچه سفارش‌های انجام‌شده."""
+        try:
+            params = {"status": "done", "details": 2}
+            if only_buy:
+                params["type"] = "buy"
+            result = await self._get("/market/orders/list", params=params)
+            return result.get("orders", [])
+        except Exception:
+            return []
+
     async def get_portfolio_value_toman(self) -> float:
         """مجموع ارزش کل کیف‌پول‌ها را به تومان برمی‌گرداند."""
         result = await self._post("/users/wallets/list")

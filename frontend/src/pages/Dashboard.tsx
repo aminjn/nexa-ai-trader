@@ -11,6 +11,8 @@ interface Trade { id:number; pair:string; side:string; entry:number; exit:number
 interface EquityPoint { date:string; value:number }
 interface ActivityEvent { time:string; message:string; level:string }
 interface Signal { pair:string; signal:string; signal_fa:string; confidence:number }
+interface Holding { currency:string; amount:number; value_toman:number; exchange:string }
+interface Position { id:number; pair:string; amount:number; entry_price:number; current_price:number; target_sell_price:number; stop_price:number; pnl_pct:number; target_profit:number; stop_loss:number }
 
 const StatCard = ({ label, value, sub, subColor }: { label:string; value:string; sub?:string; subColor?:string }) => (
   <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:'18px 20px' }}>
@@ -30,17 +32,22 @@ export default function Dashboard() {
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [runningNow, setRunningNow] = useState(false)
   const [signals, setSignals] = useState<Signal[]>([])
+  const [holdings, setHoldings] = useState<Holding[]>([])
+  const [positions, setPositions] = useState<Position[]>([])
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, eq, tr, btc, act, sig] = await Promise.all([
+        const [s, eq, tr, btc, act, sig, hold, pos] = await Promise.all([
           api.get('/dashboard/stats'),
           api.get('/dashboard/equity-curve'),
           api.get('/dashboard/recent-trades'),
           api.get('/dashboard/btc-price'),
           api.get('/strategy/activity'),
           api.get('/dashboard/signals'),
+          api.get('/dashboard/holdings'),
+          api.get('/dashboard/positions'),
         ])
         setStats(s.data)
         setEquity(eq.data.data || [])
@@ -48,6 +55,8 @@ export default function Dashboard() {
         setBtcPrice(btc.data.price || 0)
         setActivity(act.data.events || [])
         setSignals(sig.data.signals || [])
+        setHoldings(hold.data.holdings || [])
+        setPositions(pos.data.positions || [])
       } catch {} finally { setLoading(false) }
     }
     load()
@@ -81,6 +90,16 @@ export default function Dashboard() {
     } catch (e: any) {
       toast.error(e.response?.data?.detail || 'خطا در تست معامله')
     } finally { setTesting(false) }
+  }
+
+  const importPositions = async () => {
+    setImporting(true)
+    try {
+      const r = await api.post('/strategy/import-positions')
+      toast.success(r.data.message || 'انجام شد')
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'خطا')
+    } finally { setImporting(false) }
   }
 
   const fmtTime = (iso: string) => {
@@ -138,6 +157,39 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* معاملات باز — کی و چه قیمتی می‌فروشد */}
+        <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:22 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <span style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>معاملات باز (هدف فروش)</span>
+            <button onClick={importPositions} disabled={importing} style={{ padding:'8px 16px', border:'1px solid var(--border2)', borderRadius:10, background:'transparent', color:'var(--text)', fontWeight:600, fontFamily:'inherit', fontSize:12, cursor:importing?'not-allowed':'pointer' }}>
+              📥 وارد کردن معاملات از نوبیتکس
+            </button>
+          </div>
+          {positions.length === 0 ? (
+            <div style={{ textAlign:'center', color:'var(--faint)', padding:20, fontSize:13 }}>
+              معامله بازی وجود ندارد. اگر در نوبیتکس خریدی داری، «وارد کردن معاملات» را بزن.
+            </div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr', gap:8, padding:'0 12px 8px', fontSize:11, color:'var(--faint)' }}>
+                <span>جفت‌ارز</span><span>قیمت خرید</span><span>قیمت فعلی</span><span>🎯 فروش در</span><span style={{textAlign:'end'}}>سود/زیان</span>
+              </div>
+              {positions.map(p => (
+                <div key={p.id} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr', gap:8, padding:12, borderRadius:11, alignItems:'center', fontSize:13, fontFamily:"'JetBrains Mono'", background:'var(--bg3)' }}>
+                  <span style={{ fontWeight:700 }}>{p.pair}</span>
+                  <span style={{ color:'var(--dim)' }}>{p.entry_price.toLocaleString()}</span>
+                  <span style={{ color:'var(--dim)' }}>{p.current_price.toLocaleString()}</span>
+                  <span style={{ color:'var(--green)', fontWeight:700 }}>{p.target_sell_price.toLocaleString()}</span>
+                  <span style={{ textAlign:'end', fontWeight:700, color:pnlColor(p.pnl_pct) }}>{p.pnl_pct>=0?'+':''}{p.pnl_pct}%</span>
+                </div>
+              ))}
+              <p style={{ fontSize:11, color:'var(--faint)', margin:'6px 0 0' }}>
+                ربات وقتی قیمت به «هدف فروش» (سود {positions[0]?.target_profit}٪) یا حد ضرر ({positions[0]?.stop_loss}٪-) برسد، خودکار می‌فروشد.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Charts */}
@@ -237,16 +289,16 @@ export default function Dashboard() {
               </p>
             </div>
             <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:20 }}>
-              <div style={{ fontFamily:"'Space Grotesk'", fontWeight:600, fontSize:15, marginBottom:14 }}>{t.allocation}</div>
-              {allocation.map(a => (
-                <div key={a.name} style={{ marginBottom:13 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, marginBottom:6 }}>
-                    <span>{a.name}</span>
-                    <span style={{ fontFamily:"'JetBrains Mono'", color:'var(--dim)' }}>{a.pct}%</span>
-                  </div>
-                  <div style={{ height:7, background:'var(--bg3)', borderRadius:4, overflow:'hidden' }}>
-                    <div style={{ height:'100%', width:`${a.pct}%`, background:a.color, borderRadius:4 }} />
-                  </div>
+              <div style={{ fontFamily:"'Space Grotesk'", fontWeight:600, fontSize:15, marginBottom:14 }}>دارایی‌های شما</div>
+              {holdings.length === 0 ? (
+                <div style={{ fontSize:13, color:'var(--faint)' }}>دارایی‌ای یافت نشد</div>
+              ) : holdings.map(h => (
+                <div key={h.currency} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 0', borderBottom:'1px solid var(--border)' }}>
+                  <span style={{ fontWeight:600, fontFamily:"'JetBrains Mono'" }}>{h.currency==='RLS'?'تومان':h.currency}</span>
+                  <span style={{ textAlign:'end' }}>
+                    <div style={{ fontFamily:"'JetBrains Mono'", fontSize:13 }}>{h.currency==='RLS' ? '' : h.amount.toLocaleString(undefined,{maximumFractionDigits:8})}</div>
+                    <div style={{ fontFamily:"'JetBrains Mono'", fontSize:12, color:'var(--dim)' }}>{h.value_toman.toLocaleString(undefined,{maximumFractionDigits:0})} تومان</div>
+                  </span>
                 </div>
               ))}
             </div>

@@ -95,12 +95,13 @@ class NobitexExchange(BaseExchange):
                 return {}
             bids = result.get("bids") or []
             asks = result.get("asks") or []
-            return {
-                "symbol": symbol,
-                "last": self._safe_float(result.get("lastTradePrice")),
-                "bid": self._safe_float(bids[0][0]) if bids else 0,
-                "ask": self._safe_float(asks[0][0]) if asks else 0,
-            }
+            bid = self._safe_float(bids[0][0]) if bids else 0
+            ask = self._safe_float(asks[0][0]) if asks else 0
+            last = self._safe_float(result.get("lastTradePrice"))
+            if not last:
+                # اگر آخرین قیمت معامله نبود، میانگین بهترین خرید/فروش
+                last = (bid + ask) / 2 if (bid and ask) else (bid or ask)
+            return {"symbol": symbol, "last": last, "bid": bid, "ask": ask}
         except Exception:
             return {}
 

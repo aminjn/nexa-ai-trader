@@ -228,20 +228,25 @@ async def get_positions(db: Session = Depends(get_db), current_user: models.User
     out = []
     for t in open_trades:
         npair = norm_pair(t.pair)
+        is_rial = npair.endswith("/RLS") or npair.endswith("/IRR")
+        # ضریب تبدیل به تومان: بازارهای ریالی نوبیتکس ÷۱۰ تا با بقیه داشبورد هم‌واحد شود
+        div = 10.0 if is_rial else 1.0
         cur = 0.0
         if ex:
             try:
-                cur = (await ex.get_ticker(npair)).get("last", 0)
+                cur = float((await ex.get_ticker(npair)).get("last", 0) or 0) / div
             except Exception:
                 cur = 0.0
-        entry = t.entry_price or 0
+        entry = (t.entry_price or 0) / div
         pnl_pct = ((cur - entry) / entry * 100) if (entry and cur) else 0
+        # نمایش جفت‌ارز به‌صورت فارسی/تومان برای هماهنگی با بقیه داشبورد
+        disp_pair = npair.replace("/RLS", "/تومان").replace("/IRR", "/تومان")
         out.append({
             "id": t.id,
-            "pair": npair,
+            "pair": disp_pair,
             "amount": t.amount,
-            "entry_price": entry,
-            "current_price": cur,
+            "entry_price": round(entry, 2),
+            "current_price": round(cur, 2),
             "target_sell_price": round(entry * (1 + tp / 100), 2),
             "stop_price": round(entry * (1 - sl / 100), 2),
             "pnl_pct": round(pnl_pct, 2),

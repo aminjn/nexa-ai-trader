@@ -118,6 +118,9 @@ class NobitexExchange(BaseExchange):
     @staticmethod
     def _code(c: str) -> str:
         c = (c or "").strip().lower()
+        # یکسان‌سازی نویسه‌های عربی/فارسی (ی، ک) و حذف نیم‌فاصله
+        c = (c.replace("ي", "ی").replace("ك", "ک")
+              .replace("‌", "").replace("‏", "").replace("‎", ""))
         return NobitexExchange._CODE.get(c, c)
 
     @staticmethod

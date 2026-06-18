@@ -206,44 +206,45 @@ async def get_positions(db: Session = Depends(get_db), current_user: models.User
     if not open_trades:
         return {"positions": []}
 
-    exch_rec = db.query(models.ExchangeAPI).filter(
-        models.ExchangeAPI.user_id == current_user.id,
-        models.ExchangeAPI.is_active == True,
-    ).first()
-    ex = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret) if exch_rec else None
-
+    from ..config import settings
     from ..exchanges.nobitex import NobitexExchange
-    def norm_pair(p):
-        if "/" in (p or ""):
-            a, b = p.split("/", 1)
-            a = NobitexExchange._code(a).upper()
-            b = NobitexExchange._code(b).upper()
-            if b in ("RLS", "IRR"):
-                b = "RLS"
-            return f"{a}/{b}"
-        return p
+    base_url = settings.NOBITEX_BASE_URL
+
+    # قیمت لحظه‌ای بازار ریالی را مستقیم از orderbook می‌گیریم — دقیقاً همان مسیری که
+    # باکس «قیمت لحظه‌ای ارزها» استفاده می‌کند و مطمئناً کار می‌کند. به رشته‌ی ذخیره‌شده
+    # وابسته نیستیم؛ فقط ارز پایه (BTC/ETH/...) را برمی‌داریم.
+    async def rial_price(base_code: str) -> float:
+        try:
+            async with httpx.AsyncClient(timeout=10, trust_env=False) as c:
+                r = await c.get(f"{base_url}/v3/orderbook/{base_code.upper()}IRT")
+                d = r.json()
+                if d.get("status") == "ok":
+                    last = float(d.get("lastTradePrice", 0) or 0)
+                    if not last:
+                        bids = d.get("bids") or []
+                        asks = d.get("asks") or []
+                        bid = float(bids[0][0]) if bids else 0
+                        ask = float(asks[0][0]) if asks else 0
+                        last = (bid + ask) / 2 if (bid and ask) else (bid or ask)
+                    return last
+        except Exception:
+            return 0.0
+        return 0.0
 
     tp = current_user.target_profit
     sl = current_user.stop_loss
     out = []
     for t in open_trades:
-        npair = norm_pair(t.pair)
-        is_rial = npair.endswith("/RLS") or npair.endswith("/IRR")
-        # ضریب تبدیل به تومان: بازارهای ریالی نوبیتکس ÷۱۰ تا با بقیه داشبورد هم‌واحد شود
-        div = 10.0 if is_rial else 1.0
-        cur = 0.0
-        if ex:
-            try:
-                cur = float((await ex.get_ticker(npair)).get("last", 0) or 0) / div
-            except Exception:
-                cur = 0.0
-        entry = (t.entry_price or 0) / div
+        raw = t.pair or ""
+        base = raw.split("/")[0] if "/" in raw else raw
+        base_code = NobitexExchange._code(base)        # → btc / eth / ...
+        rial = await rial_price(base_code)
+        cur = rial / 10.0                              # ریال → تومان
+        entry = (t.entry_price or 0) / 10.0            # قیمت ورود هم به ریال ذخیره شده بود
         pnl_pct = ((cur - entry) / entry * 100) if (entry and cur) else 0
-        # نمایش جفت‌ارز به‌صورت فارسی/تومان برای هماهنگی با بقیه داشبورد
-        disp_pair = npair.replace("/RLS", "/تومان").replace("/IRR", "/تومان")
         out.append({
             "id": t.id,
-            "pair": disp_pair,
+            "pair": f"{base_code.upper()}/تومان",
             "amount": t.amount,
             "entry_price": round(entry, 2),
             "current_price": round(cur, 2),

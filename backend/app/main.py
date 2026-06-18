@@ -161,6 +161,9 @@ async def root():
     return {"message": "NEXA AI Trader API", "version": "1.0.0", "status": "running"}
 
 
+BUILD_VERSION = "2026-06-18-positions-toman-v2"
+
+
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "build": BUILD_VERSION}

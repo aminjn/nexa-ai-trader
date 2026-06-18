@@ -30,12 +30,12 @@ class NobitexExchange(BaseExchange):
 
     async def test_connection(self) -> bool:
         # خطاها را پنهان نمی‌کنیم تا علت واقعی در لاگ/پاسخ دیده شود
-        result = await self._get("/users/profile/")
+        result = await self._get("/users/profile")
         return result.get("status") == "ok"
 
     async def get_balance(self) -> Dict[str, Balance]:
         try:
-            result = await self._post("/users/wallets/list/")
+            result = await self._post("/users/wallets/list")
             balances = {}
             for wallet in result.get("wallets", []):
                 currency = wallet.get("currency", "").upper()
@@ -51,11 +51,19 @@ class NobitexExchange(BaseExchange):
         except Exception as e:
             return {}
 
+    async def get_portfolio_value_toman(self) -> float:
+        """مجموع ارزش کل کیف‌پول‌ها را به تومان برمی‌گرداند."""
+        result = await self._post("/users/wallets/list")
+        total_rial = 0.0
+        for wallet in result.get("wallets", []):
+            total_rial += float(wallet.get("rialBalance", 0) or 0)
+        return total_rial / 10.0  # ریال به تومان
+
     async def get_ticker(self, symbol: str) -> Dict:
         try:
             # Nobitex uses srcCurrency/dstCurrency format
             src, dst = symbol.replace("/", "-").split("-")
-            result = await self._get("/market/stats/", params={
+            result = await self._get("/market/stats", params={
                 "srcCurrency": src.lower(),
                 "dstCurrency": dst.lower(),
             })
@@ -113,7 +121,7 @@ class NobitexExchange(BaseExchange):
             "amount": str(amount),
             "price": "market",
         }
-        result = await self._post("/market/orders/add/", data)
+        result = await self._post("/market/orders/add", data)
         order = result.get("order", {})
         return OrderResult(
             order_id=str(order.get("id", "")),
@@ -134,7 +142,7 @@ class NobitexExchange(BaseExchange):
             "amount": str(amount),
             "price": str(price),
         }
-        result = await self._post("/market/orders/add/", data)
+        result = await self._post("/market/orders/add", data)
         order = result.get("order", {})
         return OrderResult(
             order_id=str(order.get("id", "")),
@@ -148,7 +156,7 @@ class NobitexExchange(BaseExchange):
 
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         try:
-            result = await self._post("/market/orders/cancel/", {"id": order_id})
+            result = await self._post("/market/orders/cancel", {"id": order_id})
             return result.get("status") == "ok"
         except Exception:
             return False
@@ -156,14 +164,14 @@ class NobitexExchange(BaseExchange):
     async def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict]:
         try:
             params = {"status": "active"}
-            result = await self._get("/market/orders/list/", params=params)
+            result = await self._get("/market/orders/list", params=params)
             return result.get("orders", [])
         except Exception:
             return []
 
     async def get_order(self, order_id: str, symbol: str) -> Dict:
         try:
-            result = await self._post("/market/orders/status/", {"id": order_id})
+            result = await self._post("/market/orders/status", {"id": order_id})
             return result.get("order", {})
         except Exception:
             return {}

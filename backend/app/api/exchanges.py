@@ -63,13 +63,16 @@ async def add_exchange(
             models.ExchangeAPI.user_id == current_user.id
         ).update({"is_primary": False})
 
-    # Get initial balance
+    # Get initial balance (مجموع ارزش کیف‌پول به تومان)
     balance = 0
     try:
-        balances = await exch.get_balance()
-        usdt = balances.get("USDT")
-        if usdt:
-            balance = usdt.total
+        if hasattr(exch, "get_portfolio_value_toman"):
+            balance = await exch.get_portfolio_value_toman()
+        else:
+            balances = await exch.get_balance()
+            usdt = balances.get("USDT")
+            if usdt:
+                balance = usdt.total
     except Exception:
         pass
 
@@ -119,9 +122,12 @@ async def sync_balance(
     try:
         exch = get_exchange(exch_record.exchange_name, exch_record.api_key, exch_record.api_secret)
         balances = await exch.get_balance()
-        usdt = balances.get("USDT")
-        if usdt:
-            exch_record.balance = usdt.total
+        if hasattr(exch, "get_portfolio_value_toman"):
+            exch_record.balance = await exch.get_portfolio_value_toman()
+        else:
+            usdt = balances.get("USDT")
+            if usdt:
+                exch_record.balance = usdt.total
         from datetime import datetime
         exch_record.last_sync = datetime.utcnow()
         db.commit()

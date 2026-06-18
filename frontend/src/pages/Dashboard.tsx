@@ -122,8 +122,8 @@ export default function Dashboard() {
       <div className="fade-in" style={{ display:'flex', flexDirection:'column', gap:22 }}>
         {/* Stats */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16 }}>
-          <StatCard label={t.totalEquity} value={`$${stats?.total_equity?.toFixed(2)||'0.00'}`} sub={stats?.today_pnl_pct ? `${stats.today_pnl_pct>=0?'+':''}${stats.today_pnl_pct}%` : undefined} subColor={pnlColor(stats?.today_pnl_pct||0)} />
-          <StatCard label={t.todayPnl} value={`$${stats?.today_pnl?.toFixed(4)||'0'}`} subColor={pnlColor(stats?.today_pnl||0)} />
+          <StatCard label={t.totalEquity} value={`${Math.round(stats?.total_equity||0).toLocaleString('fa-IR')} ت`} sub={stats?.today_pnl_pct ? `${stats.today_pnl_pct>=0?'+':''}${stats.today_pnl_pct}%` : undefined} subColor={pnlColor(stats?.today_pnl_pct||0)} />
+          <StatCard label={t.todayPnl} value={`${Math.round(stats?.today_pnl||0).toLocaleString('fa-IR')} ت`} subColor={pnlColor(stats?.today_pnl||0)} />
           <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub="↑ نرخ موفقیت" subColor="var(--green)" />
           <StatCard label={t.trades24h} value={`${stats?.total_trades_24h||0}`} sub="معاملات" />
         </div>

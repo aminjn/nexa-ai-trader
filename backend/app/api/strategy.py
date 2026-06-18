@@ -123,8 +123,9 @@ async def import_positions(
         oid = str(o.get("id", ""))
         if not oid or oid in existing_ids:
             continue
-        src = (o.get("srcCurrency", "") or "").upper()
-        dst = (o.get("dstCurrency", "") or "").upper()
+        from ..exchanges.nobitex import NobitexExchange
+        src = NobitexExchange._code(o.get("srcCurrency", "")).upper()
+        dst = NobitexExchange._code(o.get("dstCurrency", "")).upper()
         if dst in ("RLS", "IRR"):
             dst = "RLS"
         pair = f"{src}/{dst}"

@@ -33,7 +33,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
 
   useEffect(() => {
     api.get('/dashboard/stats').then(r => {
-      setEquity(r.data.total_equity?.toFixed(2) ?? '0.00')
+      setEquity(Math.round(r.data.total_equity ?? 0).toLocaleString('fa-IR'))
       setBotActive(r.data.bot_active ?? false)
     }).catch(() => {})
   }, [location.pathname])
@@ -117,7 +117,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12 }}>
               <span style={{ fontSize: 11, color: 'var(--dim)' }}>{t.totalEquity}</span>
-              <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15 }}>${equity}</span>
+              <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15 }}>{equity} ت</span>
             </div>
             <button onClick={toggleBot} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 16px', border: `1px solid ${botActive ? 'var(--green)' : 'var(--border2)'}`, borderRadius: 12, background: botActive ? 'color-mix(in srgb,var(--green) 12%,transparent)' : 'transparent', color: botActive ? 'var(--green)' : 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, transition: '.2s' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: botActive ? 'var(--green)' : 'var(--dim)', boxShadow: botActive ? '0 0 8px var(--green)' : 'none', animation: botActive ? 'pulse 2s infinite' : 'none' }} />

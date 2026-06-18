@@ -88,6 +88,7 @@ class NobitexExchange(BaseExchange):
         try:
             # Nobitex uses srcCurrency/dstCurrency format
             src, dst = symbol.replace("/", "-").split("-")
+            src, dst = self._code(src), self._code(dst)
             result = await self._get("/market/stats", params={
                 "srcCurrency": src.lower(),
                 "dstCurrency": dst.lower(),
@@ -108,6 +109,20 @@ class NobitexExchange(BaseExchange):
         except Exception as e:
             return {}
 
+    # نگاشت نام کامل ارز (که نوبیتکس در تاریخچه می‌دهد) به کد کوتاه بازار
+    _CODE = {
+        "bitcoin": "btc", "ethereum": "eth", "tether": "usdt", "ripple": "xrp",
+        "cardano": "ada", "dogecoin": "doge", "litecoin": "ltc", "tron": "trx",
+        "stellar": "xlm", "bitcoincash": "bch", "binancecoin": "bnb", "bnb": "bnb",
+        "solana": "sol", "polkadot": "dot", "irr": "rls", "irt": "rls",
+        "rial": "rls", "toman": "rls",
+    }
+
+    @staticmethod
+    def _code(c: str) -> str:
+        c = (c or "").strip().lower()
+        return NobitexExchange._CODE.get(c, c)
+
     @staticmethod
     def _safe_float(val, default: float = 0.0) -> float:
         try:
@@ -126,6 +141,7 @@ class NobitexExchange(BaseExchange):
     async def get_ohlcv(self, symbol: str, timeframe: str = "1h", limit: int = 200) -> List:
         try:
             src, dst = symbol.replace("/", "-").split("-")
+            src, dst = self._code(src), self._code(dst)
             resolution_map = {"1m": "1", "5m": "5", "15m": "15", "1h": "60", "4h": "240", "1d": "D"}
             resolution = resolution_map.get(timeframe, "60")
             to_time = int(datetime.utcnow().timestamp())
@@ -154,6 +170,7 @@ class NobitexExchange(BaseExchange):
 
     async def create_market_order(self, symbol: str, side: str, amount: float) -> OrderResult:
         src, dst = symbol.replace("/", "-").split("-")
+        src, dst = self._code(src), self._code(dst)
         data = {
             "type": "buy" if side == "buy" else "sell",
             "execution": "market",
@@ -177,6 +194,7 @@ class NobitexExchange(BaseExchange):
 
     async def create_limit_order(self, symbol: str, side: str, amount: float, price: float) -> OrderResult:
         src, dst = symbol.replace("/", "-").split("-")
+        src, dst = self._code(src), self._code(dst)
         data = {
             "type": "buy" if side == "buy" else "sell",
             "srcCurrency": src.lower(),

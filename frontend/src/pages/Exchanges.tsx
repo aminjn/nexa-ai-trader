@@ -6,10 +6,13 @@ import api from '../lib/api'
 
 interface Exchange {
   id: number
-  name: string
-  status: 'connected' | 'disconnected' | 'error'
+  exchange_name: string
+  api_key: string
+  is_primary: boolean
+  is_active: boolean
   balance: number
   last_sync: string
+  created_at: string
 }
 
 const EXCHANGE_OPTIONS = ['Nobitex', 'Binance', 'KuCoin', 'Bybit', 'OKX']
@@ -27,11 +30,11 @@ const GRADIENT_COLORS = [
 ]
 
 function getInitials(name: string): string {
-  return name.slice(0, 2).toUpperCase()
+  return (name || '??').slice(0, 2).toUpperCase()
 }
 
 function formatBalance(n: number): string {
-  return n.toLocaleString('fa-IR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' تومان'
+  return (n || 0).toLocaleString('fa-IR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' تومان'
 }
 
 function timeAgo(iso: string): string {
@@ -43,12 +46,6 @@ function timeAgo(iso: string): string {
   const hrs = Math.floor(mins / 60)
   if (hrs < 24) return `${hrs} ساعت پیش`
   return `${Math.floor(hrs / 24)} روز پیش`
-}
-
-const STATUS_LABEL: Record<Exchange['status'], string> = {
-  connected: 'متصل',
-  disconnected: 'قطع',
-  error: 'خطا',
 }
 
 export default function Exchanges() {
@@ -153,9 +150,6 @@ export default function Exchanges() {
     fontWeight: 600,
   }
 
-  const statusColor = (s: Exchange['status']) =>
-    s === 'connected' ? '#22c55e' : s === 'error' ? '#ef4444' : '#6b7280'
-
   return (
     <Layout title={t.navExchanges} subtitle="صرافی‌های متصل و افزودن صرافی جدید">
     <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -222,11 +216,11 @@ export default function Exchanges() {
                   color: '#fff',
                   flexShrink: 0,
                 }}>
-                  {getInitials(ex.name)}
+                  {getInitials(ex.exchange_name)}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>
-                    {ex.name}
+                    {ex.exchange_name}
                   </div>
                   <div style={{
                     display: 'inline-flex',
@@ -235,15 +229,15 @@ export default function Exchanges() {
                     marginTop: 3,
                     padding: '2px 8px',
                     borderRadius: 999,
-                    background: `${statusColor(ex.status)}15`,
-                    border: `1px solid ${statusColor(ex.status)}30`,
+                    background: `${ex.is_active ? '#22c55e' : '#6b7280'}15`,
+                    border: `1px solid ${ex.is_active ? '#22c55e' : '#6b7280'}30`,
                   }}>
-                    {ex.status === 'connected'
-                      ? <Wifi size={11} style={{ color: statusColor(ex.status) }} />
-                      : <WifiOff size={11} style={{ color: statusColor(ex.status) }} />
+                    {ex.is_active
+                      ? <Wifi size={11} style={{ color: '#22c55e' }} />
+                      : <WifiOff size={11} style={{ color: '#6b7280' }} />
                     }
-                    <span style={{ fontSize: 11, fontWeight: 600, color: statusColor(ex.status) }}>
-                      {STATUS_LABEL[ex.status]}
+                    <span style={{ fontSize: 11, fontWeight: 600, color: ex.is_active ? '#22c55e' : '#6b7280' }}>
+                      {ex.is_active ? 'متصل' : 'قطع'}
                     </span>
                   </div>
                 </div>
@@ -287,7 +281,7 @@ export default function Exchanges() {
                   همگام‌سازی
                 </button>
                 <button
-                  onClick={() => handleRemove(ex.id, ex.name)}
+                  onClick={() => handleRemove(ex.id, ex.exchange_name)}
                   disabled={removing === ex.id}
                   style={{
                     display: 'flex',

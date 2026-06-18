@@ -15,6 +15,11 @@ interface Holding { currency:string; amount:number; value_toman:number; exchange
 interface Position { id:number; pair:string; amount:number; entry_price:number; current_price:number; target_sell_price:number; stop_price:number; pnl_pct:number; target_profit:number; stop_loss:number }
 interface Price { coin:string; toman:number; usd:number }
 interface Fundamental { score:number; summary:string; usd_trend_7d:number; btc_trend_7d:number; btc_trend_30d:number }
+interface Analysis {
+  fundamental: { text:string; conclusion:string; score:number }
+  technical: { text:string; conclusion:string; score:number; ml_signal:string; ml_conf:number; rsi?:number; adx?:number }
+  combined: { recommendation:string; color:string; text:string }
+}
 
 const StatCard = ({ label, value, sub, subColor }: { label:string; value:string; sub?:string; subColor?:string }) => (
   <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:'18px 20px' }}>
@@ -38,6 +43,16 @@ export default function Dashboard() {
   const [importing, setImporting] = useState(false)
   const [prices, setPrices] = useState<Price[]>([])
   const [fundamental, setFundamental] = useState<Fundamental|null>(null)
+  const [analysis, setAnalysis] = useState<Analysis|null>(null)
+
+  useEffect(() => {
+    const loadAnalysis = async () => {
+      try { const r = await api.get('/dashboard/analysis'); setAnalysis(r.data) } catch {}
+    }
+    loadAnalysis()
+    const iv = setInterval(loadAnalysis, 8000)
+    return () => clearInterval(iv)
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -135,6 +150,52 @@ export default function Dashboard() {
           <StatCard label="نقد قابل‌معامله" value={`${Math.round(stats?.free_cash_toman||0).toLocaleString('fa-IR')} ت`} sub="موجودی ریالی آزاد" subColor="var(--accent)" />
           <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub={`${stats?.total_trades_24h||0} معامله امروز`} subColor="var(--green)" />
         </div>
+
+        {/* تحلیل فاندامنتال + تکنیکال + نتیجه‌گیری */}
+        {(() => {
+          const cc = (c: string) => c === 'صعودی' ? 'var(--green)' : c === 'نزولی' ? 'var(--red)' : 'var(--amber)'
+          const recColor = analysis?.combined.color === 'buy' ? 'var(--green)' : analysis?.combined.color === 'sell' ? 'var(--red)' : 'var(--amber)'
+          const badge = (label: string, color: string) => (
+            <span style={{ padding:'3px 12px', borderRadius:999, fontSize:13, fontWeight:700, background:`color-mix(in srgb, ${color} 18%, transparent)`, color }}>{label}</span>
+          )
+          return (
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                {/* فاندامنتال */}
+                <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:22 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                    <span style={{ fontFamily:"'Space Grotesk'", fontSize:16, fontWeight:700 }}>📊 تحلیل فاندامنتال</span>
+                    {analysis && badge(analysis.fundamental.conclusion, cc(analysis.fundamental.conclusion))}
+                  </div>
+                  <p style={{ fontSize:13.5, lineHeight:1.9, color:'var(--dim)', margin:0 }}>{analysis?.fundamental.text || 'در حال تحلیل...'}</p>
+                  <div style={{ marginTop:10, fontSize:12, color:'var(--faint)' }}>نتیجه‌گیری: <b style={{ color:cc(analysis?.fundamental.conclusion||'خنثی') }}>{analysis?.fundamental.conclusion || '—'}</b></div>
+                </div>
+                {/* تکنیکال */}
+                <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:22 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
+                    <span style={{ fontFamily:"'Space Grotesk'", fontSize:16, fontWeight:700 }}>📈 تحلیل تکنیکال</span>
+                    {analysis && badge(analysis.technical.conclusion, cc(analysis.technical.conclusion))}
+                  </div>
+                  <p style={{ fontSize:13.5, lineHeight:1.9, color:'var(--dim)', margin:0 }}>{analysis?.technical.text || 'در حال تحلیل...'}</p>
+                  <div style={{ marginTop:10, fontSize:12, color:'var(--faint)' }}>
+                    سیگنال مدل ML: <b style={{ color:'var(--accent)' }}>{analysis?.technical.ml_signal === 'BUY' ? 'خرید' : analysis?.technical.ml_signal === 'SELL' ? 'فروش' : 'صبر'} ({analysis?.technical.ml_conf || 0}٪)</b>
+                    {' '}| نتیجه‌گیری: <b style={{ color:cc(analysis?.technical.conclusion||'خنثی') }}>{analysis?.technical.conclusion || '—'}</b>
+                  </div>
+                </div>
+              </div>
+              {/* نتیجه‌گیری نهایی */}
+              <div style={{ background:`linear-gradient(135deg, color-mix(in srgb, ${recColor} 12%, var(--card-bg)), var(--card-bg))`, border:`1px solid ${recColor}`, borderRadius:18, padding:22 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
+                  <span style={{ fontFamily:"'Space Grotesk'", fontSize:16, fontWeight:700 }}>🎯 نتیجه‌گیری نهایی:</span>
+                  <span style={{ padding:'6px 20px', borderRadius:12, fontSize:18, fontWeight:800, background:`color-mix(in srgb, ${recColor} 20%, transparent)`, color:recColor }}>
+                    {analysis?.combined.recommendation || '—'}
+                  </span>
+                </div>
+                <p style={{ fontSize:13.5, lineHeight:1.9, color:'var(--dim)', margin:'12px 0 0' }}>{analysis?.combined.text || 'در حال جمع‌بندی تحلیل‌ها...'}</p>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* فعالیت زنده ربات */}
         <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:22 }}>

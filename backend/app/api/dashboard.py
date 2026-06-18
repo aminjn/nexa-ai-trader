@@ -11,6 +11,64 @@ import httpx
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
+def _compute_technical(df):
+    """تحلیل تکنیکال متنی بر اساس اندیکاتورها."""
+    from ..ml.trainer import add_features
+    f = add_features(df).dropna()
+    if f.empty:
+        return None
+    r = f.iloc[-1]
+    rsi = float(r["rsi_14"])
+    macd_hist = float(r["macd_hist"])
+    above_sma50 = float(r["sma_50"]) > 0   # close/sma50 - 1
+    above_sma200 = float(r["sma_200"]) > 0
+    adx = float(r["adx"])
+    stoch = float(r["stoch_k"])
+    bb = float(r["bb_pct"])
+
+    signals, score = [], 0
+    if rsi < 30:
+        signals.append(f"RSI={rsi:.0f} در ناحیه اشباع فروش (سیگنال خرید)"); score += 1
+    elif rsi > 70:
+        signals.append(f"RSI={rsi:.0f} در ناحیه اشباع خرید (سیگنال فروش)"); score -= 1
+    else:
+        signals.append(f"RSI={rsi:.0f} خنثی")
+
+    if macd_hist > 0:
+        signals.append("MACD صعودی (مومنتوم مثبت)"); score += 1
+    else:
+        signals.append("MACD نزولی (مومنتوم منفی)"); score -= 1
+
+    if above_sma50:
+        signals.append("قیمت بالای میانگین ۵۰ روزه (روند کوتاه‌مدت صعودی)"); score += 1
+    else:
+        signals.append("قیمت زیر میانگین ۵۰ روزه (روند کوتاه‌مدت نزولی)"); score -= 1
+
+    if above_sma200:
+        signals.append("قیمت بالای میانگین ۲۰۰ روزه (روند بلندمدت صعودی)"); score += 1
+    else:
+        signals.append("قیمت زیر میانگین ۲۰۰ روزه (روند بلندمدت نزولی)"); score -= 1
+
+    if adx > 25:
+        signals.append(f"روند قدرتمند است (ADX={adx:.0f})")
+    else:
+        signals.append(f"روند ضعیف/خنثی (ADX={adx:.0f})")
+
+    if bb < 0.1:
+        signals.append("نزدیک باند پایین بولینگر (احتمال برگشت صعودی)"); score += 1
+    elif bb > 0.9:
+        signals.append("نزدیک باند بالای بولینگر (احتمال برگشت نزولی)"); score -= 1
+
+    conclusion = "صعودی" if score >= 2 else ("نزولی" if score <= -2 else "خنثی")
+    return {
+        "text": "؛ ".join(signals),
+        "conclusion": conclusion,
+        "score": score,
+        "rsi": round(rsi, 1),
+        "adx": round(adx, 1),
+    }
+
+
 @router.get("/stats")
 async def get_stats(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     total_trades = db.query(models.Trade).filter(models.Trade.user_id == current_user.id).count()
@@ -218,6 +276,78 @@ async def get_signals(db: Session = Depends(get_db), current_user: models.User =
         except Exception:
             continue
     return out
+
+
+@router.get("/analysis")
+async def full_analysis(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """تحلیل فاندامنتال + تکنیکال + نتیجه‌گیری نهایی (متنی)."""
+    import pandas as pd
+    from ..ml.trainer import get_trainer
+
+    exch_rec = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).first()
+
+    technical = {"text": "داده کافی نیست", "conclusion": "خنثی", "score": 0, "ml_signal": "—", "ml_conf": 0}
+    fundamental = {"text": "در دسترس نیست", "conclusion": "خنثی", "score": 0}
+
+    if exch_rec:
+        ex = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret)
+        # تکنیکال روی BTC
+        try:
+            ohlcv = await ex.get_ohlcv("BTC/RLS", "1h", 300)
+            if ohlcv:
+                df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+                df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+                t = _compute_technical(df)
+                if t:
+                    technical.update(t)
+                trainer = get_trainer()
+                if trainer.is_trained:
+                    ml = trainer.predict(df)
+                    technical["ml_signal"] = ml["signal"]
+                    technical["ml_conf"] = round(ml.get("confidence", 0) * 100, 1)
+        except Exception:
+            pass
+        # فاندامنتال
+        try:
+            from ..ai.fundamental import get_fundamental
+            fund = await get_fundamental(db, ex)
+            sc = fund.get("score", 0)
+            fundamental = {
+                "text": fund.get("summary") or f"روند دلار ۷روزه: {fund.get('usd_trend_7d')}% | بیت‌کوین ۷روزه: {fund.get('btc_trend_7d')}%",
+                "conclusion": "صعودی" if sc > 0.1 else ("نزولی" if sc < -0.1 else "خنثی"),
+                "score": sc,
+            }
+        except Exception:
+            pass
+
+    # ── نتیجه‌گیری نهایی ──
+    tech_c = technical["conclusion"]
+    fund_c = fundamental["conclusion"]
+    ml_sig = technical.get("ml_signal", "—")
+
+    def sign(c):
+        return 1 if c == "صعودی" else (-1 if c == "نزولی" else 0)
+    total = sign(tech_c) + sign(fund_c) + (1 if ml_sig == "BUY" else (-1 if ml_sig == "SELL" else 0))
+
+    if total >= 2:
+        rec, color = "خرید", "buy"
+        ctext = "هم تحلیل تکنیکال و هم فاندامنتال صعودی هستند و مدل سیگنال خرید می‌دهد — شرایط مساعد خرید."
+    elif total <= -2:
+        rec, color = "فروش / خروج", "sell"
+        ctext = "تکنیکال و فاندامنتال نزولی هستند — بهتر است از معامله خرید پرهیز شود."
+    else:
+        rec, color = "صبر", "wait"
+        ctext = "سیگنال‌های تکنیکال و فاندامنتال هم‌جهت نیستند — بهتر است صبر کنید تا تأیید واضح‌تری شکل بگیرد."
+
+    return {
+        "fundamental": fundamental,
+        "technical": technical,
+        "combined": {"recommendation": rec, "color": color, "text": ctext},
+        "updated_at": datetime.utcnow().isoformat() + "Z",
+    }
 
 
 @router.get("/fundamental")

@@ -90,6 +90,11 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # آموزش خودکار دوره‌ای مدل (هر ۶ ساعت با داده جدید)
+    import asyncio as _asyncio
+    from .api.model_api import auto_retrain_loop
+    _asyncio.create_task(auto_retrain_loop(6.0))
+
     yield
 
 

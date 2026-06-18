@@ -4,7 +4,8 @@ from pydantic import BaseModel
 from .. import models
 from ..database import get_db
 from ..auth.router import get_current_user
-from ..trading.bot import start_user_bot, stop_user_bot
+from ..trading.bot import start_user_bot, stop_user_bot, get_activity_log, run_trading_cycle
+from ..exchanges.nobitex import get_exchange
 
 router = APIRouter(prefix="/strategy", tags=["strategy"])
 
@@ -68,3 +69,28 @@ async def toggle_bot(
     else:
         stop_user_bot(current_user.id)
     return {"bot_active": current_user.bot_active}
+
+
+@router.get("/activity")
+async def get_activity(
+    current_user: models.User = Depends(get_current_user)
+):
+    """لاگ فعالیت ربات برای نمایش در پنل."""
+    return {"events": get_activity_log(50)}
+
+
+@router.post("/bot/run-now")
+async def run_now(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """اجرای فوری یک چرخه معامله (برای تست بدون انتظار)."""
+    exchanges = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).all()
+    if not exchanges:
+        return {"message": "هیچ صرافی متصلی وجود ندارد"}
+    for exch in exchanges:
+        await run_trading_cycle(db, current_user, exch)
+    return {"message": "بررسی بازار انجام شد"}

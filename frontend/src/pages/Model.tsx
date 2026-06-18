@@ -64,12 +64,13 @@ export default function Model() {
   const acc = status?.accuracy ? status.accuracy * 100 : 0
   const learningData = generateLearningData(acc || 85)
   const isTraining = status?.status === 'training'
+  const m = status?.metrics
 
   const modelStats = [
-    { label: t.modelAcc, value: `${acc.toFixed(1)}%`, note: status?.is_trained ? '✓ آماده' : '⏳ آموزش نیافته' },
-    { label: t.trainingData, value: `${status?.training_data_days || 1825} روز`, note: t.days5year },
-    { label: t.totalSamples, value: '~2,000', note: 'کندل روزانه' },
-    { label: t.epochs, value: '100', note: 'گرادیان بوست' },
+    { label: t.modelAcc, value: `${(m?.accuracy ?? acc).toFixed(1)}%`, note: status?.is_trained ? '✓ آماده' : '⏳ آموزش نیافته' },
+    { label: 'منبع داده', value: m?.source || status?.data_source || '—', note: `${m?.date_from || ''}` },
+    { label: t.totalSamples, value: (m?.total_samples ?? 0).toLocaleString('fa-IR'), note: 'نمونه واقعی' },
+    { label: t.epochs, value: `${m?.num_features ?? 35}`, note: 'اندیکاتور' },
   ]
 
   return (

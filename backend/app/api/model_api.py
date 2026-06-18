@@ -2,10 +2,12 @@ from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
+import asyncio
 from .. import models
 from ..database import get_db
 from ..auth.router import get_current_user
 from ..ml.trainer import get_trainer, FEATURE_NAMES
+from ..trading.bot import log_bot_event
 
 router = APIRouter(prefix="/model", tags=["model"])
 
@@ -56,16 +58,7 @@ async def _train_background():
     try:
         result = await trainer.train(progress_callback=progress_cb)
 
-        # تولید توضیح هوش مصنوعی درباره آموخته‌های مدل
-        _training_progress = {"status": "training", "progress": 100, "message": "هوش مصنوعی در حال تحلیل آموخته‌ها..."}
-        ai_explanation = await _generate_ai_explanation(result)
-
-        _training_progress = {
-            "status": "ready",
-            "progress": 100,
-            "message": "مدل آماده است",
-            "accuracy": result["accuracy"],
-        }
+        # ابتدا نتایج را ذخیره و وضعیت را «آماده» می‌کنیم تا پنل قفل نماند
         db = SessionLocal()
         try:
             ml_model = db.query(models.MLModel).first()
@@ -75,13 +68,36 @@ async def _train_background():
                 ml_model.feature_importances = result["feature_importances"]
                 ml_model.metrics = result["metrics"]
                 ml_model.data_source = result["source"]
-                ml_model.ai_explanation = ai_explanation
                 ml_model.last_trained = datetime.utcnow()
                 db.commit()
         finally:
             db.close()
+
+        _training_progress = {
+            "status": "ready",
+            "progress": 100,
+            "message": "مدل آماده است",
+            "accuracy": result["accuracy"],
+        }
+        log_bot_event(f"مدل آموزش دید — دقت {result['metrics'].get('accuracy')}٪ روی {result['metrics'].get('total_samples')} نمونه")
+
+        # توضیح هوش مصنوعی (بهترین تلاش، با محدودیت زمانی — آموزش را بلوک نمی‌کند)
+        try:
+            ai_explanation = await asyncio.wait_for(_generate_ai_explanation(result), timeout=45)
+            if ai_explanation:
+                db2 = SessionLocal()
+                try:
+                    mm = db2.query(models.MLModel).first()
+                    if mm:
+                        mm.ai_explanation = ai_explanation
+                        db2.commit()
+                finally:
+                    db2.close()
+        except Exception:
+            pass
     except Exception as e:
         _training_progress = {"status": "error", "progress": 0, "message": f"خطا: {str(e)}"}
+        log_bot_event(f"خطا در آموزش مدل: {str(e)[:120]}")
 
 
 async def _generate_ai_explanation(result: dict) -> str:
@@ -126,6 +142,15 @@ async def start_training(
 
     background_tasks.add_task(_train_background)
     return {"message": "آموزش شروع شد"}
+
+
+async def auto_retrain_loop(interval_hours: float = 6.0):
+    """هر چند ساعت یک‌بار مدل را با داده‌ی به‌روز دوباره آموزش می‌دهد."""
+    while True:
+        await asyncio.sleep(interval_hours * 3600)
+        if _training_progress.get("status") != "training":
+            log_bot_event("🔄 آموزش خودکار دوره‌ای مدل با داده جدید آغاز شد")
+            await _train_background()
 
 
 @router.get("/predict")

@@ -3,11 +3,13 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart,
 import Layout from '../components/Layout'
 import { useAppStore } from '../stores/appStore'
 import api from '../lib/api'
-import { Sparkles, TrendingUp } from 'lucide-react'
+import { Sparkles, TrendingUp, Activity, RefreshCw } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface Stats { total_equity:number; today_pnl:number; today_pnl_pct:number; total_trades_24h:number; win_rate:number }
 interface Trade { id:number; pair:string; side:string; entry:number; exit:number; pnl:number; pnl_pct:number; status:string; opened_at:string; exchange:string }
 interface EquityPoint { date:string; value:number }
+interface ActivityEvent { time:string; message:string; level:string }
 
 const StatCard = ({ label, value, sub, subColor }: { label:string; value:string; sub?:string; subColor?:string }) => (
   <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:'18px 20px' }}>
@@ -24,26 +26,46 @@ export default function Dashboard() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [btcPrice, setBtcPrice] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [activity, setActivity] = useState<ActivityEvent[]>([])
+  const [runningNow, setRunningNow] = useState(false)
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, eq, tr, btc] = await Promise.all([
+        const [s, eq, tr, btc, act] = await Promise.all([
           api.get('/dashboard/stats'),
           api.get('/dashboard/equity-curve'),
           api.get('/dashboard/recent-trades'),
           api.get('/dashboard/btc-price'),
+          api.get('/strategy/activity'),
         ])
         setStats(s.data)
         setEquity(eq.data.data || [])
         setTrades(tr.data || [])
         setBtcPrice(btc.data.price || 0)
+        setActivity(act.data.events || [])
       } catch {} finally { setLoading(false) }
     }
     load()
-    const iv = setInterval(load, 30000)
+    const iv = setInterval(load, 15000)
     return () => clearInterval(iv)
   }, [])
+
+  const runNow = async () => {
+    setRunningNow(true)
+    try {
+      const r = await api.post('/strategy/bot/run-now')
+      toast.success(r.data.message || 'بررسی بازار انجام شد')
+      const act = await api.get('/strategy/activity')
+      setActivity(act.data.events || [])
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'خطا در بررسی بازار')
+    } finally { setRunningNow(false) }
+  }
+
+  const fmtTime = (iso: string) => {
+    try { return new Date(iso).toLocaleTimeString('fa-IR', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) } catch { return '' }
+  }
 
   const pnlColor = (v: number) => v >= 0 ? 'var(--green)' : 'var(--red)'
   const sideColor = (s: string) => ['buy','long'].includes(s) ? 'var(--accent)' : 'var(--accent2)'
@@ -65,6 +87,32 @@ export default function Dashboard() {
           <StatCard label={t.todayPnl} value={`$${stats?.today_pnl?.toFixed(4)||'0'}`} subColor={pnlColor(stats?.today_pnl||0)} />
           <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub="↑ نرخ موفقیت" subColor="var(--green)" />
           <StatCard label={t.trades24h} value={`${stats?.total_trades_24h||0}`} sub="معاملات" />
+        </div>
+
+        {/* فعالیت زنده ربات */}
+        <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:22 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <Activity size={18} style={{ color:'var(--accent)' }} />
+              <span style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>فعالیت زنده ربات</span>
+            </div>
+            <button onClick={runNow} disabled={runningNow} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 18px', border:'none', borderRadius:11, background:'var(--accent)', color:'#05121a', fontWeight:700, fontFamily:'inherit', fontSize:13, cursor:runningNow?'not-allowed':'pointer', opacity:runningNow?0.7:1 }}>
+              <RefreshCw size={14} style={{ animation: runningNow ? 'spin 1s linear infinite' : 'none' }} />
+              بررسی فوری بازار
+            </button>
+          </div>
+          <div style={{ maxHeight:280, overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }}>
+            {activity.length === 0 ? (
+              <div style={{ color:'var(--faint)', fontSize:13, textAlign:'center', padding:'24px 0' }}>
+                هنوز فعالیتی ثبت نشده. ربات را روشن کن یا «بررسی فوری بازار» را بزن.
+              </div>
+            ) : activity.map((ev, i) => (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:10 }}>
+                <span style={{ fontFamily:"'JetBrains Mono'", fontSize:11, color:'var(--faint)', flexShrink:0 }}>{fmtTime(ev.time)}</span>
+                <span style={{ fontSize:13, color: ev.level==='error' ? 'var(--red)' : 'var(--text)' }}>{ev.message}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Charts */}

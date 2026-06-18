@@ -1,6 +1,7 @@
 import asyncio
+from collections import deque
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from sqlalchemy.orm import Session
 from ..database import SessionLocal
 from .. import models
@@ -13,6 +14,23 @@ logger = logging.getLogger(__name__)
 
 # Active bot tasks per user
 _active_bots: Dict[int, asyncio.Task] = {}
+
+# لاگ فعالیت برای نمایش داخل پنل (آخرین ۱۵۰ رویداد)
+_activity_log: deque = deque(maxlen=150)
+
+
+def log_bot_event(message: str, level: str = "info"):
+    """ثبت یک رویداد در لاگ فعالیت قابل‌مشاهده در پنل."""
+    _activity_log.appendleft({
+        "time": datetime.utcnow().isoformat(),
+        "message": message,
+        "level": level,
+    })
+    logger.info(message)
+
+
+def get_activity_log(limit: int = 50) -> List[dict]:
+    return list(_activity_log)[:limit]
 
 
 async def run_user_bot(user_id: int):
@@ -83,6 +101,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
         quote_free = balances[quote].free if balances.get(quote) else 0.0
         min_value = MIN_ORDER_VALUE.get(quote, 0.0)
         trainer = get_trainer()
+        log_bot_event(f"🔍 بررسی بازار {' و '.join(pairs)} | موجودی قابل‌معامله: {quote_free:,.0f} {quote}")
 
         for pair in pairs:
             ticker = await exchange.get_ticker(pair)
@@ -108,9 +127,9 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                         open_trade.status = "closed"
                         open_trade.closed_at = datetime.utcnow()
                         db.commit()
-                        logger.info(f"Closed {pair} pnl%={change_pct:.2f}")
+                        log_bot_event(f"🔴 فروش {pair} | سود/زیان: {change_pct:.2f}٪")
                     except Exception as e:
-                        logger.error(f"Close order failed {pair}: {e}")
+                        log_bot_event(f"خطا در فروش {pair}: {str(e)[:80]}", "error")
                 continue  # تا وقتی معامله باز است، معامله جدید باز نمی‌کنیم
 
             # ── سیگنال برای باز کردن معامله جدید ──
@@ -164,9 +183,9 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     db.add(trade)
                     db.commit()
                     quote_free -= spend
-                    logger.info(f"Opened BUY {pair} amount={amount}")
+                    log_bot_event(f"🟢 خرید {pair} | مقدار: {amount} | قیمت: {current_price:,.0f}")
                 except Exception as e:
-                    logger.error(f"Buy order failed {pair}: {e}")
+                    log_bot_event(f"خطا در خرید {pair}: {str(e)[:80]}", "error")
 
     except Exception as e:
         logger.error(f"Trading cycle error: {e}")
@@ -176,12 +195,14 @@ def start_user_bot(user_id: int):
     if user_id not in _active_bots or _active_bots[user_id].done():
         task = asyncio.create_task(run_user_bot(user_id))
         _active_bots[user_id] = task
+        log_bot_event("✅ ربات فعال شد")
 
 
 def stop_user_bot(user_id: int):
     if user_id in _active_bots:
         _active_bots[user_id].cancel()
         del _active_bots[user_id]
+        log_bot_event("⏸ ربات متوقف شد")
 
 
 def get_active_bot_count() -> int:

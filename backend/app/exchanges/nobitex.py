@@ -29,11 +29,9 @@ class NobitexExchange(BaseExchange):
             return resp.json()
 
     async def test_connection(self) -> bool:
-        try:
-            result = await self._get("/users/profile/")
-            return result.get("status") == "ok"
-        except Exception:
-            return False
+        # خطاها را پنهان نمی‌کنیم تا علت واقعی در لاگ/پاسخ دیده شود
+        result = await self._get("/users/profile/")
+        return result.get("status") == "ok"
 
     async def get_balance(self) -> Dict[str, Balance]:
         try:

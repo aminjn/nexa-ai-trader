@@ -49,11 +49,14 @@ async def add_exchange(
         connected = await exch.test_connection()
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception:
-        connected = False
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"خطا در اتصال به صرافی: {type(e).__name__} — {str(e)[:150]}",
+        )
 
     if not connected:
-        raise HTTPException(status_code=400, detail="اتصال به صرافی ناموفق بود. کلید API را بررسی کنید")
+        raise HTTPException(status_code=400, detail="توکن نوبیتکس نامعتبر است یا دسترسی لازم را ندارد")
 
     if req.is_primary:
         db.query(models.ExchangeAPI).filter(

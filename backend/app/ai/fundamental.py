@@ -40,13 +40,23 @@ async def get_fundamental(db, exchange, force: bool = False) -> dict:
         data["btc_trend_7d"] = _change_pct(btc, 7)
         data["btc_trend_30d"] = _change_pct(btc, 30)
 
+        # داده‌های اسکرپ‌شده از سایت‌های انتخابی کاربر
+        scraped = ""
+        try:
+            from ..scraping.scraper import collect_scraped_context
+            scraped = collect_scraped_context(db)
+        except Exception:
+            scraped = ""
+
         if get_ai_config(db)["api_key"]:
+            news_section = f"\n\nاخبار و داده‌های اسکرپ‌شده از منابع:\n{scraped}\n" if scraped else ""
             prompt = (
                 "تو یک تحلیلگر فاندامنتال بازار رمزارز هستی. این داده‌های واقعی را تحلیل کن:\n"
                 f"- تغییر قیمت دلار (تتر به تومان) در ۷ روز اخیر: {data['usd_trend_7d']}%\n"
                 f"- تغییر قیمت بیت‌کوین در ۷ روز اخیر: {data['btc_trend_7d']}%\n"
-                f"- تغییر قیمت بیت‌کوین در ۳۰ روز اخیر: {data['btc_trend_30d']}%\n\n"
-                "با توجه به این داده‌ها، شرایط کلی اقتصادی ایران (روند دلار)، و دانش فاندامنتال‌ات "
+                f"- تغییر قیمت بیت‌کوین در ۳۰ روز اخیر: {data['btc_trend_30d']}%"
+                f"{news_section}\n"
+                "با توجه به این داده‌ها، اخبار بالا، شرایط کلی اقتصادی ایران (روند دلار)، و دانش فاندامنتال‌ات "
                 "از بازار کریپتو، یک «امتیاز احساسات بازار» بین -۱ (بسیار نزولی) تا +۱ (بسیار صعودی) بده.\n"
                 "فقط به این صورت JSON پاسخ بده (بدون هیچ متن اضافه):\n"
                 '{"score": 0.3, "summary": "خلاصه تحلیل فارسی در یک یا دو جمله"}'

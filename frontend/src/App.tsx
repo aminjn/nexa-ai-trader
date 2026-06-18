@@ -17,6 +17,7 @@ import AI from './pages/AI'
 import SuperAdmin from './pages/SuperAdmin'
 import UserDetail from './pages/UserDetail'
 import AdminSettings from './pages/AdminSettings'
+import Scraper from './pages/Scraper'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="/ai" element={<ProtectedRoute><AI /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><SuperAdmin /></AdminRoute>} />
           <Route path="/admin/users/:id" element={<AdminRoute><UserDetail /></AdminRoute>} />
+          <Route path="/scraper" element={<AdminRoute><Scraper /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

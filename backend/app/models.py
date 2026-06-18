@@ -135,3 +135,17 @@ class OTPCode(Base):
     expires_at = Column(DateTime)
     used = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ScrapeSource(Base):
+    __tablename__ = "scrape_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)            # نام منبع (مثلاً «اخبار ارزدیجیتال»)
+    url = Column(String)             # آدرس سایت
+    selector = Column(String, default="")  # CSS selector فیلد موردنظر
+    use_proxy = Column(Boolean, default=False)  # برای سایت‌های خارجی
+    enabled = Column(Boolean, default=True)
+    last_value = Column(Text, default="")
+    last_scraped = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

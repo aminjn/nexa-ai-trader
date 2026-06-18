@@ -12,6 +12,7 @@ from .api.history import router as history_router
 from .api.model_api import router as model_router
 from .api.ai_api import router as ai_router
 from .api.admin import router as admin_router
+from .api.scraper_api import router as scraper_router
 from .auth.service import create_user, get_user_by_email
 from .database import SessionLocal
 from .config import settings
@@ -95,6 +96,20 @@ async def lifespan(app: FastAPI):
     from .api.model_api import auto_retrain_loop
     _asyncio.create_task(auto_retrain_loop(6.0))
 
+    # اسکرپ خودکار منابع خبری (هر ۱ ساعت)
+    async def _scrape_loop():
+        from .scraping.scraper import scrape_all
+        while True:
+            await _asyncio.sleep(3600)
+            sdb = SessionLocal()
+            try:
+                await scrape_all(sdb)
+            except Exception as e:
+                print(f"⚠️ scrape loop warning: {e}")
+            finally:
+                sdb.close()
+    _asyncio.create_task(_scrape_loop())
+
     yield
 
 
@@ -122,6 +137,7 @@ app.include_router(history_router)
 app.include_router(model_router)
 app.include_router(ai_router)
 app.include_router(admin_router)
+app.include_router(scraper_router)
 
 
 @app.get("/")

@@ -51,6 +51,14 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN fields JSON"))
             if "link_selector" not in cols:
                 conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN link_selector VARCHAR DEFAULT ''"))
+            if "max_items" not in cols:
+                conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN max_items INTEGER DEFAULT 5"))
+            if "interval_minutes" not in cols:
+                conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN interval_minutes INTEGER DEFAULT 60"))
+            if "seen_urls" not in cols:
+                conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN seen_urls JSON"))
+            if "items" not in cols:
+                conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN items JSON"))
 
 
 @asynccontextmanager
@@ -108,10 +116,10 @@ async def lifespan(app: FastAPI):
     async def _scrape_loop():
         from .scraping.scraper import scrape_all
         while True:
-            await _asyncio.sleep(3600)
+            await _asyncio.sleep(300)  # هر ۵ دقیقه بررسی، هر منبع طبق زمان‌بندی خودش
             sdb = SessionLocal()
             try:
-                await scrape_all(sdb)
+                await scrape_all(sdb, respect_schedule=True)
             except Exception as e:
                 print(f"⚠️ scrape loop warning: {e}")
             finally:

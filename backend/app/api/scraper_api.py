@@ -105,6 +105,8 @@ class SourceRequest(BaseModel):
     fields: list[FieldItem] = []
     use_proxy: bool = False
     enabled: bool = True
+    max_items: int = 5
+    interval_minutes: int = 60
 
 
 class TestRequest(BaseModel):
@@ -124,6 +126,8 @@ async def list_sources(db: Session = Depends(get_db), current_user: models.User 
     return [{
         "id": s.id, "name": s.name, "url": s.url, "selector": s.selector,
         "fields": s.fields or [], "use_proxy": s.use_proxy, "enabled": s.enabled,
+        "max_items": s.max_items or 5, "interval_minutes": s.interval_minutes or 60,
+        "items_count": len(s.items or []),
         "last_value": (s.last_value or "")[:400], "last_scraped": s.last_scraped,
     } for s in rows]
 
@@ -136,6 +140,7 @@ async def add_source(req: SourceRequest, db: Session = Depends(get_db), current_
         link_selector=req.link_selector,
         fields=[f.dict() for f in req.fields],
         use_proxy=req.use_proxy, enabled=req.enabled,
+        max_items=req.max_items, interval_minutes=req.interval_minutes,
     )
     db.add(s)
     db.commit()
@@ -195,6 +200,7 @@ class TestRecipeRequest(BaseModel):
     link_selector: str = ""
     fields: list[FieldItem] = []
     use_proxy: bool = False
+    max_items: int = 5
 
 
 @router.post("/test-recipe")
@@ -206,6 +212,7 @@ async def test_recipe(req: TestRecipeRequest, current_user: models.User = Depend
     src = SimpleNamespace(
         url=req.url, selector=req.selector, link_selector=req.link_selector,
         fields=[f.dict() for f in req.fields], use_proxy=req.use_proxy,
+        max_items=req.max_items, seen_urls=[], items=[],
     )
     try:
         text = await scrape_source(src)

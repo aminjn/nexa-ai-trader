@@ -147,6 +147,10 @@ class ScrapeSource(Base):
     link_selector = Column(String, default="")  # selector لینک‌ها (برای اسکرپ دوسطحی)
     fields = Column(JSON, default=list)     # [{name, selector}] فیلدهای محتوا
     use_proxy = Column(Boolean, default=False)  # برای سایت‌های خارجی
+    max_items = Column(Integer, default=5)       # چند مطلب در هر بار
+    interval_minutes = Column(Integer, default=60)  # هر چند دقیقه اسکرپ شود
+    seen_urls = Column(JSON, default=list)       # URLهای دیده‌شده (جلوگیری از تکرار)
+    items = Column(JSON, default=list)           # مطالب جمع‌آوری‌شده
     enabled = Column(Boolean, default=True)
     last_value = Column(Text, default="")
     last_scraped = Column(DateTime, nullable=True)

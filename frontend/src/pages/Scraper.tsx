@@ -13,6 +13,9 @@ interface Source {
   selector: string
   use_proxy: boolean
   enabled: boolean
+  max_items: number
+  interval_minutes: number
+  items_count: number
   last_value: string
   last_scraped: string | null
 }
@@ -34,6 +37,8 @@ export default function Scraper() {
   const [url, setUrl] = useState('')
   const [selector, setSelector] = useState('')
   const [useProxy, setUseProxy] = useState(false)
+  const [maxItems, setMaxItems] = useState(5)
+  const [intervalMin, setIntervalMin] = useState(60)
   const [adding, setAdding] = useState(false)
   const [testing, setTesting] = useState(false)
   const [preview, setPreview] = useState('')
@@ -121,7 +126,7 @@ export default function Scraper() {
     try {
       const fields = capturedFields.map(f => ({ name: f.name, selector: f.selector }))
       const r = await api.post('/scraper/test-recipe', {
-        url: url.trim(), selector: selector.trim(), link_selector: linkSelector, fields, use_proxy: useProxy
+        url: url.trim(), selector: selector.trim(), link_selector: linkSelector, fields, use_proxy: useProxy, max_items: maxItems
       })
       setPreview(r.data.preview || '')
     } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در تست') }
@@ -134,7 +139,7 @@ export default function Scraper() {
     if (fields.length === 0 && !selector.trim()) { toast.error('حداقل یک فیلد انتخاب کن'); return }
     setAdding(true)
     try {
-      await api.post('/scraper/sources', { name: name.trim(), url: url.trim(), selector: selector.trim(), link_selector: linkSelector, fields, use_proxy: useProxy })
+      await api.post('/scraper/sources', { name: name.trim(), url: url.trim(), selector: selector.trim(), link_selector: linkSelector, fields, use_proxy: useProxy, max_items: maxItems, interval_minutes: intervalMin })
       toast.success('منبع اضافه شد')
       setName(''); setUrl(''); setSelector(''); setUseProxy(false); setPreview(''); setCapturedFields([]); setPickerUrl(''); setLinkSelector(''); setInDetail(false)
       load()
@@ -178,6 +183,17 @@ export default function Scraper() {
             <div><div style={label}>آدرس سایت (URL)</div>
               <input style={inputStyle} value={url} onChange={e => setUrl(e.target.value)} placeholder="https://..." dir="ltr" /></div>
           </div>
+          {/* تنظیمات */}
+          <div style={{ display: 'flex', gap: 14, marginTop: 14, flexWrap: 'wrap' }}>
+            <div><div style={label}>تعداد مطلب در هر بار</div>
+              <input type="number" min={1} max={30} value={maxItems} onChange={e => setMaxItems(Number(e.target.value))} style={{ ...inputStyle, width: 130 }} /></div>
+            <div><div style={label}>هر چند دقیقه اسکرپ شود</div>
+              <input type="number" min={5} max={1440} value={intervalMin} onChange={e => setIntervalMin(Number(e.target.value))} style={{ ...inputStyle, width: 160 }} /></div>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 6 }}>
+            ✓ تکراری‌ها خودکار حذف می‌شوند (هر مطلب فقط یک‌بار جمع‌آوری می‌شود).
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
               <input type="checkbox" checked={useProxy} onChange={e => setUseProxy(e.target.checked)} />
@@ -314,6 +330,7 @@ export default function Scraper() {
                         <span style={{ fontWeight: 700, color: 'var(--text)' }}>{s.name}</span>
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 999, background: s.enabled ? 'rgba(74,222,128,0.12)' : 'rgba(148,163,184,0.1)', color: s.enabled ? 'var(--green)' : 'var(--dim)', border: `1px solid ${s.enabled ? 'var(--green)' : 'var(--border)'}` }}>{s.enabled ? 'فعال' : 'غیرفعال'}</span>
                         {s.use_proxy && <span style={{ fontSize: 11, color: 'var(--amber)' }}>پروکسی</span>}
+                        <span style={{ fontSize: 11, color: 'var(--faint)' }}>· {s.max_items} مطلب · هر {s.interval_minutes} دقیقه · {s.items_count} جمع‌آوری‌شده</span>
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--dim)', fontFamily: "'JetBrains Mono'", marginTop: 4, direction: 'ltr', textAlign: 'start', wordBreak: 'break-all' }}>{s.url}</div>
                       {s.selector && <div style={{ fontSize: 11, color: 'var(--faint)', fontFamily: "'JetBrains Mono'", marginTop: 2, direction: 'ltr', textAlign: 'start' }}>selector: {s.selector}</div>}

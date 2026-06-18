@@ -52,26 +52,31 @@ async def _fetch_html(url: str, use_proxy: bool = False) -> str:
         return resp.text
 
 
-async def scrape_source(source) -> str:
-    """منبع را اسکرپ می‌کند. از اسکرپ دوسطحی (لینک‌ها → محتوای هر مطلب) پشتیبانی می‌کند."""
+async def scrape_source(source, persist: bool = False) -> str:
+    """منبع را اسکرپ می‌کند. دوسطحی + عدم تکرار + محدودیت تعداد + جمع‌آوری تجمعی."""
     from urllib.parse import urljoin
     fields = getattr(source, "fields", None) or []
     link_sel = getattr(source, "link_selector", "") or ""
+    max_items = getattr(source, "max_items", 5) or 5
 
     html = await _fetch_html(source.url, source.use_proxy)
     soup = BeautifulSoup(html, "html.parser")
 
-    # ── اسکرپ دوسطحی: دنبال‌کردن لینک‌ها و استخراج محتوای هر مطلب ──
+    # ── اسکرپ دوسطحی ──
     if link_sel and fields:
         anchors = soup.select(link_sel)
-        urls = []
+        all_urls = []
         for a in anchors:
             href = a.get("href") or (a.find("a") and a.find("a").get("href"))
             if href:
-                urls.append(urljoin(source.url, href))
-        urls = list(dict.fromkeys(urls))[:5]  # حداکثر ۵ مطلب
-        items = []
-        for u in urls:
+                all_urls.append(urljoin(source.url, href))
+        all_urls = list(dict.fromkeys(all_urls))
+
+        seen = set(getattr(source, "seen_urls", None) or []) if persist else set()
+        new_urls = [u for u in all_urls if u not in seen][:max_items]
+
+        new_items = []
+        for u in new_urls:
             try:
                 h = await _fetch_html(u, source.use_proxy)
                 s2 = BeautifulSoup(h, "html.parser")
@@ -81,10 +86,19 @@ async def scrape_source(source) -> str:
                     if val:
                         parts.append(f"{f.get('name', 'فیلد')}: {val}")
                 if parts:
-                    items.append(" — ".join(parts))
+                    new_items.append({"url": u, "text": " — ".join(parts)})
             except Exception:
                 continue
-        return "\n".join(items)[:3000]
+
+        if persist:
+            items = (getattr(source, "items", None) or []) + new_items
+            items = items[-50:]  # نگه‌داری ۵۰ مطلب آخر
+            source.items = items
+            source.seen_urls = (list(seen) + new_urls)[-300:]
+            source.last_value = "\n".join(i["text"] for i in items[-15:])[:3000]
+            return f"{len(new_items)} مطلب جدید"
+        # حالت تست: همین چند مطلب تازه را نشان بده
+        return "\n".join(i["text"] for i in new_items)[:3000] or "(مطلب جدیدی یافت نشد)"
 
     # ── تک‌سطحی ──
     if fields:
@@ -93,8 +107,12 @@ async def scrape_source(source) -> str:
             val = _extract_from_soup(soup, f.get("selector", ""), 500)
             if val:
                 parts.append(f"[{f.get('name', 'فیلد')}]: {val}")
-        return "\n".join(parts)[:2000]
-    return _extract_from_soup(soup, source.selector or "", 1200)
+        result = "\n".join(parts)[:2000]
+    else:
+        result = _extract_from_soup(soup, source.selector or "", 1200)
+    if persist:
+        source.last_value = result
+    return result
 
 
 async def analyze_page(url: str, use_proxy: bool = False) -> list:
@@ -156,15 +174,19 @@ async def analyze_page(url: str, use_proxy: bool = False) -> list:
     return groups
 
 
-async def scrape_all(db) -> int:
-    """همه منابع فعال را اسکرپ و در دیتابیس ذخیره می‌کند. تعداد موفق را برمی‌گرداند."""
+async def scrape_all(db, respect_schedule: bool = False) -> int:
+    """همه منابع فعال را اسکرپ و ذخیره می‌کند. respect_schedule=True فقط منابع سررسیدشده."""
     from .. import models
     sources = db.query(models.ScrapeSource).filter(models.ScrapeSource.enabled == True).all()
+    now = datetime.utcnow()
     ok = 0
     for s in sources:
+        if respect_schedule and s.last_scraped:
+            interval = (s.interval_minutes or 60)
+            if (now - s.last_scraped).total_seconds() < interval * 60:
+                continue  # هنوز زمانش نرسیده
         try:
-            val = await scrape_source(s)
-            s.last_value = val
+            await scrape_source(s, persist=True)
             s.last_scraped = datetime.utcnow()
             ok += 1
         except Exception as e:

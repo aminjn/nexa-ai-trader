@@ -65,6 +65,19 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # راه‌اندازی مجدد ربات‌های فعال پس از ری‌استارت سرور
+    db = SessionLocal()
+    try:
+        from .trading.bot import start_user_bot
+        active_users = db.query(models.User).filter(models.User.bot_active == True).all()
+        for u in active_users:
+            start_user_bot(u.id)
+            print(f"🤖 Bot resumed for user {u.id}")
+    except Exception as e:
+        print(f"⚠️ bot resume warning: {e}")
+    finally:
+        db.close()
+
     yield
 
 

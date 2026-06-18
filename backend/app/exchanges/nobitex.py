@@ -83,6 +83,14 @@ class NobitexExchange(BaseExchange):
         except Exception as e:
             return {}
 
+    @staticmethod
+    def _market_symbol(src: str, dst: str) -> str:
+        # نوبیتکس برای بازار ریالی از IRT استفاده می‌کند (نه RLS)
+        dst_u = dst.upper()
+        if dst_u in ("RLS", "IRR"):
+            dst_u = "IRT"
+        return f"{src.upper()}{dst_u}"
+
     async def get_ohlcv(self, symbol: str, timeframe: str = "1h", limit: int = 200) -> List:
         try:
             src, dst = symbol.replace("/", "-").split("-")
@@ -94,7 +102,7 @@ class NobitexExchange(BaseExchange):
             from_time = to_time - secs * limit
 
             result = await self._get("/market/udf/history", params={
-                "symbol": f"{src.upper()}{dst.upper()}",
+                "symbol": self._market_symbol(src, dst),
                 "resolution": resolution,
                 "from": from_time,
                 "to": to_time,
@@ -116,12 +124,14 @@ class NobitexExchange(BaseExchange):
         src, dst = symbol.replace("/", "-").split("-")
         data = {
             "type": "buy" if side == "buy" else "sell",
+            "execution": "market",
             "srcCurrency": src.lower(),
             "dstCurrency": dst.lower(),
             "amount": str(amount),
-            "price": "market",
         }
         result = await self._post("/market/orders/add", data)
+        if result.get("status") != "ok":
+            raise Exception(result.get("message") or str(result))
         order = result.get("order", {})
         return OrderResult(
             order_id=str(order.get("id", "")),

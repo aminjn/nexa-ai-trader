@@ -55,24 +55,69 @@ async def run_user_bot(user_id: int):
         await asyncio.sleep(interval)
 
 
+# حداقل ارزش سفارش بر اساس ارز پایه (تقریبی طبق قوانین نوبیتکس)
+MIN_ORDER_VALUE = {
+    "RLS": 1_100_000.0,   # ~۱۱۰ هزار تومان
+    "USDT": 11.0,
+}
+
+
+def _pairs_and_quote(market_type: str, balances: dict):
+    """جفت‌ارزها و ارز پایه را بر اساس موجودی انتخاب می‌کند."""
+    rls = balances.get("RLS")
+    usdt = balances.get("USDT")
+    if rls and rls.free > 0:
+        return ["BTC/RLS", "ETH/RLS"], "RLS"
+    if usdt and usdt.free > 0:
+        return ["BTC/USDT", "ETH/USDT"], "USDT"
+    # پیش‌فرض ریالی
+    return ["BTC/RLS", "ETH/RLS"], "RLS"
+
+
 async def run_trading_cycle(db: Session, user: models.User, exch: models.ExchangeAPI):
-    """Execute one trading cycle for a user on an exchange."""
+    """یک چرخه معاملاتی: بستن معاملات باز در سود/ضرر، و باز کردن معامله جدید."""
     try:
         exchange = get_exchange(exch.exchange_name, exch.api_key, exch.api_secret)
-        pairs = ["BTC/USDT", "ETH/USDT"]
+        balances = await exchange.get_balance()
+        pairs, quote = _pairs_and_quote(user.market_type, balances)
+        quote_free = balances[quote].free if balances.get(quote) else 0.0
+        min_value = MIN_ORDER_VALUE.get(quote, 0.0)
+        trainer = get_trainer()
 
         for pair in pairs:
-            ohlcv = await exchange.get_ohlcv(pair, "1h", 200)
-            if not ohlcv:
-                continue
-
             ticker = await exchange.get_ticker(pair)
             current_price = ticker.get("last", 0)
             if not current_price:
                 continue
 
-            # Get ML signal
-            trainer = get_trainer()
+            # ── معامله باز موجود؟ بررسی سود/ضرر برای بستن ──
+            open_trade = db.query(models.Trade).filter(
+                models.Trade.user_id == user.id,
+                models.Trade.pair == pair,
+                models.Trade.status == "open",
+            ).first()
+
+            if open_trade:
+                change_pct = (current_price - open_trade.entry_price) / open_trade.entry_price * 100
+                if change_pct >= user.target_profit or change_pct <= -user.stop_loss:
+                    try:
+                        order = await exchange.create_market_order(pair, "sell", open_trade.amount)
+                        open_trade.exit_price = current_price
+                        open_trade.pnl_pct = round(change_pct, 3)
+                        open_trade.pnl = round((current_price - open_trade.entry_price) * open_trade.amount, 2)
+                        open_trade.status = "closed"
+                        open_trade.closed_at = datetime.utcnow()
+                        db.commit()
+                        logger.info(f"Closed {pair} pnl%={change_pct:.2f}")
+                    except Exception as e:
+                        logger.error(f"Close order failed {pair}: {e}")
+                continue  # تا وقتی معامله باز است، معامله جدید باز نمی‌کنیم
+
+            # ── سیگنال برای باز کردن معامله جدید ──
+            ohlcv = await exchange.get_ohlcv(pair, "1h", 200)
+            if not ohlcv:
+                continue
+
             ml_signal = {"signal": "WAIT", "confidence": 0.0}
             if trainer.is_trained:
                 import pandas as pd
@@ -80,33 +125,30 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
                 ml_signal = trainer.predict(df)
 
-            # Optionally get AI signal
-            strategy = {
-                "target_profit": user.target_profit,
-                "stop_loss": user.stop_loss,
-                "market_type": user.market_type,
-            }
-
             final_signal = ml_signal["signal"]
 
-            if user.ai_trading_enabled and ml_signal["signal"] != "WAIT":
+            if user.ai_trading_enabled and final_signal == "BUY":
                 try:
+                    strategy = {
+                        "target_profit": user.target_profit,
+                        "stop_loss": user.stop_loss,
+                        "market_type": user.market_type,
+                    }
                     ai_result = await analyze_market_for_trade(pair, current_price, ohlcv, strategy, db=db)
-                    if ai_result["signal"] == ml_signal["signal"]:
-                        final_signal = ai_result["signal"]
-                    else:
+                    if ai_result["signal"] != "BUY":
                         final_signal = "WAIT"
                 except Exception:
                     pass
 
-            if final_signal == "BUY":
-                balance = await exchange.get_balance()
-                usdt_balance = balance.get("USDT", None)
-                if usdt_balance and usdt_balance.free > 10:
-                    trade_amount_usdt = usdt_balance.free * (user.capital_pct / 100) * 0.1
-                    amount = trade_amount_usdt / current_price
-
-                    order = await exchange.create_market_order(pair, "buy", round(amount, 6))
+            if final_signal == "BUY" and quote_free > min_value:
+                spend = quote_free * (user.capital_pct / 100) / len(pairs)
+                if spend < min_value:
+                    spend = min(quote_free, min_value)
+                if spend < min_value:
+                    continue  # موجودی کافی نیست
+                amount = round(spend / current_price, 6)
+                try:
+                    order = await exchange.create_market_order(pair, "buy", amount)
                     trade = models.Trade(
                         user_id=user.id,
                         exchange=exch.exchange_name,
@@ -121,6 +163,10 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     )
                     db.add(trade)
                     db.commit()
+                    quote_free -= spend
+                    logger.info(f"Opened BUY {pair} amount={amount}")
+                except Exception as e:
+                    logger.error(f"Buy order failed {pair}: {e}")
 
     except Exception as e:
         logger.error(f"Trading cycle error: {e}")

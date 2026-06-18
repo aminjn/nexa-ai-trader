@@ -119,7 +119,10 @@ export default function Scraper() {
     if (!url.trim()) { toast.error('آدرس سایت را وارد کنید'); return }
     setTesting(true); setPreview('')
     try {
-      const r = await api.post('/scraper/test', { url: url.trim(), selector: selector.trim(), use_proxy: useProxy })
+      const fields = capturedFields.map(f => ({ name: f.name, selector: f.selector }))
+      const r = await api.post('/scraper/test-recipe', {
+        url: url.trim(), selector: selector.trim(), link_selector: linkSelector, fields, use_proxy: useProxy
+      })
       setPreview(r.data.preview || '')
     } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در تست') }
     finally { setTesting(false) }

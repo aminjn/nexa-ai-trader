@@ -189,6 +189,31 @@ async def test_scrape(req: TestRequest, current_user: models.User = Depends(get_
         return {"ok": False, "preview": f"خطا: {str(e)[:200]}"}
 
 
+class TestRecipeRequest(BaseModel):
+    url: str
+    selector: str = ""
+    link_selector: str = ""
+    fields: list[FieldItem] = []
+    use_proxy: bool = False
+
+
+@router.post("/test-recipe")
+async def test_recipe(req: TestRecipeRequest, current_user: models.User = Depends(get_current_user)):
+    """تست رسپی کامل (لینک‌ها + فیلدها) همان‌طور که هنگام اسکرپ واقعی اجرا می‌شود."""
+    _admin(current_user)
+    from types import SimpleNamespace
+    from ..scraping.scraper import scrape_source
+    src = SimpleNamespace(
+        url=req.url, selector=req.selector, link_selector=req.link_selector,
+        fields=[f.dict() for f in req.fields], use_proxy=req.use_proxy,
+    )
+    try:
+        text = await scrape_source(src)
+        return {"ok": True, "preview": text or "(چیزی استخراج نشد)"}
+    except Exception as e:
+        return {"ok": False, "preview": f"خطا: {str(e)[:200]}"}
+
+
 @router.post("/run")
 async def run_scrape(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """همه منابع فعال را همین حالا اسکرپ می‌کند."""

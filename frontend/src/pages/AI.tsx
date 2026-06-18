@@ -137,11 +137,22 @@ export default function AI() {
     }
   }, [])
 
+  // وضعیت ذخیره‌شده‌ی «اتصال AI به معاملات» را از سرور بخوان
+  const loadTradingStatus = useCallback(async () => {
+    try {
+      const res = await api.get<{ ai_trading_enabled: boolean }>('/ai/trading-status')
+      setAiEnabled(!!res.data?.ai_trading_enabled)
+    } catch {
+      // silent
+    }
+  }, [])
+
   useEffect(() => {
     loadChatHistory()
     loadConnections()
     loadModels()
-  }, [loadChatHistory, loadConnections, loadModels])
+    loadTradingStatus()
+  }, [loadChatHistory, loadConnections, loadModels, loadTradingStatus])
 
   const handleSelectModel = async (model: string) => {
     setSelectedModel(model)
@@ -158,8 +169,9 @@ export default function AI() {
   const handleToggleAI = async () => {
     setTogglingAI(true)
     try {
-      await api.put('/ai/toggle-trading')
-      setAiEnabled((v) => !v)
+      const res = await api.put<{ ai_trading_enabled: boolean }>('/ai/toggle-trading')
+      // وضعیت را از پاسخ سرور می‌گیریم تا همیشه با مقدار واقعی هماهنگ باشد
+      setAiEnabled(!!res.data?.ai_trading_enabled)
     } catch {
       // revert silently
     } finally {

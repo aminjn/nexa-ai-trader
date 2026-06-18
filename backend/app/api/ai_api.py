@@ -143,6 +143,13 @@ async def stream_chat(
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 
+@router.get("/trading-status")
+async def get_ai_trading_status(
+    current_user: models.User = Depends(get_current_user)
+):
+    return {"ai_trading_enabled": bool(current_user.ai_trading_enabled)}
+
+
 @router.put("/toggle-trading")
 async def toggle_ai_trading(
     db: Session = Depends(get_db),

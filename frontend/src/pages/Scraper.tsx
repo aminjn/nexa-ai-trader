@@ -22,6 +22,9 @@ export default function Scraper() {
   const token = useAuthStore(s => s.token)
   const [pickerUrl, setPickerUrl] = useState('')
   const [capturedFields, setCapturedFields] = useState<{name:string; selector:string; sample:string}[]>([])
+  const [linkSelector, setLinkSelector] = useState('')
+  const [inDetail, setInDetail] = useState(false)
+  const [lastPick, setLastPick] = useState<{selector:string; text:string; href:string}|null>(null)
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
@@ -68,23 +71,48 @@ export default function Scraper() {
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (e.data && e.data.type === 'nexa-pick') {
-        const sel = e.data.selector || ''
-        const sample = e.data.text || ''
-        setCapturedFields(prev => {
-          const defaultName = prev.length === 0 ? 'عنوان' : prev.length === 1 ? 'محتوا' : `فیلد ${prev.length + 1}`
-          return [...prev, { name: defaultName, selector: sel, sample }]
-        })
-        toast.success('فیلد اضافه شد ✓ می‌توانی فیلد بعدی را هم کلیک کنی')
+        setLastPick({ selector: e.data.selector || '', text: e.data.text || '', href: e.data.href || '' })
       }
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
   }, [])
 
+  // وقتی روی صفحه‌ی مطلب هستیم، هر کلیک = فیلد محتوا
+  useEffect(() => {
+    if (!lastPick) return
+    if (inDetail) {
+      setCapturedFields(prev => {
+        const defaultName = prev.length === 0 ? 'محتوا' : `فیلد ${prev.length + 1}`
+        return [...prev, { name: defaultName, selector: lastPick.selector, sample: lastPick.text }]
+      })
+      toast.success('فیلد محتوا اضافه شد ✓')
+      setLastPick(null)
+    }
+  }, [lastPick, inDetail])
+
+  const followLink = () => {
+    if (!lastPick?.href) { toast.error('این مورد لینک ندارد'); return }
+    setLinkSelector(lastPick.selector)
+    const q = new URLSearchParams({ url: lastPick.href, token: token || '', use_proxy: String(useProxy) })
+    setPickerUrl(`/api/scraper/proxy?${q.toString()}`)
+    setInDetail(true)
+    setLastPick(null)
+    toast.success('وارد صفحه مطلب شدی — حالا روی محتوا کلیک کن')
+  }
+
+  const addListField = () => {
+    if (!lastPick) return
+    setCapturedFields(prev => [...prev, { name: prev.length === 0 ? 'عنوان' : `فیلد ${prev.length + 1}`, selector: lastPick.selector, sample: lastPick.text }])
+    setLastPick(null)
+    toast.success('فیلد اضافه شد ✓')
+  }
+
   const openPicker = () => {
     if (!url.trim()) { toast.error('آدرس سایت را وارد کنید'); return }
     const q = new URLSearchParams({ url: url.trim(), token: token || '', use_proxy: String(useProxy) })
     setPickerUrl(`/api/scraper/proxy?${q.toString()}`)
+    setInDetail(false); setLinkSelector(''); setCapturedFields([]); setLastPick(null)
   }
 
   const testScrape = async () => {
@@ -103,9 +131,9 @@ export default function Scraper() {
     if (fields.length === 0 && !selector.trim()) { toast.error('حداقل یک فیلد انتخاب کن'); return }
     setAdding(true)
     try {
-      await api.post('/scraper/sources', { name: name.trim(), url: url.trim(), selector: selector.trim(), fields, use_proxy: useProxy })
+      await api.post('/scraper/sources', { name: name.trim(), url: url.trim(), selector: selector.trim(), link_selector: linkSelector, fields, use_proxy: useProxy })
       toast.success('منبع اضافه شد')
-      setName(''); setUrl(''); setSelector(''); setUseProxy(false); setPreview(''); setCapturedFields([]); setPickerUrl('')
+      setName(''); setUrl(''); setSelector(''); setUseProxy(false); setPreview(''); setCapturedFields([]); setPickerUrl(''); setLinkSelector(''); setInDetail(false)
       load()
     } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
     finally { setAdding(false) }
@@ -166,9 +194,29 @@ export default function Scraper() {
           {pickerUrl && (
             <div style={{ marginTop: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>👆 روی هر بخشی از سایت که می‌خواهی کلیک کن تا انتخاب شود</span>
-                <button onClick={() => setPickerUrl('')} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 12px', color: 'var(--dim)', cursor: 'pointer', fontSize: 12 }}>بستن</button>
+                <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>
+                  {inDetail ? '📄 مرحله ۲: روی محتوای داخل مطلب کلیک کن' : '📰 مرحله ۱: روی عنوان یک مطلب کلیک کن'}
+                </span>
+                <button onClick={() => { setPickerUrl(''); setInDetail(false) }} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 12px', color: 'var(--dim)', cursor: 'pointer', fontSize: 12 }}>بستن</button>
               </div>
+
+              {/* اقدام پس از کلیک (مرحله ۱: انتخاب لینک عنوان) */}
+              {lastPick && !inDetail && (
+                <div style={{ marginBottom: 10, padding: 12, background: 'color-mix(in srgb, var(--accent) 10%, var(--bg2))', border: '1px solid var(--accent)', borderRadius: 10 }}>
+                  <div style={{ fontSize: 13, color: 'var(--text)', marginBottom: 8 }}>انتخاب شد: <b>{lastPick.text}</b></div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {lastPick.href && (
+                      <button onClick={followLink} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                        ✅ ورود به مطلب و انتخاب محتوا
+                      </button>
+                    )}
+                    <button onClick={addListField} style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      افزودن به‌عنوان فیلد (بدون ورود)
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <iframe src={pickerUrl} title="picker" style={{ width: '100%', height: 460, border: '1px solid var(--border2)', borderRadius: 12, background: '#fff' }} />
             </div>
           )}

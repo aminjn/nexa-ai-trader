@@ -40,7 +40,9 @@ _PICKER_JS = """
     e.preventDefault(); e.stopPropagation();
     var sel=cssPath(e.target);
     var text=(e.target.innerText||e.target.textContent||'').trim().slice(0,150);
-    parent.postMessage({type:'nexa-pick', selector:sel, text:text}, '*');
+    var a=e.target.closest('a');
+    var href=a?a.href:'';
+    parent.postMessage({type:'nexa-pick', selector:sel, text:text, href:href}, '*');
     return false;
   },true);
   document.addEventListener('submit',function(e){ e.preventDefault(); },true);
@@ -99,6 +101,7 @@ class SourceRequest(BaseModel):
     name: str
     url: str
     selector: str = ""
+    link_selector: str = ""
     fields: list[FieldItem] = []
     use_proxy: bool = False
     enabled: bool = True
@@ -130,6 +133,7 @@ async def add_source(req: SourceRequest, db: Session = Depends(get_db), current_
     _admin(current_user)
     s = models.ScrapeSource(
         name=req.name, url=req.url, selector=req.selector,
+        link_selector=req.link_selector,
         fields=[f.dict() for f in req.fields],
         use_proxy=req.use_proxy, enabled=req.enabled,
     )

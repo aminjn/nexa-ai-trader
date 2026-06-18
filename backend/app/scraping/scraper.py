@@ -43,16 +43,50 @@ def _extract_from_soup(soup, selector: str, max_chars: int = 800) -> str:
     return " | ".join(parts)[:max_chars]
 
 
-async def scrape_source(source) -> str:
-    """منبع را اسکرپ می‌کند؛ از چند فیلد (fields) یا selector تکی پشتیبانی می‌کند."""
-    fields = getattr(source, "fields", None) or []
-    proxy = settings.GAPGPT_PROXY if source.use_proxy else None
+async def _fetch_html(url: str, use_proxy: bool = False) -> str:
+    proxy = settings.GAPGPT_PROXY if use_proxy else None
     async with httpx.AsyncClient(timeout=25, proxy=proxy, follow_redirects=True,
                                  headers=_HEADERS, trust_env=False) as client:
-        resp = await client.get(source.url)
+        resp = await client.get(url)
         resp.raise_for_status()
-        html = resp.text
+        return resp.text
+
+
+async def scrape_source(source) -> str:
+    """منبع را اسکرپ می‌کند. از اسکرپ دوسطحی (لینک‌ها → محتوای هر مطلب) پشتیبانی می‌کند."""
+    from urllib.parse import urljoin
+    fields = getattr(source, "fields", None) or []
+    link_sel = getattr(source, "link_selector", "") or ""
+
+    html = await _fetch_html(source.url, source.use_proxy)
     soup = BeautifulSoup(html, "html.parser")
+
+    # ── اسکرپ دوسطحی: دنبال‌کردن لینک‌ها و استخراج محتوای هر مطلب ──
+    if link_sel and fields:
+        anchors = soup.select(link_sel)
+        urls = []
+        for a in anchors:
+            href = a.get("href") or (a.find("a") and a.find("a").get("href"))
+            if href:
+                urls.append(urljoin(source.url, href))
+        urls = list(dict.fromkeys(urls))[:5]  # حداکثر ۵ مطلب
+        items = []
+        for u in urls:
+            try:
+                h = await _fetch_html(u, source.use_proxy)
+                s2 = BeautifulSoup(h, "html.parser")
+                parts = []
+                for f in fields:
+                    val = _extract_from_soup(s2, f.get("selector", ""), 400)
+                    if val:
+                        parts.append(f"{f.get('name', 'فیلد')}: {val}")
+                if parts:
+                    items.append(" — ".join(parts))
+            except Exception:
+                continue
+        return "\n".join(items)[:3000]
+
+    # ── تک‌سطحی ──
     if fields:
         parts = []
         for f in fields:

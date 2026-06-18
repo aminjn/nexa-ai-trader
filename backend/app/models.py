@@ -144,7 +144,8 @@ class ScrapeSource(Base):
     name = Column(String)            # نام منبع (مثلاً «اخبار ارزدیجیتال»)
     url = Column(String)             # آدرس سایت
     selector = Column(String, default="")  # CSS selector (حالت تک‌فیلدی قدیمی)
-    fields = Column(JSON, default=list)     # [{name, selector}] حالت چندفیلدی
+    link_selector = Column(String, default="")  # selector لینک‌ها (برای اسکرپ دوسطحی)
+    fields = Column(JSON, default=list)     # [{name, selector}] فیلدهای محتوا
     use_proxy = Column(Boolean, default=False)  # برای سایت‌های خارجی
     enabled = Column(Boolean, default=True)
     last_value = Column(Text, default="")

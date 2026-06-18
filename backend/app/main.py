@@ -49,6 +49,8 @@ def ensure_columns():
         with engine.begin() as conn:
             if "fields" not in cols:
                 conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN fields JSON"))
+            if "link_selector" not in cols:
+                conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN link_selector VARCHAR DEFAULT ''"))
 
 
 @asynccontextmanager

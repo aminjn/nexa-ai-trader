@@ -10,6 +10,7 @@ import httpx
 from .. import models
 from ..database import SessionLocal
 from ..config import settings
+from ..ai.gapgpt import get_ai_response
 
 
 async def _api(base: str, method: str, use_proxy: bool, **params):
@@ -52,6 +53,62 @@ def _get_token(field: str) -> str:
         db.close()
 
 
+def _payment_text() -> str:
+    """متن اطلاعات پلن‌ها + پرداخت کارت‌به‌کارت + ادمین."""
+    db = SessionLocal()
+    try:
+        s = db.query(models.SystemSettings).first()
+        plans = db.query(models.Plan).filter(models.Plan.active == True).order_by(models.Plan.sort, models.Plan.level).all()
+        lines = ["💳 <b>پلن‌های اشتراک NEXA AI</b>", ""]
+        for p in plans:
+            price = f"{p.price_toman:,} تومان / {p.duration_days} روز" if p.price_toman > 0 else "رایگان"
+            lines.append(f"• <b>{p.name}</b>: {price}")
+            if p.description:
+                lines.append(f"  {p.description}")
+        if s and s.card_number:
+            lines += ["", "برای خرید، مبلغ پلن را به این کارت واریز کن:",
+                      f"💳 <b>{s.card_number}</b>" + (f"\n👤 به نام {s.card_holder}" if s.card_holder else "")]
+        if s and s.support_contact:
+            lines += ["", f"سپس رسید پرداخت را برای ادمین بفرست: <b>{s.support_contact}</b> تا اشتراکت فعال شود."]
+        return "\n".join(lines)
+    finally:
+        db.close()
+
+
+async def _ai_reply(text: str) -> str:
+    """پاسخ هوش مصنوعی به سؤال کاربر در نقش دستیار فروش/پشتیبانی NEXA."""
+    db = SessionLocal()
+    try:
+        s = db.query(models.SystemSettings).first()
+        if not s or not s.ai_support_enabled or not (s.gapgpt_api_key or "").strip():
+            return ""  # هوش مصنوعی غیرفعال یا کلید تنظیم نشده
+        plans = db.query(models.Plan).filter(models.Plan.active == True).order_by(models.Plan.level).all()
+        plans_txt = "؛ ".join(
+            f"{p.name}: {('%d تومان/%d روز' % (p.price_toman, p.duration_days)) if p.price_toman>0 else 'رایگان'} ({p.description})"
+            for p in plans
+        )
+        card = s.card_number or "(تنظیم نشده)"
+        holder = s.card_holder or ""
+        support = s.support_contact or "(تنظیم نشده)"
+        sys_prompt = (
+            "تو «دستیار فروش و پشتیبانی NEXA AI» هستی؛ یک سرویس سیگنال و تحلیل رمزارز فارسی. "
+            "کوتاه، دوستانه و فارسی جواب بده. به سؤال کاربر درباره سرویس، سیگنال‌ها و پلن‌ها پاسخ بده. "
+            "اگر کاربر قصد خرید یا ارتقا داشت، او را راهنمایی کن: پلن مناسب را پیشنهاد بده، "
+            f"مبلغ را بگو، شماره کارت {card}" + (f" به نام {holder}" if holder else "") +
+            f" را بده و بگو رسید را برای ادمین {support} بفرستد تا فعال شود. "
+            "هیچ‌وقت قول سود تضمینی نده. پلن‌های فعلی: " + plans_txt
+        )
+        resp = await get_ai_response(
+            [{"role": "system", "content": sys_prompt}, {"role": "user", "content": text}],
+            db=db,
+        )
+        return resp or ""
+    except Exception:
+        return ""
+    finally:
+        db.close()
+
+
 async def _poll_loop(platform: str, base_fn, token_field: str, use_proxy: bool):
     offset = 0
     initialized = False
@@ -82,17 +139,39 @@ async def _poll_loop(platform: str, base_fn, token_field: str, use_proxy: bool):
                 text = (msg.get("text") or "").strip()
                 if not chat_id or not text:
                     continue
-                if text.startswith("/start"):
-                    parts = text.split(maxsplit=1)
-                    code = parts[1] if len(parts) > 1 else ""
-                    reply = _link(str(chat_id), code, platform)
-                    try:
-                        await _api(base, "sendMessage", use_proxy, chat_id=chat_id, text=reply)
-                    except Exception:
-                        pass
+                # هر پیام را در یک تسک جدا پردازش کن تا تأخیر هوش مصنوعی، دریافت را بلاک نکند
+                asyncio.create_task(_handle_message(platform, base, use_proxy, chat_id, text))
         except Exception:
             await asyncio.sleep(10)
             continue
+
+
+_BUY_WORDS = ("خرید", "پرداخت", "اشتراک", "پلن", "قیمت", "تمدید", "vip", "خريد", "/buy", "/plans", "/pay")
+
+
+async def _handle_message(platform, base, use_proxy, chat_id, text):
+    try:
+        low = text.strip().lower()
+        if low.startswith("/start"):
+            parts = text.split(maxsplit=1)
+            code = parts[1] if len(parts) > 1 else ""
+            reply = _link(str(chat_id), code, platform)
+        elif low in ("/help", "راهنما", "help"):
+            reply = ("دستیار NEXA AI 🤖\n"
+                     "هر سؤالی درباره سیگنال‌ها یا پلن‌ها داری بپرس.\n"
+                     "برای خرید اشتراک کلمه «خرید» را بفرست.")
+        elif any(w in low for w in _BUY_WORDS):
+            reply = _payment_text()
+        else:
+            reply = await _ai_reply(text)
+            if not reply:
+                reply = _payment_text()
+        try:
+            await _api(base, "sendMessage", use_proxy, chat_id=chat_id, text=reply)
+        except Exception:
+            pass
+    except Exception:
+        pass
 
 
 async def telegram_poll_loop():

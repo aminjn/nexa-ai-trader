@@ -255,6 +255,16 @@ export default function Signals() {
                   <input type="number" min={5} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>
                 <div><div style={label}>هر چند ساعت محتوا منتشر شود</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.content_interval_hours} onChange={e => setAdminSettings({ ...adminSettings, content_interval_hours: Number(e.target.value) })} /></div>
+                <div><div style={label}>شماره کارت (پرداخت کارت‌به‌کارت)</div>
+                  <input style={inputStyle} value={adminSettings.card_number} onChange={e => setAdminSettings({ ...adminSettings, card_number: e.target.value })} dir="ltr" placeholder="6037-XXXX-XXXX-XXXX" /></div>
+                <div><div style={label}>نام صاحب کارت</div>
+                  <input style={inputStyle} value={adminSettings.card_holder} onChange={e => setAdminSettings({ ...adminSettings, card_holder: e.target.value })} placeholder="نام و نام خانوادگی" /></div>
+                <div><div style={label}>آی‌دی ادمین پشتیبانی (ارسال رسید)</div>
+                  <input style={inputStyle} value={adminSettings.support_contact} onChange={e => setAdminSettings({ ...adminSettings, support_contact: e.target.value })} dir="ltr" placeholder="@NexaSupport" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 22 }}>
+                  <input type="checkbox" id="aisup" checked={!!adminSettings.ai_support_enabled} onChange={e => setAdminSettings({ ...adminSettings, ai_support_enabled: e.target.checked })} />
+                  <label htmlFor="aisup" style={{ fontSize: 13, cursor: 'pointer' }}>پاسخ‌گویی هوش مصنوعی در ربات فعال باشد</label>
+                </div>
               </div>
               <button onClick={saveAdminSettings} style={{ marginTop: 14, padding: '10px 22px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>ذخیره تنظیمات</button>
             </div>

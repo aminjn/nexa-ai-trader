@@ -355,6 +355,10 @@ class SignalSettingsRequest(BaseModel):
     telegram_bot_username: Optional[str] = None
     bale_bot_username: Optional[str] = None
     content_interval_hours: Optional[int] = None
+    ai_support_enabled: Optional[bool] = None
+    card_number: Optional[str] = None
+    card_holder: Optional[str] = None
+    support_contact: Optional[str] = None
 
 
 @router.get("/admin/settings")
@@ -377,6 +381,10 @@ async def admin_get_settings(db: Session = Depends(get_db), current_user: models
         "telegram_bot_username": s.telegram_bot_username or "",
         "bale_bot_username": s.bale_bot_username or "",
         "content_interval_hours": s.content_interval_hours or 6,
+        "ai_support_enabled": bool(s.ai_support_enabled),
+        "card_number": s.card_number or "",
+        "card_holder": s.card_holder or "",
+        "support_contact": s.support_contact or "",
     }
 
 

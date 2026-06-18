@@ -52,6 +52,14 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN bale_bot_username VARCHAR DEFAULT ''"))
             if "content_interval_hours" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN content_interval_hours INTEGER DEFAULT 6"))
+            if "ai_support_enabled" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN ai_support_enabled BOOLEAN DEFAULT 1"))
+            if "card_number" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN card_number VARCHAR DEFAULT ''"))
+            if "card_holder" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN card_holder VARCHAR DEFAULT ''"))
+            if "support_contact" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN support_contact VARCHAR DEFAULT ''"))
     # users: شناسه‌های پیام‌رسان
     if "users" in tables:
         cols = {c["name"] for c in inspector.get_columns("users")}

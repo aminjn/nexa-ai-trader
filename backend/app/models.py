@@ -140,6 +140,11 @@ class SystemSettings(Base):
     telegram_bot_username = Column(String, default="")   # برای راهنمای اتصال (@MyBot)
     bale_bot_username = Column(String, default="")
     content_interval_hours = Column(Integer, default=6)  # هر چند ساعت محتوا منتشر شود
+    # پشتیبانی هوش مصنوعی داخل ربات + اطلاعات پرداخت کارت‌به‌کارت
+    ai_support_enabled = Column(Boolean, default=True)
+    card_number = Column(String, default="")
+    card_holder = Column(String, default="")
+    support_contact = Column(String, default="")  # آی‌دی ادمین برای ارسال رسید (@admin)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

@@ -14,6 +14,7 @@ interface Signal { pair:string; signal:string; signal_fa:string; confidence:numb
 interface Holding { currency:string; amount:number; value_toman:number; exchange:string }
 interface Position { id:number; pair:string; amount:number; entry_price:number; current_price:number; target_sell_price:number; stop_price:number; pnl_pct:number; target_profit:number; stop_loss:number }
 interface Price { coin:string; toman:number; usd:number }
+interface Fundamental { score:number; summary:string; usd_trend_7d:number; btc_trend_7d:number; btc_trend_30d:number }
 
 const StatCard = ({ label, value, sub, subColor }: { label:string; value:string; sub?:string; subColor?:string }) => (
   <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:'18px 20px' }}>
@@ -36,11 +37,12 @@ export default function Dashboard() {
   const [positions, setPositions] = useState<Position[]>([])
   const [importing, setImporting] = useState(false)
   const [prices, setPrices] = useState<Price[]>([])
+  const [fundamental, setFundamental] = useState<Fundamental|null>(null)
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, eq, tr, act, sig, hold, pos, pr] = await Promise.all([
+        const [s, eq, tr, act, sig, hold, pos, pr, fund] = await Promise.all([
           api.get('/dashboard/stats'),
           api.get('/dashboard/equity-curve'),
           api.get('/dashboard/recent-trades'),
@@ -49,6 +51,7 @@ export default function Dashboard() {
           api.get('/dashboard/holdings'),
           api.get('/dashboard/positions'),
           api.get('/dashboard/prices'),
+          api.get('/dashboard/fundamental'),
         ])
         setStats(s.data)
         setEquity(eq.data.data || [])
@@ -58,6 +61,7 @@ export default function Dashboard() {
         setHoldings(hold.data.holdings || [])
         setPositions(pos.data.positions || [])
         setPrices(pr.data.prices || [])
+        setFundamental(fund.data || null)
       } catch {} finally { setLoading(false) }
     }
     load()
@@ -252,6 +256,35 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* تحلیل فاندامنتال هوش مصنوعی */}
+        <div style={{ background:'linear-gradient(135deg, rgba(75,224,255,0.07), rgba(255,92,200,0.07))', border:'1px solid var(--border)', borderRadius:18, padding:22 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+            <Sparkles size={20} color="var(--accent2)" />
+            <span style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>تحلیل فاندامنتال هوش مصنوعی</span>
+            {fundamental && (
+              <span style={{ marginInlineStart:'auto', padding:'4px 14px', borderRadius:999, fontSize:13, fontWeight:700,
+                background: `color-mix(in srgb, ${fundamental.score>0.1?'var(--green)':fundamental.score<-0.1?'var(--red)':'var(--amber)'} 18%, transparent)`,
+                color: fundamental.score>0.1?'var(--green)':fundamental.score<-0.1?'var(--red)':'var(--amber)' }}>
+                {fundamental.score>0.1?'صعودی':fundamental.score<-0.1?'نزولی':'خنثی'} ({fundamental.score>=0?'+':''}{fundamental.score})
+              </span>
+            )}
+          </div>
+          <div style={{ display:'flex', gap:24, flexWrap:'wrap', marginBottom:12 }}>
+            <div><span style={{ fontSize:12, color:'var(--faint)' }}>دلار/تتر (۷ روز): </span>
+              <span style={{ fontFamily:"'JetBrains Mono'", color:(fundamental?.usd_trend_7d||0)>=0?'var(--green)':'var(--red)' }}>{(fundamental?.usd_trend_7d||0)>=0?'+':''}{fundamental?.usd_trend_7d||0}%</span></div>
+            <div><span style={{ fontSize:12, color:'var(--faint)' }}>بیت‌کوین (۷ روز): </span>
+              <span style={{ fontFamily:"'JetBrains Mono'", color:(fundamental?.btc_trend_7d||0)>=0?'var(--green)':'var(--red)' }}>{(fundamental?.btc_trend_7d||0)>=0?'+':''}{fundamental?.btc_trend_7d||0}%</span></div>
+            <div><span style={{ fontSize:12, color:'var(--faint)' }}>بیت‌کوین (۳۰ روز): </span>
+              <span style={{ fontFamily:"'JetBrains Mono'", color:(fundamental?.btc_trend_30d||0)>=0?'var(--green)':'var(--red)' }}>{(fundamental?.btc_trend_30d||0)>=0?'+':''}{fundamental?.btc_trend_30d||0}%</span></div>
+          </div>
+          <p style={{ fontSize:13.5, lineHeight:1.8, color:'var(--dim)', margin:0 }}>
+            {fundamental?.summary || 'تحلیل فاندامنتال در دسترس نیست (کلید هوش مصنوعی را تنظیم کنید).'}
+          </p>
+          <p style={{ fontSize:11, color:'var(--faint)', margin:'10px 0 0' }}>
+            این تحلیل تصمیم ML را تقویت/تضعیف می‌کند؛ تصمیم نهایی معامله با مدل یادگیری ماشین است.
+          </p>
         </div>
 
         {/* Trades + AI */}

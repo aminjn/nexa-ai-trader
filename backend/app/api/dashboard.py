@@ -220,6 +220,23 @@ async def get_signals(db: Session = Depends(get_db), current_user: models.User =
     return out
 
 
+@router.get("/fundamental")
+async def get_fundamental_analysis(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """تحلیل فاندامنتال هوش مصنوعی (روند دلار، بیت‌کوین، احساسات بازار)."""
+    exch_rec = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).first()
+    if not exch_rec:
+        return {"score": 0, "summary": "", "usd_trend_7d": 0, "btc_trend_7d": 0}
+    from ..ai.fundamental import get_fundamental
+    ex = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret)
+    try:
+        return await get_fundamental(db, ex)
+    except Exception:
+        return {"score": 0, "summary": "", "usd_trend_7d": 0, "btc_trend_7d": 0}
+
+
 @router.get("/prices")
 async def get_prices(current_user: models.User = Depends(get_current_user)):
     """قیمت لحظه‌ای ارزهای اصلی به تومان و دلار (از نوبیتکس، مستقیم)."""

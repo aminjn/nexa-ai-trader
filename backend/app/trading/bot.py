@@ -146,29 +146,32 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             ml_signal = trainer.predict(df)
-            conf = ml_signal.get("confidence", 0) * 100
-            log_bot_event(f"📊 {pair}: سیگنال مدل = {ml_signal['signal']} (اطمینان {conf:.0f}٪)")
+            ml_conf = ml_signal.get("confidence", 0)
 
-            final_signal = ml_signal["signal"]
-
-            if final_signal != "BUY":
-                continue  # فقط روی سیگنال خرید عمل می‌کنیم
-
-            # تأیید هوش مصنوعی (در صورت فعال بودن)
+            # ── تصمیم با ML است؛ هوش مصنوعی فقط با تحلیل فاندامنتال کمک می‌کند ──
+            fund_score = 0.0
             if user.ai_trading_enabled:
                 try:
-                    strategy = {
-                        "target_profit": user.target_profit,
-                        "stop_loss": user.stop_loss,
-                        "market_type": user.market_type,
-                    }
-                    ai_result = await analyze_market_for_trade(pair, current_price, ohlcv, strategy, db=db)
-                    if ai_result["signal"] != "BUY":
-                        log_bot_event(f"🤖 {pair}: هوش مصنوعی خرید را تأیید نکرد → صبر")
-                        continue
-                    log_bot_event(f"🤖 {pair}: هوش مصنوعی خرید را تأیید کرد")
+                    from ..ai.fundamental import get_fundamental
+                    fund = await get_fundamental(db, exchange)
+                    fund_score = fund.get("score", 0.0)
                 except Exception:
-                    pass
+                    fund_score = 0.0
+
+            # اطمینان نهایی = اطمینان ML + تقویت/تضعیف فاندامنتال (حداکثر ±۰.۰۵)
+            adj_conf = ml_conf + (fund_score * 0.05)
+            log_bot_event(
+                f"📊 {pair}: تصمیم ML = {ml_signal['signal']} (اطمینان {ml_conf*100:.0f}٪)"
+                + (f" | فاندامنتال AI: {fund_score:+.2f}" if user.ai_trading_enabled else "")
+            )
+
+            # جهت را ML تعیین می‌کند
+            if ml_signal["signal"] != "BUY":
+                continue
+            # آستانه نهایی روی اطمینان تعدیل‌شده اعمال می‌شود
+            if adj_conf < trainer.confidence_threshold:
+                log_bot_event(f"⏳ {pair}: اطمینان نهایی ({adj_conf*100:.0f}٪) کمتر از آستانه — صبر")
+                continue
 
             # بررسی موجودی و حداقل سفارش
             if quote_free <= min_value:

@@ -11,6 +11,7 @@ interface Metrics {
   accuracy?: number; precision?: number; recall?: number;
   total_samples?: number; train_samples?: number; test_samples?: number;
   num_features?: number; symbols?: string[]; date_from?: string; date_to?: string; source?: string;
+  ai_threshold?: number;
 }
 interface ModelStatus {
   status:string; accuracy:number; is_trained:boolean; progress:number; message:string;
@@ -166,6 +167,7 @@ export default function Model() {
                 { l:'صحت (Precision)', v: `${status.metrics.precision}٪` },
                 { l:'فراخوانی (Recall)', v: `${status.metrics.recall}٪` },
                 { l:'تعداد اندیکاتور', v: status.metrics.num_features },
+                { l:'🧠 آستانه تصمیم (تنظیم AI)', v: status.metrics.ai_threshold ? `${status.metrics.ai_threshold}٪` : '—' },
               ].map((x,i)=>(
                 <div key={i} style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--faint)', marginBottom:5 }}>{x.l}</div>

@@ -122,6 +122,25 @@ async def _train_background():
                     db2.close()
         except Exception:
             pass
+
+        # ── هوش مصنوعی مدل را تنظیم می‌کند: آستانه تصمیم بهینه ──
+        try:
+            tuned = await asyncio.wait_for(_ai_tune_threshold(result), timeout=45)
+            if tuned:
+                trainer.set_threshold(tuned)
+                db3 = SessionLocal()
+                try:
+                    mm = db3.query(models.MLModel).first()
+                    if mm:
+                        met = dict(mm.metrics or {})
+                        met["ai_threshold"] = round(tuned * 100, 1)
+                        mm.metrics = met
+                        db3.commit()
+                finally:
+                    db3.close()
+                log_bot_event(f"🧠 هوش مصنوعی مدل را تنظیم کرد — آستانه تصمیم: {round(tuned*100,1)}٪")
+        except Exception:
+            pass
     except Exception as e:
         _training_progress = {"status": "error", "progress": 0, "message": f"خطا: {str(e)}"}
         log_bot_event(f"خطا در آموزش مدل: {str(e)[:120]}")
@@ -152,6 +171,39 @@ async def _generate_ai_explanation(result: dict) -> str:
             db.close()
     except Exception:
         return ""
+
+
+async def _ai_tune_threshold(result: dict):
+    """هوش مصنوعی بر اساس دقت/صحت مدل، آستانه تصمیم‌گیری بهینه را پیشنهاد می‌دهد."""
+    try:
+        import re
+        from ..ai.gapgpt import get_ai_response, get_ai_config
+        from ..database import SessionLocal
+        db = SessionLocal()
+        try:
+            if not get_ai_config(db)["api_key"]:
+                return None
+            m = result["metrics"]
+            prompt = (
+                "تو یک مهندس یادگیری ماشین هستی. یک مدل طبقه‌بندی پیش‌بینی جهت قیمت رمزارز "
+                f"با این مشخصات آموزش دید: دقت {m.get('accuracy')}٪، Precision {m.get('precision')}٪، "
+                f"Recall {m.get('recall')}٪.\n"
+                "ربات فقط وقتی معامله می‌کند که اطمینان مدل از یک «آستانه» بیشتر باشد. "
+                "آستانه بالاتر = معاملات کمتر ولی مطمئن‌تر؛ آستانه پایین‌تر = معاملات بیشتر ولی پرریسک‌تر.\n"
+                "با توجه به این آمار، یک آستانه‌ی بهینه بین 0.50 تا 0.70 پیشنهاد بده.\n"
+                "فقط و فقط یک عدد اعشاری برگردان (مثلاً 0.56). هیچ توضیح اضافه‌ای نده."
+            )
+            resp = await get_ai_response([{"role": "user", "content": prompt}], db=db)
+            match = re.search(r"0?\.\d+", resp or "")
+            if match:
+                val = float(match.group())
+                if 0.5 <= val <= 0.75:
+                    return val
+            return None
+        finally:
+            db.close()
+    except Exception:
+        return None
 
 
 @router.post("/train")

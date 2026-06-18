@@ -13,6 +13,7 @@ from .data_fetcher import fetch_5year_data
 
 MODEL_PATH = "ml_model.joblib"
 SCALER_PATH = "ml_scaler.joblib"
+THRESHOLD_PATH = "ml_threshold.txt"  # آستانه اطمینان تنظیم‌شده توسط هوش مصنوعی
 ACCUM_PATH = "training_data.csv"  # مجموعه داده انباشته (بازار + آپلودی کاربر)
 
 _OHLCV_COLS = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
@@ -247,8 +248,24 @@ class MLTrainer:
         self.is_trained = False
         self.feature_importances = []
         self.metrics = {}
+        self.confidence_threshold = 0.53  # توسط هوش مصنوعی تنظیم می‌شود
+
+    def set_threshold(self, t: float):
+        """آستانه اطمینان را تنظیم و ذخیره می‌کند (پیشنهاد هوش مصنوعی)."""
+        self.confidence_threshold = max(0.5, min(0.75, float(t)))
+        try:
+            with open(THRESHOLD_PATH, "w") as f:
+                f.write(str(self.confidence_threshold))
+        except Exception:
+            pass
 
     def load_if_exists(self) -> bool:
+        if os.path.exists(THRESHOLD_PATH):
+            try:
+                with open(THRESHOLD_PATH) as f:
+                    self.confidence_threshold = float(f.read().strip())
+            except Exception:
+                pass
         if os.path.exists(self.model_path) and os.path.exists(self.scaler_path):
             self.model = joblib.load(self.model_path)
             self.scaler = joblib.load(self.scaler_path)
@@ -392,8 +409,8 @@ class MLTrainer:
         confidence = float(max(proba))
 
         signal = "BUY" if pred == 1 else "SELL"
-        # آستانه اطمینان: کمتر از این مقدار = صبر (برای مدل ~۵۳٪ مناسب است)
-        if confidence < 0.53:
+        # آستانه اطمینان که توسط هوش مصنوعی تنظیم شده است
+        if confidence < self.confidence_threshold:
             signal = "WAIT"
 
         return {"signal": signal, "confidence": confidence, "probabilities": proba.tolist()}

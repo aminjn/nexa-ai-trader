@@ -392,7 +392,8 @@ class MLTrainer:
         confidence = float(max(proba))
 
         signal = "BUY" if pred == 1 else "SELL"
-        if confidence < 0.6:
+        # آستانه اطمینان: کمتر از این مقدار = صبر (برای مدل ~۵۳٪ مناسب است)
+        if confidence < 0.53:
             signal = "WAIT"
 
         return {"signal": signal, "confidence": confidence, "probabilities": proba.tolist()}

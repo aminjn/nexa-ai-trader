@@ -133,20 +133,29 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 continue  # تا وقتی معامله باز است، معامله جدید باز نمی‌کنیم
 
             # ── سیگنال برای باز کردن معامله جدید ──
-            ohlcv = await exchange.get_ohlcv(pair, "1h", 200)
-            if not ohlcv:
+            if not trainer.is_trained:
+                log_bot_event(f"⚠️ {pair}: مدل هنوز آموزش ندیده — ابتدا مدل را آموزش بده", "error")
                 continue
 
-            ml_signal = {"signal": "WAIT", "confidence": 0.0}
-            if trainer.is_trained:
-                import pandas as pd
-                df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
-                df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-                ml_signal = trainer.predict(df)
+            ohlcv = await exchange.get_ohlcv(pair, "1h", 300)
+            if not ohlcv:
+                log_bot_event(f"⚠️ {pair}: داده قیمتی دریافت نشد")
+                continue
+
+            import pandas as pd
+            df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+            ml_signal = trainer.predict(df)
+            conf = ml_signal.get("confidence", 0) * 100
+            log_bot_event(f"📊 {pair}: سیگنال مدل = {ml_signal['signal']} (اطمینان {conf:.0f}٪)")
 
             final_signal = ml_signal["signal"]
 
-            if user.ai_trading_enabled and final_signal == "BUY":
+            if final_signal != "BUY":
+                continue  # فقط روی سیگنال خرید عمل می‌کنیم
+
+            # تأیید هوش مصنوعی (در صورت فعال بودن)
+            if user.ai_trading_enabled:
                 try:
                     strategy = {
                         "target_profit": user.target_profit,
@@ -155,37 +164,44 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     }
                     ai_result = await analyze_market_for_trade(pair, current_price, ohlcv, strategy, db=db)
                     if ai_result["signal"] != "BUY":
-                        final_signal = "WAIT"
+                        log_bot_event(f"🤖 {pair}: هوش مصنوعی خرید را تأیید نکرد → صبر")
+                        continue
+                    log_bot_event(f"🤖 {pair}: هوش مصنوعی خرید را تأیید کرد")
                 except Exception:
                     pass
 
-            if final_signal == "BUY" and quote_free > min_value:
-                spend = quote_free * (user.capital_pct / 100) / len(pairs)
-                if spend < min_value:
-                    spend = min(quote_free, min_value)
-                if spend < min_value:
-                    continue  # موجودی کافی نیست
-                amount = round(spend / current_price, 6)
-                try:
-                    order = await exchange.create_market_order(pair, "buy", amount)
-                    trade = models.Trade(
-                        user_id=user.id,
-                        exchange=exch.exchange_name,
-                        pair=pair,
-                        side="buy",
-                        entry_price=current_price,
-                        amount=amount,
-                        status="open",
-                        trade_type=user.market_type,
-                        ai_assisted=user.ai_trading_enabled,
-                        order_id=order.order_id,
-                    )
-                    db.add(trade)
-                    db.commit()
-                    quote_free -= spend
-                    log_bot_event(f"🟢 خرید {pair} | مقدار: {amount} | قیمت: {current_price:,.0f}")
-                except Exception as e:
-                    log_bot_event(f"خطا در خرید {pair}: {str(e)[:80]}", "error")
+            # بررسی موجودی و حداقل سفارش
+            if quote_free <= min_value:
+                log_bot_event(f"💰 {pair}: موجودی ({quote_free:,.0f}) کمتر از حداقل سفارش ({min_value:,.0f} {quote})")
+                continue
+
+            spend = quote_free * (user.capital_pct / 100)
+            if spend < min_value:
+                spend = min(quote_free, min_value)
+            if spend < min_value:
+                log_bot_event(f"💰 {pair}: مبلغ معامله کمتر از حداقل سفارش است")
+                continue
+            amount = round(spend / current_price, 6)
+            try:
+                order = await exchange.create_market_order(pair, "buy", amount)
+                trade = models.Trade(
+                    user_id=user.id,
+                    exchange=exch.exchange_name,
+                    pair=pair,
+                    side="buy",
+                    entry_price=current_price,
+                    amount=amount,
+                    status="open",
+                    trade_type=user.market_type,
+                    ai_assisted=user.ai_trading_enabled,
+                    order_id=order.order_id,
+                )
+                db.add(trade)
+                db.commit()
+                quote_free -= spend
+                log_bot_event(f"🟢 خرید {pair} | مقدار: {amount} | قیمت: {current_price:,.0f}")
+            except Exception as e:
+                log_bot_event(f"خطا در خرید {pair}: {str(e)[:80]}", "error")
 
     except Exception as e:
         logger.error(f"Trading cycle error: {e}")

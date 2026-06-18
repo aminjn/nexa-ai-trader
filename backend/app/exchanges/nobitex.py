@@ -84,6 +84,13 @@ class NobitexExchange(BaseExchange):
             return {}
 
     @staticmethod
+    def _safe_float(val, default: float = 0.0) -> float:
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
     def _market_symbol(src: str, dst: str) -> str:
         # نوبیتکس برای بازار ریالی از IRT استفاده می‌کند (نه RLS)
         dst_u = dst.upper()
@@ -137,8 +144,8 @@ class NobitexExchange(BaseExchange):
             order_id=str(order.get("id", "")),
             symbol=symbol,
             side=side,
-            price=float(order.get("price", 0)),
-            amount=float(order.get("amount", 0)),
+            price=self._safe_float(order.get("price")),
+            amount=self._safe_float(order.get("amount")),
             status=order.get("status", "submitted"),
             timestamp=str(order.get("created_at", datetime.utcnow().isoformat())),
         )
@@ -153,13 +160,15 @@ class NobitexExchange(BaseExchange):
             "price": str(price),
         }
         result = await self._post("/market/orders/add", data)
+        if result.get("status") != "ok":
+            raise Exception(result.get("message") or str(result))
         order = result.get("order", {})
         return OrderResult(
             order_id=str(order.get("id", "")),
             symbol=symbol,
             side=side,
-            price=float(order.get("price", 0)),
-            amount=float(order.get("amount", 0)),
+            price=self._safe_float(order.get("price")),
+            amount=self._safe_float(order.get("amount")),
             status=order.get("status", "submitted"),
             timestamp=str(order.get("created_at", datetime.utcnow().isoformat())),
         )

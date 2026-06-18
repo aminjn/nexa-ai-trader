@@ -18,6 +18,7 @@ import SuperAdmin from './pages/SuperAdmin'
 import UserDetail from './pages/UserDetail'
 import AdminSettings from './pages/AdminSettings'
 import Scraper from './pages/Scraper'
+import Signals from './pages/Signals'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -54,6 +55,8 @@ export default function App() {
           <Route path="/exchanges" element={<ProtectedRoute><Exchanges /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/ai" element={<ProtectedRoute><AI /></ProtectedRoute>} />
+          <Route path="/signals" element={<ProtectedRoute><Signals /></ProtectedRoute>} />
+          <Route path="/subscription" element={<ProtectedRoute><Signals /></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><SuperAdmin /></AdminRoute>} />
           <Route path="/admin/users/:id" element={<AdminRoute><UserDetail /></AdminRoute>} />
           <Route path="/scraper" element={<AdminRoute><Scraper /></AdminRoute>} />

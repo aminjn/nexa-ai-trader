@@ -241,10 +241,10 @@ export default function AI() {
     new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
 
   const aiTasks = [
-    { label: 'تحلیل روند بازار', freq: 'لحظه‌ای' },
-    { label: 'ارزیابی ریسک', freq: 'پیوسته' },
-    { label: 'تولید سیگنال', freq: 'هر ۳۰ ثانیه' },
-    { label: 'بهینه‌سازی پرتفوی', freq: 'ساعتی' },
+    { label: 'تحلیل روند بازار', freq: 'در هر چرخه ربات' },
+    { label: 'ارزیابی ریسک', freq: 'هنگام هر معامله' },
+    { label: 'تولید سیگنال', freq: 'طبق زمان‌بندی پنل' },
+    { label: 'تصمیم خرید/فروش', freq: 'با مدل ML' },
   ]
 
   return (

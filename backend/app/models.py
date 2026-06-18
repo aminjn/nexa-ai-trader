@@ -27,6 +27,10 @@ class User(Base):
     leverage = Column(Integer, default=3)
     ai_trading_enabled = Column(Boolean, default=True)
 
+    # شناسه‌های پیام‌رسان برای دریافت سیگنال (هر کاربر آی‌دی عددی خودش را وصل می‌کند)
+    telegram_chat_id = Column(String, default="")
+    bale_chat_id = Column(String, default="")
+
     exchanges = relationship("ExchangeAPI", back_populates="user", cascade="all, delete-orphan")
     trades = relationship("Trade", back_populates="user", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
@@ -123,7 +127,66 @@ class SystemSettings(Base):
     # AI / GapGPT configuration (set from super admin panel, persisted)
     gapgpt_api_key = Column(String, default="")
     gapgpt_model = Column(String, default="gpt-4o")
+    # تنظیمات فروش سیگنال (از پنل سوپر ادمین)
+    telegram_bot_token = Column(String, default="")
+    bale_bot_token = Column(String, default="")
+    zarinpal_merchant_id = Column(String, default="")
+    signal_coins = Column(String, default="BTC,ETH")     # ارزهای تولید سیگنال (با کاما)
+    signal_interval_minutes = Column(Integer, default=30)  # هر چند دقیقه سیگنال تولید شود
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Plan(Base):
+    __tablename__ = "plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, index=True)   # free / pro / vip
+    name = Column(String)                            # نام نمایشی فارسی
+    level = Column(Integer, default=0)               # 0=رایگان 1=حرفه‌ای 2=VIP (برای دسترسی سطحی)
+    price_toman = Column(Integer, default=0)
+    duration_days = Column(Integer, default=30)
+    max_coins = Column(Integer, default=1)           # چند ارز را می‌بیند/می‌گیرد
+    delay_minutes = Column(Integer, default=60)      # تأخیر دریافت سیگنال (برای رایگان)
+    include_analysis = Column(Boolean, default=False)  # متن تحلیل کامل دارد؟
+    channels = Column(JSON, default=list)            # ['telegram','bale','inapp']
+    description = Column(Text, default="")
+    active = Column(Boolean, default=True)
+    sort = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    plan_id = Column(Integer, ForeignKey("plans.id"))
+    status = Column(String, default="pending")   # pending/active/expired/rejected
+    payment_method = Column(String, default="manual")  # manual/online
+    amount_toman = Column(Integer, default=0)
+    ref_id = Column(String, default="")          # authority/مرجع پرداخت
+    note = Column(String, default="")
+    start_at = Column(DateTime, nullable=True)
+    end_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Signal(Base):
+    __tablename__ = "signals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    coin = Column(String, index=True)            # BTC, ETH, ...
+    side = Column(String)                         # BUY / SELL / WAIT
+    confidence = Column(Float, default=0.0)       # 0..1
+    entry_price = Column(Float, default=0.0)      # تومان
+    target_price = Column(Float, default=0.0)
+    stop_price = Column(Float, default=0.0)
+    timeframe = Column(String, default="1h")
+    tech_conclusion = Column(String, default="")
+    fund_conclusion = Column(String, default="")
+    analysis = Column(Text, default="")           # متن کامل (برای پلن‌های شامل تحلیل)
+    min_level = Column(Integer, default=0)         # حداقل سطح پلن برای دیدن این سیگنال
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 class OTPCode(Base):

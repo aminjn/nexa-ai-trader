@@ -13,6 +13,7 @@ from .api.model_api import router as model_router
 from .api.ai_api import router as ai_router
 from .api.admin import router as admin_router
 from .api.scraper_api import router as scraper_router
+from .api.signals_api import router as signals_router
 from .auth.service import create_user, get_user_by_email
 from .database import SessionLocal
 from .config import settings
@@ -31,6 +32,24 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN gapgpt_api_key VARCHAR DEFAULT ''"))
             if "gapgpt_model" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN gapgpt_model VARCHAR DEFAULT 'gpt-4o'"))
+            if "telegram_bot_token" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN telegram_bot_token VARCHAR DEFAULT ''"))
+            if "bale_bot_token" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN bale_bot_token VARCHAR DEFAULT ''"))
+            if "zarinpal_merchant_id" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN zarinpal_merchant_id VARCHAR DEFAULT ''"))
+            if "signal_coins" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN signal_coins VARCHAR DEFAULT 'BTC,ETH'"))
+            if "signal_interval_minutes" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN signal_interval_minutes INTEGER DEFAULT 30"))
+    # users: شناسه‌های پیام‌رسان
+    if "users" in tables:
+        cols = {c["name"] for c in inspector.get_columns("users")}
+        with engine.begin() as conn:
+            if "telegram_chat_id" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN telegram_chat_id VARCHAR DEFAULT ''"))
+            if "bale_chat_id" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN bale_chat_id VARCHAR DEFAULT ''"))
     # ml_models: ستون‌های جزئیات آموزش
     if "ml_models" in tables:
         cols = {c["name"] for c in inspector.get_columns("ml_models")}
@@ -94,6 +113,31 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # ساخت پلن‌های پیش‌فرض فروش سیگنال (اگر وجود نداشته باشند)
+    db = SessionLocal()
+    try:
+        if db.query(models.Plan).count() == 0:
+            db.add_all([
+                models.Plan(key="free", name="رایگان", level=0, price_toman=0,
+                            duration_days=3650, max_coins=1, delay_minutes=60,
+                            include_analysis=False, channels=["inapp"],
+                            description="سیگنال بیت‌کوین با تأخیر، فقط داخل پنل", sort=0),
+                models.Plan(key="pro", name="حرفه‌ای", level=1, price_toman=290000,
+                            duration_days=30, max_coins=5, delay_minutes=0,
+                            include_analysis=False, channels=["telegram", "bale", "inapp"],
+                            description="همه‌ی سیگنال‌های آنی روی ارزهای اصلی + تلگرام و بله", sort=1),
+                models.Plan(key="vip", name="VIP", level=2, price_toman=690000,
+                            duration_days=30, max_coins=20, delay_minutes=0,
+                            include_analysis=True, channels=["telegram", "bale", "inapp"],
+                            description="همه‌ی ارزها + تحلیل کامل فاندامنتال/تکنیکال + کانال اختصاصی", sort=2),
+            ])
+            db.commit()
+            print("✅ Default plans created")
+    except Exception as e:
+        print(f"⚠️ plan seed warning: {e}")
+    finally:
+        db.close()
+
     # راه‌اندازی مجدد ربات‌های فعال پس از ری‌استارت سرور
     db = SessionLocal()
     try:
@@ -126,6 +170,10 @@ async def lifespan(app: FastAPI):
                 sdb.close()
     _asyncio.create_task(_scrape_loop())
 
+    # تولید و توزیع خودکار سیگنال (طبق بازه‌ی تنظیم‌شده در پنل)
+    from .signals.engine import signals_loop
+    _asyncio.create_task(signals_loop())
+
     yield
 
 
@@ -154,6 +202,7 @@ app.include_router(model_router)
 app.include_router(ai_router)
 app.include_router(admin_router)
 app.include_router(scraper_router)
+app.include_router(signals_router)
 
 
 @app.get("/")

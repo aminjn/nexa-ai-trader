@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, Globe } from 'lucide-react'
+import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, Globe, Radio } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
 import Logo from './Logo'
@@ -25,6 +25,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
     { path: '/exchanges', label: t.navExchanges, icon: Building2 },
     { path: '/history', label: t.navHistory, icon: History },
     { path: '/ai', label: t.navAI, icon: Sparkles },
+    { path: '/signals', label: 'سیگنال‌ها', icon: Radio },
     ...(isSuperAdmin ? [
       { path: '/scraper', label: 'اسکرپر', icon: Globe },
       { path: '/admin', label: t.navAdmin, icon: Shield },

@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # پروکسی برای دسترسی به گپ‌جی‌پی‌تی (مثلاً http://127.0.0.1:8889 یا socks5://...)
     GAPGPT_PROXY: str = ""
 
+    # آدرس API نوبیتکس (نوبیتکس از api.nobitex.ir به apiv2.nobitex.ir منتقل شده)
+    NOBITEX_BASE_URL: str = "https://apiv2.nobitex.ir"
+
     ADMIN_EMAIL: str = "admin@nexa.ai"
     ADMIN_PASSWORD: str = "Admin@12345"
 

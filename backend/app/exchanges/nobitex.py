@@ -3,27 +3,27 @@ import asyncio
 from typing import Optional, List, Dict
 from datetime import datetime
 from .base import BaseExchange, Balance, OrderResult
-
-NOBITEX_BASE = "https://api.nobitex.ir"
+from ..config import settings
 
 
 class NobitexExchange(BaseExchange):
     def __init__(self, api_key: str, api_secret: str = ""):
         super().__init__(api_key, api_secret)
-        self.base_url = NOBITEX_BASE
+        self.base_url = settings.NOBITEX_BASE_URL
         self.headers = {
             "Authorization": f"Token {api_key}",
             "Content-Type": "application/json",
         }
 
     async def _get(self, path: str, params: dict = None) -> dict:
-        async with httpx.AsyncClient(timeout=30) as client:
+        # trust_env=False تا هیچ‌گاه از پروکسی استفاده نشود (نوبیتکس فقط مستقیم از ایران)
+        async with httpx.AsyncClient(timeout=30, trust_env=False) as client:
             resp = await client.get(f"{self.base_url}{path}", headers=self.headers, params=params)
             resp.raise_for_status()
             return resp.json()
 
     async def _post(self, path: str, data: dict = None) -> dict:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=30, trust_env=False) as client:
             resp = await client.post(f"{self.base_url}{path}", headers=self.headers, json=data or {})
             resp.raise_for_status()
             return resp.json()

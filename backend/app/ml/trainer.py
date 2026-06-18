@@ -17,6 +17,30 @@ ACCUM_PATH = "training_data.csv"  # مجموعه داده انباشته (باز
 
 _OHLCV_COLS = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
 
+# نام‌های رایج معادل برای هر ستون (تا فایل با هر قالبی شناخته شود)
+_COL_ALIASES = {
+    "timestamp": ["timestamp", "time", "date", "datetime", "tarikh", "زمان", "تاریخ", "t"],
+    "open": ["open", "o", "open_price", "baz", "قیمت_باز"],
+    "high": ["high", "h", "max", "بیشترین", "بالا"],
+    "low": ["low", "l", "min", "کمترین", "پایین"],
+    "close": ["close", "c", "price", "last", "closing", "بسته", "قیمت"],
+    "volume": ["volume", "vol", "v", "amount", "حجم"],
+    "symbol": ["symbol", "pair", "ticker", "market", "نماد", "بازار"],
+}
+
+
+def _normalize_ohlcv_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """نام ستون‌ها را به فرمت استاندارد تبدیل می‌کند (مستقل از بزرگی/کوچکی و نام)."""
+    df = df.copy()
+    lower_map = {str(col).strip().lower(): col for col in df.columns}
+    rename = {}
+    for std, aliases in _COL_ALIASES.items():
+        for a in aliases:
+            if a in lower_map:
+                rename[lower_map[a]] = std
+                break
+    return df.rename(columns=rename)
+
 
 def accum_load() -> pd.DataFrame:
     """بارگذاری مجموعه داده انباشته."""
@@ -32,12 +56,16 @@ def accum_merge_save(new_df: pd.DataFrame) -> pd.DataFrame:
     """داده جدید را با داده انباشته ادغام، تکراری‌زدایی و ذخیره می‌کند."""
     if new_df is None or new_df.empty:
         return accum_load()
-    new_df = new_df.copy()
+    new_df = _normalize_ohlcv_columns(new_df)
     if "symbol" not in new_df.columns:
         new_df["symbol"] = "CUSTOM"
-    missing = [c for c in _OHLCV_COLS if c not in new_df.columns]
+    required = ["timestamp", "open", "high", "low", "close", "volume"]
+    missing = [c for c in required if c not in new_df.columns]
     if missing:
-        raise ValueError(f"ستون‌های لازم موجود نیست: {missing}")
+        raise ValueError(
+            "ستون‌های لازم پیدا نشد: " + "، ".join(missing) +
+            " — فایل باید ستون‌های قیمت (open/high/low/close)، حجم (volume) و زمان (timestamp/date) داشته باشد."
+        )
     new_df = new_df[_OHLCV_COLS]
     base = accum_load()
     merged = pd.concat([base, new_df], ignore_index=True) if not base.empty else new_df

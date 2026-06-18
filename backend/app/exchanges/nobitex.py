@@ -180,7 +180,10 @@ class NobitexExchange(BaseExchange):
         }
         result = await self._post("/market/orders/add", data)
         if result.get("status") != "ok":
-            raise Exception(result.get("message") or str(result))
+            # پیام دقیق نوبیتکس (کد + متن) را برمی‌گردانیم تا علت واقعی دیده شود
+            code = result.get("code") or ""
+            msg = result.get("message") or str(result)
+            raise Exception(f"{msg}{(' [' + code + ']') if code else ''}")
         order = result.get("order", {})
         return OrderResult(
             order_id=str(order.get("id", "")),

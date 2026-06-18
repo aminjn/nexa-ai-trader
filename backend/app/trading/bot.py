@@ -161,17 +161,33 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     reason = f"سیگنال فروش ML (اطمینان {ml_conf*100:.0f}٪ | سود/زیان {change_pct:+.2f}٪)"
 
                 if reason:
+                    # مقدار قابل‌فروش = کمینه‌ی مقدار ثبت‌شده و موجودی واقعی کیف‌پول.
+                    # (هنگام خرید، کارمزد از مقدار سکه کم می‌شود، پس موجودی واقعی کمی کمتر است؛
+                    #  تلاش برای فروش بیشتر از موجودی باعث «Order Validation Failed» می‌شود.)
+                    import math
+                    coin_bal = balances.get(base_code.upper())
+                    free_coin = coin_bal.free if coin_bal else 0.0
+                    sell_amount = min(open_trade.amount, free_coin) if free_coin > 0 else open_trade.amount
+                    # کوتاه‌سازی به ۶ رقم اعشار برای جلوگیری از خطای دقت/کمبود موجودی
+                    sell_amount = math.floor(sell_amount * 1e6) / 1e6
+                    if sell_amount <= 0:
+                        log_bot_event(
+                            f"⚠️ {pair}: موجودی {base_code.upper()} برای فروش کافی نیست "
+                            f"(ثبت‌شده {open_trade.amount} / در کیف‌پول {free_coin}) — احتمالاً قبلاً فروخته شده",
+                            "error",
+                        )
+                        continue
                     try:
-                        await exchange.create_market_order(pair, "sell", open_trade.amount)
+                        await exchange.create_market_order(pair, "sell", sell_amount)
                         open_trade.exit_price = current_price
                         open_trade.pnl_pct = round(change_pct, 3)
-                        open_trade.pnl = round((current_price - open_trade.entry_price) * open_trade.amount, 2)
+                        open_trade.pnl = round((current_price - open_trade.entry_price) * sell_amount, 2)
                         open_trade.status = "closed"
                         open_trade.closed_at = datetime.utcnow()
                         db.commit()
-                        log_bot_event(f"🔴 فروش {pair} | دلیل: {reason}")
+                        log_bot_event(f"🔴 فروش {pair} | مقدار {sell_amount} | دلیل: {reason}")
                     except Exception as e:
-                        log_bot_event(f"خطا در فروش {pair}: {str(e)[:80]}", "error")
+                        log_bot_event(f"خطا در فروش {pair} (مقدار {sell_amount}): {str(e)[:120]}", "error")
                 else:
                     sig_txt = ml_signal["signal"] if ml_signal else "—"
                     log_bot_event(

@@ -6,7 +6,17 @@ import { useAuthStore } from '../stores/authStore'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 
-interface ModelStatus { status:string; accuracy:number; is_trained:boolean; progress:number; message:string; features:string[]; model_name:string; version:string; training_data_days:number }
+interface FeatureImportance { name: string; key: string; importance: number }
+interface Metrics {
+  accuracy?: number; precision?: number; recall?: number;
+  total_samples?: number; train_samples?: number; test_samples?: number;
+  num_features?: number; symbols?: string[]; date_from?: string; date_to?: string; source?: string;
+}
+interface ModelStatus {
+  status:string; accuracy:number; is_trained:boolean; progress:number; message:string;
+  features:string[]; model_name:string; version:string; training_data_days:number;
+  feature_importances?: FeatureImportance[]; metrics?: Metrics; ai_explanation?: string; data_source?: string;
+}
 
 function AccuracyDial({ pct }: { pct: number }) {
   const r = 70, cx = 80, cy = 80
@@ -125,21 +135,73 @@ export default function Model() {
           ))}
         </div>
 
+        {/* اطلاعات داده آموزش */}
+        {status?.metrics && status.metrics.total_samples ? (
+          <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:24 }}>
+            <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600, marginBottom:18 }}>جزئیات آموزش</div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:14 }}>
+              {[
+                { l:'منبع داده', v: status.metrics.source || status.data_source || '—' },
+                { l:'بازه زمانی', v: `${status.metrics.date_from || '—'} تا ${status.metrics.date_to || '—'}` },
+                { l:'تعداد نمونه', v: (status.metrics.total_samples||0).toLocaleString('fa-IR') },
+                { l:'بازارها', v: (status.metrics.symbols||[]).join('، ') || '—' },
+                { l:'دقت (Accuracy)', v: `${status.metrics.accuracy}٪` },
+                { l:'صحت (Precision)', v: `${status.metrics.precision}٪` },
+                { l:'فراخوانی (Recall)', v: `${status.metrics.recall}٪` },
+                { l:'تعداد اندیکاتور', v: status.metrics.num_features },
+              ].map((x,i)=>(
+                <div key={i} style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--faint)', marginBottom:5 }}>{x.l}</div>
+                  <div style={{ fontSize:14, fontWeight:600, color:'var(--text)', fontFamily:"'JetBrains Mono'" }}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* مدل چه چیزی یاد گرفت — اهمیت اندیکاتورها */}
         <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:24 }}>
-          <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600, marginBottom:18 }}>{t.featuresLearned}</div>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:10, marginBottom:24 }}>
-            {(status?.features || []).map((f, i) => (
-              <span key={i} style={{ padding:'8px 15px', border:'1px solid var(--border2)', borderRadius:999, fontSize:13, background:'var(--bg3)', color:'var(--dim)' }}>{f}</span>
-            ))}
+          <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600, marginBottom:6 }}>مدل چه چیزی یاد گرفت؟</div>
+          <div style={{ fontSize:13, color:'var(--dim)', marginBottom:18 }}>اهمیت هر اندیکاتور در تصمیم‌گیری مدل (بیشتر = تأثیرگذارتر)</div>
+
+          {(status?.feature_importances && status.feature_importances.length > 0) ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
+              {status.feature_importances.slice(0, 20).map((f, i) => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ width:200, fontSize:13, color:'var(--text)', flexShrink:0, textAlign:'start' }}>{f.name}</div>
+                  <div style={{ flex:1, height:18, background:'var(--bg3)', borderRadius:6, overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${Math.min(100, f.importance * 4)}%`, background:'linear-gradient(90deg, var(--accent), var(--accent2))', borderRadius:6, transition:'width .6s' }} />
+                  </div>
+                  <div style={{ width:52, textAlign:'end', fontSize:12, fontWeight:700, color:'var(--accent)', fontFamily:"'JetBrains Mono'", flexShrink:0 }}>{f.importance}٪</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ display:'flex', flexWrap:'wrap', gap:10 }}>
+              {(status?.features || []).map((f, i) => (
+                <span key={i} style={{ padding:'8px 15px', border:'1px solid var(--border2)', borderRadius:999, fontSize:13, background:'var(--bg3)', color:'var(--dim)' }}>{f}</span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* توضیح هوش مصنوعی */}
+        {status?.ai_explanation ? (
+          <div style={{ background:'linear-gradient(135deg, rgba(75,224,255,0.06), rgba(255,92,200,0.06))', border:'1px solid var(--border)', borderRadius:18, padding:24 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
+              <span style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>✨ تحلیل هوش مصنوعی از آموخته‌های مدل</span>
+            </div>
+            <div style={{ fontSize:14, lineHeight:2, color:'var(--dim)', whiteSpace:'pre-wrap' }}>{status.ai_explanation}</div>
           </div>
-          <div style={{ display:'flex', gap:12 }}>
-            {isSuperAdmin && (
-              <button onClick={startTraining} disabled={training || isTraining} style={{ padding:'13px 24px', border:'none', borderRadius:12, background:'var(--accent)', color:'#05121a', fontWeight:700, fontFamily:"'Space Grotesk'", fontSize:14, cursor:'pointer', opacity:training||isTraining?.7:1 }}>
-                {isTraining ? `${status?.progress||0}%...` : t.retrain}
-              </button>
-            )}
-            <button style={{ padding:'13px 24px', border:'1px solid var(--border2)', borderRadius:12, background:'transparent', color:'var(--text)', fontWeight:600, fontFamily:'inherit', fontSize:14, cursor:'pointer' }}>{t.exportModel}</button>
-          </div>
+        ) : null}
+
+        {/* دکمه‌های کنترل */}
+        <div style={{ display:'flex', gap:12 }}>
+          {isSuperAdmin && (
+            <button onClick={startTraining} disabled={training || isTraining} style={{ padding:'13px 28px', border:'none', borderRadius:12, background:'var(--accent)', color:'#05121a', fontWeight:700, fontFamily:"'Space Grotesk'", fontSize:14, cursor:'pointer', opacity:training||isTraining?.7:1 }}>
+              {isTraining ? `در حال آموزش... ${status?.progress||0}%` : t.retrain}
+            </button>
+          )}
         </div>
       </div>
     </Layout>

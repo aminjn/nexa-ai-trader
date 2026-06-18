@@ -76,25 +76,29 @@ async def fetch_nobitex_5y(symbols: List[str]) -> pd.DataFrame:
     return pd.concat(all_frames, ignore_index=True)
 
 
-async def fetch_5year_data(pairs: List[str] = None) -> pd.DataFrame:
-    """ابتدا بایننس (از پروکسی)، اگر نشد نوبیتکس (مستقیم). بدون داده ساختگی."""
-    if pairs is None:
-        pairs = ["BTCUSDT", "ETHUSDT"]
+# بازارهای ریالی نوبیتکس برای آموزش (همان بازارهایی که ربات معامله می‌کند)
+NOBITEX_TRAIN_SYMBOLS = ["BTCIRT", "ETHIRT", "USDTIRT", "LTCIRT", "XRPIRT", "ADAIRT", "DOGEIRT", "BNBIRT"]
 
-    # تلاش اول: بایننس از طریق پروکسی
+
+async def fetch_5year_data(pairs: List[str] = None):
+    """داده ۵ ساله را برمی‌گرداند. اولویت با نوبیتکس (مستقیم) است.
+
+    خروجی: (DataFrame, نام منبع)
+    """
+    # تلاش اول: نوبیتکس مستقیم (داده‌ی همان بازاری که معامله می‌شود)
     try:
-        df = await fetch_binance_5y(pairs)
+        df = await fetch_nobitex_5y(NOBITEX_TRAIN_SYMBOLS)
         if not df.empty and len(df) > 300:
-            return df
+            return df, "نوبیتکس"
     except Exception:
         pass
 
-    # تلاش دوم: نوبیتکس مستقیم
+    # تلاش دوم: بایننس از طریق پروکسی
     try:
-        df = await fetch_nobitex_5y(pairs)
+        df = await fetch_binance_5y(["BTCUSDT", "ETHUSDT"])
         if not df.empty and len(df) > 300:
-            return df
+            return df, "بایننس"
     except Exception:
         pass
 
-    return pd.DataFrame()
+    return pd.DataFrame(), ""

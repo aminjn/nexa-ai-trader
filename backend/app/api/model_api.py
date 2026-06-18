@@ -34,6 +34,10 @@ async def get_model_status(db: Session = Depends(get_db), current_user: models.U
         "training_data_days": ml_model.training_data_days,
         "last_trained": ml_model.last_trained,
         "features": FEATURE_NAMES,
+        "feature_importances": ml_model.feature_importances or [],
+        "metrics": ml_model.metrics or {},
+        "ai_explanation": ml_model.ai_explanation or "",
+        "data_source": ml_model.data_source or "",
         "model_name": ml_model.name,
         "version": ml_model.version,
     }
@@ -51,6 +55,11 @@ async def _train_background():
     trainer = get_trainer()
     try:
         result = await trainer.train(progress_callback=progress_cb)
+
+        # تولید توضیح هوش مصنوعی درباره آموخته‌های مدل
+        _training_progress = {"status": "training", "progress": 100, "message": "هوش مصنوعی در حال تحلیل آموخته‌ها..."}
+        ai_explanation = await _generate_ai_explanation(result)
+
         _training_progress = {
             "status": "ready",
             "progress": 100,
@@ -63,12 +72,43 @@ async def _train_background():
             if ml_model:
                 ml_model.status = "ready"
                 ml_model.accuracy = result["accuracy"]
+                ml_model.feature_importances = result["feature_importances"]
+                ml_model.metrics = result["metrics"]
+                ml_model.data_source = result["source"]
+                ml_model.ai_explanation = ai_explanation
                 ml_model.last_trained = datetime.utcnow()
                 db.commit()
         finally:
             db.close()
     except Exception as e:
         _training_progress = {"status": "error", "progress": 0, "message": f"خطا: {str(e)}"}
+
+
+async def _generate_ai_explanation(result: dict) -> str:
+    """با کمک گپ‌جی‌پی‌تی توضیح می‌دهد مدل چه چیزی یاد گرفته است."""
+    try:
+        from ..ai.gapgpt import get_ai_response, get_ai_config
+        from ..database import SessionLocal
+        db = SessionLocal()
+        try:
+            if not get_ai_config(db)["api_key"]:
+                return ""
+            top = result["feature_importances"][:12]
+            m = result["metrics"]
+            lines = "\n".join([f"- {f['name']}: {f['importance']}٪" for f in top])
+            prompt = (
+                f"یک مدل یادگیری ماشین برای پیش‌بینی جهت قیمت رمزارز روی داده {m.get('source')} "
+                f"({m.get('date_from')} تا {m.get('date_to')}، {m.get('total_samples')} نمونه) آموزش دید.\n"
+                f"دقت: {m.get('accuracy')}٪ | Precision: {m.get('precision')}٪ | Recall: {m.get('recall')}٪\n\n"
+                f"مهم‌ترین اندیکاتورهایی که مدل یاد گرفت (به ترتیب اهمیت):\n{lines}\n\n"
+                "به‌صورت کوتاه و کاملاً فارسی توضیح بده: ۱) مدل عمدتاً روی چه نوع سیگنال‌هایی تکیه کرده "
+                "۲) این یعنی چه استراتژی‌ای یاد گرفته ۳) محدودیت‌ها و ریسک‌ها. صادق باش و اغراق نکن."
+            )
+            return await get_ai_response([{"role": "user", "content": prompt}], db=db)
+        finally:
+            db.close()
+    except Exception:
+        return ""
 
 
 @router.post("/train")

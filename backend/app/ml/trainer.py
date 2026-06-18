@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 import joblib
 import os
 import asyncio
@@ -15,82 +15,160 @@ MODEL_PATH = "ml_model.joblib"
 SCALER_PATH = "ml_scaler.joblib"
 
 
-def add_features(df: pd.DataFrame) -> pd.DataFrame:
-    """افزودن اندیکاتورهای تکنیکال به‌صورت مستقل از مقیاس قیمت.
+# فهرست ویژگی‌ها: (نام ستون، نام فارسی) — همه مستقل از مقیاس قیمت
+FEATURES = [
+    ("sma_5", "نسبت قیمت به میانگین ۵ روزه"),
+    ("sma_10", "نسبت قیمت به میانگین ۱۰ روزه"),
+    ("sma_20", "نسبت قیمت به میانگین ۲۰ روزه"),
+    ("sma_50", "نسبت قیمت به میانگین ۵۰ روزه"),
+    ("sma_200", "نسبت قیمت به میانگین ۲۰۰ روزه"),
+    ("ema_12", "نسبت قیمت به EMA 12"),
+    ("ema_26", "نسبت قیمت به EMA 26"),
+    ("rsi_7", "RSI کوتاه‌مدت (۷)"),
+    ("rsi_14", "RSI استاندارد (۱۴)"),
+    ("rsi_21", "RSI بلندمدت (۲۱)"),
+    ("macd", "MACD"),
+    ("macd_signal", "خط سیگنال MACD"),
+    ("macd_hist", "هیستوگرام MACD"),
+    ("stoch_k", "استوکستیک %K"),
+    ("stoch_d", "استوکستیک %D"),
+    ("williams_r", "ویلیامز %R"),
+    ("cci", "شاخص کانال کالا (CCI)"),
+    ("roc_10", "نرخ تغییر ۱۰ روزه (ROC)"),
+    ("momentum_10", "مومنتوم ۱۰ روزه"),
+    ("atr_pct", "میانگین دامنه واقعی (ATR٪)"),
+    ("adx", "شاخص قدرت روند (ADX)"),
+    ("mfi", "شاخص جریان نقدینگی (MFI)"),
+    ("obv_ratio", "نسبت حجم متوازن (OBV)"),
+    ("cmf", "جریان نقدینگی چایکین (CMF)"),
+    ("bb_pct", "موقعیت در باند بولینگر"),
+    ("bb_width", "پهنای باند بولینگر (نوسان)"),
+    ("vol_ratio", "نسبت حجم به میانگین"),
+    ("vol_change", "تغییر حجم"),
+    ("return_1d", "بازده ۱ روزه"),
+    ("return_3d", "بازده ۳ روزه"),
+    ("return_7d", "بازده ۷ روزه"),
+    ("return_14d", "بازده ۱۴ روزه"),
+    ("return_30d", "بازده ۳۰ روزه"),
+    ("hl_ratio", "نسبت دامنه روزانه"),
+    ("close_pos", "موقعیت بسته‌شدن در کندل"),
+]
 
-    همه ویژگی‌ها نسبی هستند تا مدل آموزش‌دیده روی یک بازار (مثلاً دلاری)
-    روی بازار دیگری با مقیاس قیمت متفاوت (مثلاً ریالی) هم کار کند.
-    """
+
+def get_feature_columns():
+    return [f[0] for f in FEATURES]
+
+
+FEATURE_NAMES = [f[1] for f in FEATURES]
+
+
+def _rsi(c, period):
+    delta = c.diff()
+    gain = delta.clip(lower=0).rolling(period).mean()
+    loss = (-delta.clip(upper=0)).rolling(period).mean()
+    rs = gain / (loss + 1e-9)
+    return 100 - (100 / (1 + rs))
+
+
+def add_features(df: pd.DataFrame) -> pd.DataFrame:
+    """افزودن ۳۵+ اندیکاتور تکنیکال به‌صورت مستقل از مقیاس قیمت."""
     df = df.copy()
     c = df["close"]
     h = df["high"]
     l = df["low"]
     v = df["volume"]
 
-    # میانگین‌های متحرک — به‌صورت نسبت قیمت به میانگین (مستقل از مقیاس)
+    # میانگین‌های متحرک (نسبت قیمت به میانگین)
     for w in [5, 10, 20, 50, 200]:
-        sma = c.rolling(w).mean()
-        ema = c.ewm(span=w).mean()
-        df[f"sma_{w}"] = c / (sma + 1e-9) - 1
-        df[f"ema_{w}"] = c / (ema + 1e-9) - 1
+        df[f"sma_{w}"] = c / (c.rolling(w).mean() + 1e-9) - 1
+    df["ema_12"] = c / (c.ewm(span=12).mean() + 1e-9) - 1
+    df["ema_26"] = c / (c.ewm(span=26).mean() + 1e-9) - 1
 
-    # RSI (ذاتاً ۰ تا ۱۰۰، مستقل از مقیاس)
-    delta = c.diff()
-    gain = delta.clip(lower=0).rolling(14).mean()
-    loss = (-delta.clip(upper=0)).rolling(14).mean()
-    rs = gain / (loss + 1e-9)
-    df["rsi"] = 100 - (100 / (1 + rs))
+    # RSI چنددوره
+    df["rsi_7"] = _rsi(c, 7)
+    df["rsi_14"] = _rsi(c, 14)
+    df["rsi_21"] = _rsi(c, 21)
 
-    # MACD — نرمال‌شده نسبت به قیمت
+    # MACD (نرمال نسبت به قیمت)
     ema12 = c.ewm(span=12).mean()
     ema26 = c.ewm(span=26).mean()
     df["macd"] = (ema12 - ema26) / (c + 1e-9)
     df["macd_signal"] = df["macd"].ewm(span=9).mean()
     df["macd_hist"] = df["macd"] - df["macd_signal"]
 
-    # باند بولینگر — درصد موقعیت (مستقل از مقیاس)
+    # استوکستیک
+    low14 = l.rolling(14).min()
+    high14 = h.rolling(14).max()
+    df["stoch_k"] = (c - low14) / (high14 - low14 + 1e-9) * 100
+    df["stoch_d"] = df["stoch_k"].rolling(3).mean()
+
+    # ویلیامز %R
+    df["williams_r"] = (high14 - c) / (high14 - low14 + 1e-9) * -100
+
+    # CCI
+    tp = (h + l + c) / 3
+    sma_tp = tp.rolling(20).mean()
+    mad = (tp - sma_tp).abs().rolling(20).mean()
+    df["cci"] = (tp - sma_tp) / (0.015 * mad + 1e-9)
+
+    # ROC و مومنتوم
+    df["roc_10"] = c.pct_change(10) * 100
+    df["momentum_10"] = c / (c.shift(10) + 1e-9) - 1
+
+    # ATR (نرمال نسبت به قیمت)
+    tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+    df["atr_pct"] = tr.rolling(14).mean() / (c + 1e-9)
+
+    # ADX (قدرت روند)
+    up_move = h.diff()
+    down_move = -l.diff()
+    plus_dm = ((up_move > down_move) & (up_move > 0)) * up_move
+    minus_dm = ((down_move > up_move) & (down_move > 0)) * down_move
+    atr14 = tr.rolling(14).mean()
+    plus_di = 100 * (plus_dm.rolling(14).mean() / (atr14 + 1e-9))
+    minus_di = 100 * (minus_dm.rolling(14).mean() / (atr14 + 1e-9))
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di + 1e-9)
+    df["adx"] = dx.rolling(14).mean()
+
+    # MFI (جریان نقدینگی)
+    mf = tp * v
+    pos_mf = (mf.where(tp > tp.shift(), 0)).rolling(14).sum()
+    neg_mf = (mf.where(tp < tp.shift(), 0)).rolling(14).sum()
+    df["mfi"] = 100 - (100 / (1 + pos_mf / (neg_mf + 1e-9)))
+
+    # OBV (نسبی)
+    obv = (np.sign(c.diff()) * v).fillna(0).cumsum()
+    df["obv_ratio"] = obv / (obv.rolling(20).mean().abs() + 1e-9)
+
+    # CMF (چایکین)
+    mfm = ((c - l) - (h - c)) / (h - l + 1e-9)
+    df["cmf"] = (mfm * v).rolling(20).sum() / (v.rolling(20).sum() + 1e-9)
+
+    # باند بولینگر
     sma20 = c.rolling(20).mean()
     std20 = c.rolling(20).std()
-    bb_upper = sma20 + 2 * std20
-    bb_lower = sma20 - 2 * std20
-    df["bb_pct"] = (c - bb_lower) / (bb_upper - bb_lower + 1e-9)
+    df["bb_pct"] = (c - (sma20 - 2 * std20)) / (4 * std20 + 1e-9)
+    df["bb_width"] = (4 * std20) / (sma20 + 1e-9)
 
-    # حجم — نسبت حجم به میانگین (مستقل از مقیاس)
-    vol_sma20 = v.rolling(20).mean()
-    df["vol_ratio"] = v / (vol_sma20 + 1e-9)
+    # حجم
+    df["vol_ratio"] = v / (v.rolling(20).mean() + 1e-9)
+    df["vol_change"] = v.pct_change(1)
 
-    # ویژگی‌های قیمتی نسبی
+    # بازده‌ها
     df["return_1d"] = c.pct_change(1)
     df["return_3d"] = c.pct_change(3)
     df["return_7d"] = c.pct_change(7)
+    df["return_14d"] = c.pct_change(14)
+    df["return_30d"] = c.pct_change(30)
+
+    # ساختار کندل
     df["hl_ratio"] = (h - l) / (c + 1e-9)
-    df["price_vs_sma50"] = c / (c.rolling(50).mean() + 1e-9) - 1
+    df["close_pos"] = (c - l) / (h - l + 1e-9)
 
     # هدف: آیا قیمت روز بعد بالاتر می‌رود؟
     df["target"] = (c.shift(-1) > c).astype(int)
 
-    return df
-
-
-def get_feature_columns():
-    return [
-        "sma_5", "sma_10", "sma_20", "sma_50",
-        "ema_5", "ema_10", "ema_20", "ema_50",
-        "rsi", "macd", "macd_signal", "macd_hist",
-        "bb_pct", "vol_ratio",
-        "return_1d", "return_3d", "return_7d",
-        "hl_ratio", "price_vs_sma50",
-    ]
-
-
-FEATURE_NAMES = [
-    "میانگین متحرک ۵ روزه", "میانگین متحرک ۱۰ روزه", "میانگین متحرک ۲۰ روزه",
-    "میانگین متحرک ۵۰ روزه", "EMA 5", "EMA 10", "EMA 20", "EMA 50",
-    "شاخص قدرت نسبی (RSI)", "MACD", "سیگنال MACD", "هیستوگرام MACD",
-    "درصد باند بولینگر", "نسبت حجم",
-    "بازده ۱ روزه", "بازده ۳ روزه", "بازده ۷ روزه",
-    "نسبت High/Low", "موقعیت نسبت به SMA50",
-]
+    return df.replace([np.inf, -np.inf], np.nan)
 
 
 class MLTrainer:
@@ -101,6 +179,8 @@ class MLTrainer:
         self.scaler = None
         self.accuracy = 0.0
         self.is_trained = False
+        self.feature_importances = []
+        self.metrics = {}
 
     def load_if_exists(self) -> bool:
         if os.path.exists(self.model_path) and os.path.exists(self.scaler_path):
@@ -116,60 +196,77 @@ class MLTrainer:
         use_cached_data: bool = False,
     ) -> dict:
         if progress_callback:
-            await progress_callback(5, "در حال دریافت داده‌های واقعی بازار...")
+            await progress_callback(5, "در حال دریافت داده ۵ ساله از نوبیتکس...")
 
-        df = await fetch_5year_data(["BTCUSDT", "ETHUSDT"])
-        if df.empty or len(df) < 300:
+        raw, source = await fetch_5year_data()
+        if raw.empty or len(raw) < 300:
             raise RuntimeError(
                 "دریافت داده واقعی بازار ناموفق بود. "
-                "بررسی کنید پروکسی (برای بایننس) یا دسترسی نوبیتکس فعال باشد."
+                "بررسی کنید دسترسی نوبیتکس (مستقیم) یا پروکسی (بایننس) فعال باشد."
             )
 
-        if progress_callback:
-            await progress_callback(25, "در حال محاسبه ویژگی‌های تکنیکال...")
+        symbols = sorted(raw["symbol"].unique().tolist()) if "symbol" in raw.columns else []
+        date_from = str(raw["timestamp"].min())[:10] if "timestamp" in raw.columns else ""
+        date_to = str(raw["timestamp"].max())[:10] if "timestamp" in raw.columns else ""
 
-        df = add_features(df)
+        if progress_callback:
+            await progress_callback(20, f"محاسبه ۳۵+ اندیکاتور روی {len(symbols)} بازار...")
+
+        # ویژگی‌ها را برای هر نماد جداگانه محاسبه می‌کنیم تا مرز نمادها قاطی نشود
+        feature_cols = get_feature_columns()
+        frames = []
+        if "symbol" in raw.columns:
+            for sym, g in raw.groupby("symbol"):
+                g = g.sort_values("timestamp")
+                frames.append(add_features(g))
+            df = pd.concat(frames, ignore_index=True)
+        else:
+            df = add_features(raw)
         df = df.dropna()
 
-        feature_cols = get_feature_columns()
+        if len(df) < 200:
+            raise RuntimeError("داده کافی پس از محاسبه اندیکاتورها باقی نماند.")
+
         X = df[feature_cols].values
         y = df["target"].values
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         if progress_callback:
-            await progress_callback(40, "در حال نرمال‌سازی داده‌ها...")
+            await progress_callback(40, "نرمال‌سازی داده‌ها...")
 
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
-        if progress_callback:
-            await progress_callback(50, "در حال آموزش مدل Gradient Boosting...")
-
         self.model = GradientBoostingClassifier(
-            n_estimators=100,
-            learning_rate=0.1,
-            max_depth=4,
-            random_state=42,
-            verbose=0,
+            n_estimators=100, learning_rate=0.1, max_depth=4, random_state=42,
         )
 
-        # Train in chunks to simulate progress
         stages = [25, 50, 75, 100]
         for i, n in enumerate(stages):
             self.model.set_params(n_estimators=n)
             self.model.fit(X_train_scaled, y_train)
             if progress_callback:
-                pct = 50 + (i + 1) * 10
-                await progress_callback(pct, f"آموزش... {n} درخت کامل شد")
-            await asyncio.sleep(0.1)
+                pct = 45 + (i + 1) * 10
+                await progress_callback(pct, f"آموزش Gradient Boosting... {n} درخت")
+            await asyncio.sleep(0.05)
 
         if progress_callback:
-            await progress_callback(90, "در حال ارزیابی مدل...")
+            await progress_callback(90, "در حال ارزیابی و استخراج آموخته‌ها...")
 
         y_pred = self.model.predict(X_test_scaled)
         self.accuracy = float(accuracy_score(y_test, y_pred))
+        precision = float(precision_score(y_test, y_pred, zero_division=0))
+        recall = float(recall_score(y_test, y_pred, zero_division=0))
+
+        # اهمیت هر اندیکاتور (مدل چه چیزی یاد گرفته)
+        importances = self.model.feature_importances_
+        self.feature_importances = sorted(
+            [{"name": FEATURE_NAMES[i], "key": feature_cols[i], "importance": round(float(importances[i]) * 100, 2)}
+             for i in range(len(feature_cols))],
+            key=lambda x: x["importance"], reverse=True,
+        )
 
         joblib.dump(self.model, self.model_path)
         joblib.dump(self.scaler, self.scaler_path)
@@ -178,10 +275,27 @@ class MLTrainer:
         if progress_callback:
             await progress_callback(100, "آموزش کامل شد!")
 
+        self.metrics = {
+            "accuracy": round(self.accuracy * 100, 2),
+            "precision": round(precision * 100, 2),
+            "recall": round(recall * 100, 2),
+            "total_samples": int(len(df)),
+            "train_samples": int(len(X_train)),
+            "test_samples": int(len(X_test)),
+            "num_features": len(feature_cols),
+            "symbols": symbols,
+            "date_from": date_from,
+            "date_to": date_to,
+            "source": source,
+        }
+
         return {
             "accuracy": self.accuracy,
             "samples": len(df),
             "features": len(feature_cols),
+            "feature_importances": self.feature_importances,
+            "metrics": self.metrics,
+            "source": source,
             "training_date": datetime.utcnow().isoformat(),
         }
 
@@ -207,31 +321,6 @@ class MLTrainer:
             signal = "WAIT"
 
         return {"signal": signal, "confidence": confidence, "probabilities": proba.tolist()}
-
-    def _generate_synthetic_data(self) -> pd.DataFrame:
-        """Generate synthetic OHLCV data for training when API is unavailable."""
-        np.random.seed(42)
-        n = 2000
-        price = 30000.0
-        rows = []
-        for i in range(n):
-            change = np.random.normal(0.001, 0.02)
-            open_p = price
-            close_p = price * (1 + change)
-            high_p = max(open_p, close_p) * (1 + abs(np.random.normal(0, 0.005)))
-            low_p = min(open_p, close_p) * (1 - abs(np.random.normal(0, 0.005)))
-            vol = np.random.uniform(1000, 5000)
-            rows.append({
-                "timestamp": pd.Timestamp("2019-01-01") + pd.Timedelta(days=i),
-                "symbol": "BTCUSDT",
-                "open": open_p,
-                "high": high_p,
-                "low": low_p,
-                "close": close_p,
-                "volume": vol,
-            })
-            price = close_p
-        return pd.DataFrame(rows)
 
 
 # Global trainer instance

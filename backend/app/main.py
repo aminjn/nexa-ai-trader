@@ -30,6 +30,18 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN gapgpt_api_key VARCHAR DEFAULT ''"))
             if "gapgpt_model" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN gapgpt_model VARCHAR DEFAULT 'gpt-4o'"))
+    # ml_models: ستون‌های جزئیات آموزش
+    if "ml_models" in tables:
+        cols = {c["name"] for c in inspector.get_columns("ml_models")}
+        with engine.begin() as conn:
+            if "feature_importances" not in cols:
+                conn.execute(text("ALTER TABLE ml_models ADD COLUMN feature_importances JSON"))
+            if "metrics" not in cols:
+                conn.execute(text("ALTER TABLE ml_models ADD COLUMN metrics JSON"))
+            if "ai_explanation" not in cols:
+                conn.execute(text("ALTER TABLE ml_models ADD COLUMN ai_explanation TEXT DEFAULT ''"))
+            if "data_source" not in cols:
+                conn.execute(text("ALTER TABLE ml_models ADD COLUMN data_source VARCHAR DEFAULT ''"))
 
 
 @asynccontextmanager

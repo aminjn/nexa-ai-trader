@@ -86,6 +86,10 @@ class MLModel(Base):
     total_epochs = Column(Integer, default=100)
     training_data_days = Column(Integer, default=1825)  # 5 years
     features = Column(JSON, default=list)
+    feature_importances = Column(JSON, default=list)  # [{name, importance}]
+    metrics = Column(JSON, default=dict)  # precision, recall, samples, date range, source
+    ai_explanation = Column(Text, default="")  # توضیح هوش مصنوعی از آموخته‌های مدل
+    data_source = Column(String, default="")
     model_path = Column(String, nullable=True)
     last_trained = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -1,4 +1,5 @@
 """اسکرپر قابل‌تنظیم: هر سایتی را با CSS selector استخراج می‌کند."""
+import asyncio
 import httpx
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -43,9 +44,9 @@ def _extract_from_soup(soup, selector: str, max_chars: int = 800) -> str:
     return " | ".join(parts)[:max_chars]
 
 
-async def _fetch_html(url: str, use_proxy: bool = False) -> str:
+async def _fetch_html(url: str, use_proxy: bool = False, timeout: float = 25) -> str:
     proxy = settings.GAPGPT_PROXY if use_proxy else None
-    async with httpx.AsyncClient(timeout=25, proxy=proxy, follow_redirects=True,
+    async with httpx.AsyncClient(timeout=timeout, proxy=proxy, follow_redirects=True,
                                  headers=_HEADERS, trust_env=False) as client:
         resp = await client.get(url)
         resp.raise_for_status()
@@ -58,6 +59,10 @@ async def scrape_source(source, persist: bool = False) -> str:
     fields = getattr(source, "fields", None) or []
     link_sel = getattr(source, "link_selector", "") or ""
     max_items = getattr(source, "max_items", 5) or 5
+    # در حالت تست (persist=False) سریع‌تر باش تا کاربر منتظر نماند
+    if not persist:
+        max_items = min(max_items, 3)
+    item_timeout = 15.0
 
     html = await _fetch_html(source.url, source.use_proxy)
     soup = BeautifulSoup(html, "html.parser")
@@ -75,20 +80,27 @@ async def scrape_source(source, persist: bool = False) -> str:
         seen = set(getattr(source, "seen_urls", None) or []) if persist else set()
         new_urls = [u for u in all_urls if u not in seen][:max_items]
 
-        new_items = []
-        for u in new_urls:
+        # دریافت همه‌ی مطلب‌ها به‌صورت هم‌زمان (به‌جای سریالی) تا سریع باشد
+        async def _fetch_one(u):
             try:
-                h = await _fetch_html(u, source.use_proxy)
-                s2 = BeautifulSoup(h, "html.parser")
-                parts = []
-                for f in fields:
-                    val = _extract_from_soup(s2, f.get("selector", ""), 400)
-                    if val:
-                        parts.append(f"{f.get('name', 'فیلد')}: {val}")
-                if parts:
-                    new_items.append({"url": u, "text": " — ".join(parts)})
+                return u, await _fetch_html(u, source.use_proxy, timeout=item_timeout)
             except Exception:
+                return u, None
+
+        results = await asyncio.gather(*[_fetch_one(u) for u in new_urls])
+
+        new_items = []
+        for u, h in results:
+            if not h:
                 continue
+            s2 = BeautifulSoup(h, "html.parser")
+            parts = []
+            for f in fields:
+                val = _extract_from_soup(s2, f.get("selector", ""), 400)
+                if val:
+                    parts.append(f"{f.get('name', 'فیلد')}: {val}")
+            if parts:
+                new_items.append({"url": u, "text": " — ".join(parts)})
 
         if persist:
             items = (getattr(source, "items", None) or []) + new_items

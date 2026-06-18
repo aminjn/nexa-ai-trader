@@ -123,13 +123,19 @@ export default function Scraper() {
   const testScrape = async () => {
     if (!url.trim()) { toast.error('آدرس سایت را وارد کنید'); return }
     setTesting(true); setPreview('')
+    const tid = toast.loading('در حال تست استخراج... (ممکن است تا ۴۰ ثانیه طول بکشد)')
     try {
       const fields = capturedFields.map(f => ({ name: f.name, selector: f.selector }))
       const r = await api.post('/scraper/test-recipe', {
         url: url.trim(), selector: selector.trim(), link_selector: linkSelector, fields, use_proxy: useProxy, max_items: maxItems
-      })
-      setPreview(r.data.preview || '')
-    } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در تست') }
+      }, { timeout: 60000 })
+      setPreview(r.data.preview || '(چیزی استخراج نشد)')
+      toast.dismiss(tid)
+      if (r.data.ok) toast.success('تست انجام شد'); else toast.error('تست ناموفق — پیش‌نمایش را ببین')
+    } catch (e: any) {
+      toast.dismiss(tid)
+      toast.error(e.response?.data?.detail || 'تست بیش از حد طول کشید یا خطا داد')
+    }
     finally { setTesting(false) }
   }
 

@@ -214,9 +214,12 @@ async def test_recipe(req: TestRecipeRequest, current_user: models.User = Depend
         fields=[f.dict() for f in req.fields], use_proxy=req.use_proxy,
         max_items=req.max_items, seen_urls=[], items=[],
     )
+    import asyncio
     try:
-        text = await scrape_source(src)
-        return {"ok": True, "preview": text or "(چیزی استخراج نشد)"}
+        text = await asyncio.wait_for(scrape_source(src), timeout=45)
+        return {"ok": True, "preview": text or "(چیزی استخراج نشد — selector یا لینک را بررسی کنید)"}
+    except asyncio.TimeoutError:
+        return {"ok": False, "preview": "تست بیش از حد طول کشید. تعداد مطلب را کمتر کنید یا سایت کندتر از حد معمول است."}
     except Exception as e:
         return {"ok": False, "preview": f"خطا: {str(e)[:200]}"}
 

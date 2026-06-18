@@ -43,6 +43,12 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE ml_models ADD COLUMN ai_explanation TEXT DEFAULT ''"))
             if "data_source" not in cols:
                 conn.execute(text("ALTER TABLE ml_models ADD COLUMN data_source VARCHAR DEFAULT ''"))
+    # scrape_sources: ستون چندفیلدی
+    if "scrape_sources" in tables:
+        cols = {c["name"] for c in inspector.get_columns("scrape_sources")}
+        with engine.begin() as conn:
+            if "fields" not in cols:
+                conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN fields JSON"))
 
 
 @asynccontextmanager

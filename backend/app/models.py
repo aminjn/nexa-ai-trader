@@ -143,7 +143,8 @@ class ScrapeSource(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)            # نام منبع (مثلاً «اخبار ارزدیجیتال»)
     url = Column(String)             # آدرس سایت
-    selector = Column(String, default="")  # CSS selector فیلد موردنظر
+    selector = Column(String, default="")  # CSS selector (حالت تک‌فیلدی قدیمی)
+    fields = Column(JSON, default=list)     # [{name, selector}] حالت چندفیلدی
     use_proxy = Column(Boolean, default=False)  # برای سایت‌های خارجی
     enabled = Column(Boolean, default=True)
     last_value = Column(Text, default="")

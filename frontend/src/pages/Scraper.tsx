@@ -21,7 +21,7 @@ export default function Scraper() {
   const { t } = useAppStore()
   const token = useAuthStore(s => s.token)
   const [pickerUrl, setPickerUrl] = useState('')
-  const [pickedText, setPickedText] = useState('')
+  const [capturedFields, setCapturedFields] = useState<{name:string; selector:string; sample:string}[]>([])
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
@@ -68,9 +68,13 @@ export default function Scraper() {
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       if (e.data && e.data.type === 'nexa-pick') {
-        setSelector(e.data.selector || '')
-        setPickedText(e.data.text || '')
-        toast.success('عنصر انتخاب شد ✓')
+        const sel = e.data.selector || ''
+        const sample = e.data.text || ''
+        setCapturedFields(prev => {
+          const defaultName = prev.length === 0 ? 'عنوان' : prev.length === 1 ? 'محتوا' : `فیلد ${prev.length + 1}`
+          return [...prev, { name: defaultName, selector: sel, sample }]
+        })
+        toast.success('فیلد اضافه شد ✓ می‌توانی فیلد بعدی را هم کلیک کنی')
       }
     }
     window.addEventListener('message', onMsg)
@@ -81,7 +85,6 @@ export default function Scraper() {
     if (!url.trim()) { toast.error('آدرس سایت را وارد کنید'); return }
     const q = new URLSearchParams({ url: url.trim(), token: token || '', use_proxy: String(useProxy) })
     setPickerUrl(`/api/scraper/proxy?${q.toString()}`)
-    setPickedText('')
   }
 
   const testScrape = async () => {
@@ -96,11 +99,13 @@ export default function Scraper() {
 
   const addSource = async () => {
     if (!name.trim() || !url.trim()) { toast.error('نام و آدرس الزامی است'); return }
+    const fields = capturedFields.map(f => ({ name: f.name, selector: f.selector }))
+    if (fields.length === 0 && !selector.trim()) { toast.error('حداقل یک فیلد انتخاب کن'); return }
     setAdding(true)
     try {
-      await api.post('/scraper/sources', { name: name.trim(), url: url.trim(), selector: selector.trim(), use_proxy: useProxy })
+      await api.post('/scraper/sources', { name: name.trim(), url: url.trim(), selector: selector.trim(), fields, use_proxy: useProxy })
       toast.success('منبع اضافه شد')
-      setName(''); setUrl(''); setSelector(''); setUseProxy(false); setPreview('')
+      setName(''); setUrl(''); setSelector(''); setUseProxy(false); setPreview(''); setCapturedFields([]); setPickerUrl('')
       load()
     } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
     finally { setAdding(false) }
@@ -165,12 +170,26 @@ export default function Scraper() {
                 <button onClick={() => setPickerUrl('')} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 12px', color: 'var(--dim)', cursor: 'pointer', fontSize: 12 }}>بستن</button>
               </div>
               <iframe src={pickerUrl} title="picker" style={{ width: '100%', height: 460, border: '1px solid var(--border2)', borderRadius: 12, background: '#fff' }} />
-              {pickedText && (
-                <div style={{ marginTop: 10, padding: 12, background: 'color-mix(in srgb, var(--accent) 10%, var(--bg2))', border: '1px solid var(--accent)', borderRadius: 10 }}>
-                  <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 4 }}>انتخاب شد:</div>
-                  <div style={{ fontSize: 13, color: 'var(--text)' }}>{pickedText}</div>
-                </div>
-              )}
+            </div>
+          )}
+
+          {/* فیلدهای انتخاب‌شده (رسپی چندمرحله‌ای) */}
+          {capturedFields.length > 0 && (
+            <div style={{ marginTop: 16, padding: 16, background: 'var(--bg2)', border: '1px solid var(--accent)', borderRadius: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>فیلدهای انتخاب‌شده ({capturedFields.length}):</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {capturedFields.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <input value={f.name} onChange={e => setCapturedFields(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                      style={{ width: 120, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit' }} placeholder="نام فیلد" />
+                    <div style={{ flex: 1, fontSize: 12, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.sample}</div>
+                    <button onClick={() => setCapturedFields(prev => prev.filter((_, j) => j !== i))} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: '#ef4444' }}><Trash2 size={13} /></button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 10 }}>
+                می‌تونی چند فیلد انتخاب کنی (عنوان، محتوا، تاریخ...). بعد نام منبع را بنویس و «افزودن منبع» را بزن.
+              </div>
             </div>
           )}
 

@@ -33,8 +33,34 @@ async def scrape_url(url: str, selector: str = "", use_proxy: bool = False, max_
     return text[:max_chars].strip()
 
 
+def _extract_from_soup(soup, selector: str, max_chars: int = 800) -> str:
+    if not selector:
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+        return soup.get_text(" ", strip=True)[:max_chars]
+    els = soup.select(selector)
+    parts = [e.get_text(" ", strip=True) for e in els[:30] if e.get_text(strip=True)]
+    return " | ".join(parts)[:max_chars]
+
+
 async def scrape_source(source) -> str:
-    return await scrape_url(source.url, source.selector or "", source.use_proxy)
+    """منبع را اسکرپ می‌کند؛ از چند فیلد (fields) یا selector تکی پشتیبانی می‌کند."""
+    fields = getattr(source, "fields", None) or []
+    proxy = settings.GAPGPT_PROXY if source.use_proxy else None
+    async with httpx.AsyncClient(timeout=25, proxy=proxy, follow_redirects=True,
+                                 headers=_HEADERS, trust_env=False) as client:
+        resp = await client.get(source.url)
+        resp.raise_for_status()
+        html = resp.text
+    soup = BeautifulSoup(html, "html.parser")
+    if fields:
+        parts = []
+        for f in fields:
+            val = _extract_from_soup(soup, f.get("selector", ""), 500)
+            if val:
+                parts.append(f"[{f.get('name', 'فیلد')}]: {val}")
+        return "\n".join(parts)[:2000]
+    return _extract_from_soup(soup, source.selector or "", 1200)
 
 
 async def analyze_page(url: str, use_proxy: bool = False) -> list:

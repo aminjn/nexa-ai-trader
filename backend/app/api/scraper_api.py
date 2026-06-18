@@ -90,10 +90,16 @@ async def proxy_page(url: str = Query(...), token: str = Query(""), use_proxy: b
 
 
 
+class FieldItem(BaseModel):
+    name: str
+    selector: str
+
+
 class SourceRequest(BaseModel):
     name: str
     url: str
     selector: str = ""
+    fields: list[FieldItem] = []
     use_proxy: bool = False
     enabled: bool = True
 
@@ -114,8 +120,8 @@ async def list_sources(db: Session = Depends(get_db), current_user: models.User 
     rows = db.query(models.ScrapeSource).order_by(models.ScrapeSource.created_at.desc()).all()
     return [{
         "id": s.id, "name": s.name, "url": s.url, "selector": s.selector,
-        "use_proxy": s.use_proxy, "enabled": s.enabled,
-        "last_value": (s.last_value or "")[:300], "last_scraped": s.last_scraped,
+        "fields": s.fields or [], "use_proxy": s.use_proxy, "enabled": s.enabled,
+        "last_value": (s.last_value or "")[:400], "last_scraped": s.last_scraped,
     } for s in rows]
 
 
@@ -124,6 +130,7 @@ async def add_source(req: SourceRequest, db: Session = Depends(get_db), current_
     _admin(current_user)
     s = models.ScrapeSource(
         name=req.name, url=req.url, selector=req.selector,
+        fields=[f.dict() for f in req.fields],
         use_proxy=req.use_proxy, enabled=req.enabled,
     )
     db.add(s)

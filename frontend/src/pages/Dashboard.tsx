@@ -13,6 +13,7 @@ interface ActivityEvent { time:string; message:string; level:string }
 interface Signal { pair:string; signal:string; signal_fa:string; confidence:number }
 interface Holding { currency:string; amount:number; value_toman:number; exchange:string }
 interface Position { id:number; pair:string; amount:number; entry_price:number; current_price:number; target_sell_price:number; stop_price:number; pnl_pct:number; target_profit:number; stop_loss:number }
+interface Price { coin:string; toman:number; usd:number }
 
 const StatCard = ({ label, value, sub, subColor }: { label:string; value:string; sub?:string; subColor?:string }) => (
   <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:'18px 20px' }}>
@@ -27,7 +28,6 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Stats|null>(null)
   const [equity, setEquity] = useState<EquityPoint[]>([])
   const [trades, setTrades] = useState<Trade[]>([])
-  const [btcPrice, setBtcPrice] = useState(0)
   const [loading, setLoading] = useState(true)
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [runningNow, setRunningNow] = useState(false)
@@ -35,28 +35,29 @@ export default function Dashboard() {
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [importing, setImporting] = useState(false)
+  const [prices, setPrices] = useState<Price[]>([])
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, eq, tr, btc, act, sig, hold, pos] = await Promise.all([
+        const [s, eq, tr, act, sig, hold, pos, pr] = await Promise.all([
           api.get('/dashboard/stats'),
           api.get('/dashboard/equity-curve'),
           api.get('/dashboard/recent-trades'),
-          api.get('/dashboard/btc-price'),
           api.get('/strategy/activity'),
           api.get('/dashboard/signals'),
           api.get('/dashboard/holdings'),
           api.get('/dashboard/positions'),
+          api.get('/dashboard/prices'),
         ])
         setStats(s.data)
         setEquity(eq.data.data || [])
         setTrades(tr.data || [])
-        setBtcPrice(btc.data.price || 0)
         setActivity(act.data.events || [])
         setSignals(sig.data.signals || [])
         setHoldings(hold.data.holdings || [])
         setPositions(pos.data.positions || [])
+        setPrices(pr.data.prices || [])
       } catch {} finally { setLoading(false) }
     }
     load()
@@ -232,15 +233,23 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:22, display:'flex', flexDirection:'column' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', marginBottom:14 }}>
-              <div>
-                <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>BTC/USDT</div>
-                <div style={{ fontFamily:"'JetBrains Mono'", fontSize:22, fontWeight:700, marginTop:4 }}>${btcPrice.toLocaleString()}</div>
-              </div>
-              <span style={{ padding:'5px 10px', borderRadius:8, background:'color-mix(in srgb,var(--green) 16%,transparent)', color:'var(--green)', fontSize:12, fontWeight:600, fontFamily:"'JetBrains Mono'" }}>زنده</span>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>قیمت لحظه‌ای ارزها</div>
+              <span style={{ padding:'4px 10px', borderRadius:8, background:'color-mix(in srgb,var(--green) 16%,transparent)', color:'var(--green)', fontSize:11, fontWeight:600 }}>زنده</span>
             </div>
-            <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--faint)', fontSize:13 }}>
-              {btcPrice > 0 ? `$${btcPrice.toLocaleString()}` : 'در حال دریافت...'}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, padding:'0 4px 8px', fontSize:11, color:'var(--faint)' }}>
+              <span>ارز</span><span style={{textAlign:'center'}}>تومان</span><span style={{textAlign:'end'}}>دلار</span>
+            </div>
+            <div style={{ flex:1, overflowY:'auto', maxHeight:300 }}>
+              {prices.length === 0 ? (
+                <div style={{ textAlign:'center', color:'var(--faint)', fontSize:13, padding:20 }}>در حال دریافت...</div>
+              ) : prices.map(p => (
+                <div key={p.coin} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, padding:'9px 4px', borderBottom:'1px solid var(--border)', fontSize:13, fontFamily:"'JetBrains Mono'", alignItems:'center' }}>
+                  <span style={{ fontWeight:700 }}>{p.coin}</span>
+                  <span style={{ textAlign:'center', color:'var(--dim)' }}>{p.toman.toLocaleString('fa-IR')}</span>
+                  <span style={{ textAlign:'end', color:'var(--accent)' }}>${p.usd.toLocaleString()}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

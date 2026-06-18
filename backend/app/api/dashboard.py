@@ -220,6 +220,36 @@ async def get_signals(db: Session = Depends(get_db), current_user: models.User =
     return out
 
 
+@router.get("/prices")
+async def get_prices(current_user: models.User = Depends(get_current_user)):
+    """قیمت لحظه‌ای ارزهای اصلی به تومان و دلار (از نوبیتکس، مستقیم)."""
+    from ..config import settings
+    coins = ["BTC", "ETH", "USDT", "XRP", "ADA", "DOGE", "LTC", "TRX", "BNB", "SOL"]
+    out = []
+    base = settings.NOBITEX_BASE_URL
+
+    async def ob(sym):
+        try:
+            async with httpx.AsyncClient(timeout=10, trust_env=False) as c:
+                r = await c.get(f"{base}/v3/orderbook/{sym}")
+                d = r.json()
+                if d.get("status") == "ok":
+                    return float(d.get("lastTradePrice", 0) or 0)
+        except Exception:
+            return 0.0
+        return 0.0
+
+    usdt_irt = await ob("USDTIRT")  # ریال به ازای هر تتر
+    for coin in coins:
+        rial = await ob(f"{coin}IRT")
+        if rial <= 0:
+            continue
+        toman = rial / 10.0
+        usd = 1.0 if coin == "USDT" else (rial / usdt_irt if usdt_irt else 0)
+        out.append({"coin": coin, "toman": round(toman), "usd": round(usd, 2)})
+    return {"prices": out}
+
+
 @router.get("/btc-price")
 async def get_btc_price():
     # از نوبیتکس (مستقیم) قیمت بیت‌کوین به دلار را می‌گیریم

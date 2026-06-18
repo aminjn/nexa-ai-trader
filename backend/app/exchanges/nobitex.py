@@ -86,27 +86,22 @@ class NobitexExchange(BaseExchange):
 
     async def get_ticker(self, symbol: str) -> Dict:
         try:
-            # Nobitex uses srcCurrency/dstCurrency format
             src, dst = symbol.replace("/", "-").split("-")
             src, dst = self._code(src), self._code(dst)
-            result = await self._get("/market/stats", params={
-                "srcCurrency": src.lower(),
-                "dstCurrency": dst.lower(),
-            })
-            stats = result.get("stats", {})
-            key = f"{src.lower()}-{dst.lower()}"
-            data = stats.get(key, {})
+            msym = self._market_symbol(src, dst)  # مثلاً BTCIRT یا BTCUSDT
+            # از orderbook v3 استفاده می‌کنیم که پایدار است
+            result = await self._get(f"/v3/orderbook/{msym}")
+            if result.get("status") != "ok":
+                return {}
+            bids = result.get("bids") or []
+            asks = result.get("asks") or []
             return {
                 "symbol": symbol,
-                "last": float(data.get("latest", 0)),
-                "bid": float(data.get("bestBuy", 0)),
-                "ask": float(data.get("bestSell", 0)),
-                "high": float(data.get("dayHigh", 0)),
-                "low": float(data.get("dayLow", 0)),
-                "volume": float(data.get("dayVolume", 0)),
-                "change_pct": float(data.get("dayChange", 0)),
+                "last": self._safe_float(result.get("lastTradePrice")),
+                "bid": self._safe_float(bids[0][0]) if bids else 0,
+                "ask": self._safe_float(asks[0][0]) if asks else 0,
             }
-        except Exception as e:
+        except Exception:
             return {}
 
     # نگاشت نام کامل ارز (که نوبیتکس در تاریخچه می‌دهد) به کد کوتاه بازار

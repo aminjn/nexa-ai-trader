@@ -26,6 +26,37 @@ def _change_pct(ohlcv, n: int) -> float:
     return 0.0
 
 
+def _rule_based(usd7: float, btc7: float, btc30: float) -> dict:
+    """امتیاز و خلاصه فاندامنتال بر پایه‌ی قواعد (بدون نیاز به هوش مصنوعی).
+
+    این به‌عنوان پایه همیشه محاسبه می‌شود تا تحلیل هیچ‌وقت خالی نماند.
+    """
+    # امتیاز بیت‌کوین: روند ۷روزه وزن بیشتر، ۳۰روزه وزن کمتر
+    btc_score = max(-1.0, min(1.0, (btc7 / 10.0) * 0.7 + (btc30 / 25.0) * 0.3))
+    # دلار صعودی در ایران معمولاً به نفع قیمت ریالی رمزارزهاست (پوشش تورمی)
+    usd_score = max(-0.5, min(0.5, usd7 / 15.0))
+    score = round(max(-1.0, min(1.0, btc_score * 0.75 + usd_score * 0.25)), 2)
+
+    def _word(v, up="صعودی", down="نزولی", flat="کم‌نوسان"):
+        if v > 1:
+            return up
+        if v < -1:
+            return down
+        return flat
+
+    parts = [
+        f"روند بیت‌کوین در ۷ روز اخیر {btc7:+.1f}٪ ({_word(btc7)}) و در ۳۰ روز اخیر {btc30:+.1f}٪ ({_word(btc30)}) بوده است.",
+        f"قیمت دلار (تتر به تومان) در ۷ روز اخیر {usd7:+.1f}٪ تغییر کرده ({_word(usd7)}).",
+    ]
+    if score > 0.25:
+        parts.append("جمع‌بندی: شرایط فاندامنتال نسبتاً صعودی است و از خرید پشتیبانی می‌کند.")
+    elif score < -0.25:
+        parts.append("جمع‌بندی: شرایط فاندامنتال نسبتاً نزولی است و احتیاط در خرید توصیه می‌شود.")
+    else:
+        parts.append("جمع‌بندی: شرایط فاندامنتال خنثی است و سیگنال قوی فاندامنتالی دیده نمی‌شود.")
+    return {"score": score, "summary": " ".join(parts)}
+
+
 async def get_fundamental(db, exchange, force: bool = False) -> dict:
     """امتیاز و خلاصه تحلیل فاندامنتال را برمی‌گرداند (با کش)."""
     now = time.time()
@@ -39,6 +70,11 @@ async def get_fundamental(db, exchange, force: bool = False) -> dict:
         data["usd_trend_7d"] = _change_pct(usdt, 7)
         data["btc_trend_7d"] = _change_pct(btc, 7)
         data["btc_trend_30d"] = _change_pct(btc, 30)
+
+        # پایه‌ی قاعده‌محور: همیشه محاسبه می‌شود تا تحلیل هرگز خالی نماند
+        base = _rule_based(data["usd_trend_7d"], data["btc_trend_7d"], data["btc_trend_30d"])
+        data["score"] = base["score"]
+        data["summary"] = base["summary"]
 
         # داده‌های اسکرپ‌شده از سایت‌های انتخابی کاربر
         scraped = ""
@@ -69,6 +105,12 @@ async def get_fundamental(db, exchange, force: bool = False) -> dict:
                 data["summary"] = str(parsed.get("summary", ""))[:500]
     except Exception:
         pass
+
+    # تضمین نهایی: اگر به هر دلیلی خلاصه خالی ماند، پایه‌ی قاعده‌محور را بگذار
+    if not data.get("summary"):
+        base = _rule_based(data["usd_trend_7d"], data["btc_trend_7d"], data["btc_trend_30d"])
+        data["score"] = base["score"]
+        data["summary"] = base["summary"]
 
     _cache["ts"] = now
     _cache["data"] = data

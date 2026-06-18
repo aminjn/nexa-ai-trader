@@ -110,7 +110,8 @@ class NobitexExchange(BaseExchange):
         "cardano": "ada", "dogecoin": "doge", "litecoin": "ltc", "tron": "trx",
         "stellar": "xlm", "bitcoincash": "bch", "binancecoin": "bnb", "bnb": "bnb",
         "solana": "sol", "polkadot": "dot", "irr": "rls", "irt": "rls",
-        "rial": "rls", "toman": "rls",
+        "rial": "rls", "toman": "rls", "ریال": "rls", "تومان": "rls",
+        "بیت‌کوین": "btc", "بیتکوین": "btc", "اتریوم": "eth", "تتر": "usdt",
     }
 
     @staticmethod

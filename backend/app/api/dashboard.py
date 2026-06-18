@@ -212,21 +212,33 @@ async def get_positions(db: Session = Depends(get_db), current_user: models.User
     ).first()
     ex = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret) if exch_rec else None
 
+    from ..exchanges.nobitex import NobitexExchange
+    def norm_pair(p):
+        if "/" in (p or ""):
+            a, b = p.split("/", 1)
+            a = NobitexExchange._code(a).upper()
+            b = NobitexExchange._code(b).upper()
+            if b in ("RLS", "IRR"):
+                b = "RLS"
+            return f"{a}/{b}"
+        return p
+
     tp = current_user.target_profit
     sl = current_user.stop_loss
     out = []
     for t in open_trades:
+        npair = norm_pair(t.pair)
         cur = 0.0
         if ex:
             try:
-                cur = (await ex.get_ticker(t.pair)).get("last", 0)
+                cur = (await ex.get_ticker(npair)).get("last", 0)
             except Exception:
                 cur = 0.0
         entry = t.entry_price or 0
         pnl_pct = ((cur - entry) / entry * 100) if (entry and cur) else 0
         out.append({
             "id": t.id,
-            "pair": t.pair,
+            "pair": npair,
             "amount": t.amount,
             "entry_price": entry,
             "current_price": cur,

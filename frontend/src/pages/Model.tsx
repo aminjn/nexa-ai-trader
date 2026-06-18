@@ -16,6 +16,7 @@ interface ModelStatus {
   status:string; accuracy:number; is_trained:boolean; progress:number; message:string;
   features:string[]; model_name:string; version:string; training_data_days:number;
   feature_importances?: FeatureImportance[]; metrics?: Metrics; ai_explanation?: string; data_source?: string;
+  accumulated_rows?: number;
 }
 
 function AccuracyDial({ pct }: { pct: number }) {
@@ -59,6 +60,21 @@ export default function Model() {
     try { await api.post('/model/train'); toast.success('آموزش مدل شروع شد') }
     catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
     finally { setTraining(false) }
+  }
+
+  const uploadData = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      const r = await api.post('/model/upload-data', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      toast.success(`${r.data.message} (مجموع: ${r.data.total})`)
+      load()
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || 'آپلود ناموفق بود')
+    }
+    e.target.value = ''
   }
 
   const acc = status?.accuracy ? status.accuracy * 100 : 0
@@ -196,14 +212,34 @@ export default function Model() {
           </div>
         ) : null}
 
-        {/* دکمه‌های کنترل */}
-        <div style={{ display:'flex', gap:12 }}>
-          {isSuperAdmin && (
-            <button onClick={startTraining} disabled={training || isTraining} style={{ padding:'13px 28px', border:'none', borderRadius:12, background:'var(--accent)', color:'#05121a', fontWeight:700, fontFamily:"'Space Grotesk'", fontSize:14, cursor:'pointer', opacity:training||isTraining?.7:1 }}>
-              {isTraining ? `در حال آموزش... ${status?.progress||0}%` : t.retrain}
-            </button>
-          )}
-        </div>
+        {/* داده انباشته + آپلود + کنترل آموزش */}
+        {isSuperAdmin && (
+          <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:24 }}>
+            <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600, marginBottom:8 }}>آموزش تجمعی و افزودن داده</div>
+            <div style={{ fontSize:13, color:'var(--dim)', marginBottom:16, lineHeight:1.9 }}>
+              هر بار آموزش، داده‌ی جدید بازار به مجموعه‌ی قبلی <b style={{color:'var(--text)'}}>اضافه</b> می‌شود و مدل روی همه‌ی داده‌ها آموزش می‌بیند (از صفر شروع نمی‌شود).
+              مدل هر ۶ ساعت هم به‌صورت خودکار با داده جدید به‌روز می‌شود.
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+              <div style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 18px' }}>
+                <div style={{ fontSize:11, color:'var(--faint)', marginBottom:4 }}>کل داده انباشته</div>
+                <div style={{ fontFamily:"'JetBrains Mono'", fontSize:18, fontWeight:700, color:'var(--accent)' }}>
+                  {(status?.accumulated_rows ?? 0).toLocaleString('fa-IR')} ردیف
+                </div>
+              </div>
+              <button onClick={startTraining} disabled={training || isTraining} style={{ padding:'13px 28px', border:'none', borderRadius:12, background:'var(--accent)', color:'#05121a', fontWeight:700, fontFamily:"'Space Grotesk'", fontSize:14, cursor:'pointer', opacity:training||isTraining?.7:1 }}>
+                {isTraining ? `در حال آموزش... ${status?.progress||0}%` : t.retrain}
+              </button>
+              <label style={{ padding:'13px 24px', border:'1px solid var(--border2)', borderRadius:12, background:'transparent', color:'var(--text)', fontWeight:600, fontSize:14, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:8 }}>
+                📥 آپلود داده (CSV)
+                <input type="file" accept=".csv" onChange={uploadData} style={{ display:'none' }} />
+              </label>
+            </div>
+            <div style={{ fontSize:11, color:'var(--faint)', marginTop:12 }}>
+              فرمت CSV: ستون‌های timestamp, open, high, low, close, volume (و symbol اختیاری)
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   )

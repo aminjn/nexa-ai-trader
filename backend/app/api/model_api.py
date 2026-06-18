@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
 import asyncio
+import io
 from .. import models
 from ..database import get_db
 from ..auth.router import get_current_user
-from ..ml.trainer import get_trainer, FEATURE_NAMES
+from ..ml.trainer import get_trainer, FEATURE_NAMES, accum_merge_save, accum_count
 from ..trading.bot import log_bot_event
 
 router = APIRouter(prefix="/model", tags=["model"])
@@ -40,9 +41,35 @@ async def get_model_status(db: Session = Depends(get_db), current_user: models.U
         "metrics": ml_model.metrics or {},
         "ai_explanation": ml_model.ai_explanation or "",
         "data_source": ml_model.data_source or "",
+        "accumulated_rows": accum_count(),
         "model_name": ml_model.name,
         "version": ml_model.version,
     }
+
+
+@router.post("/upload-data")
+async def upload_data(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(get_current_user),
+):
+    """آپلود داده OHLCV (CSV) برای افزودن به مجموعه آموزش.
+
+    ستون‌های لازم: timestamp, open, high, low, close, volume (symbol اختیاری)
+    """
+    if not current_user.is_superadmin:
+        raise HTTPException(status_code=403, detail="فقط سوپر ادمین می‌تواند داده اضافه کند")
+    import pandas as pd
+    try:
+        content = await file.read()
+        df = pd.read_csv(io.BytesIO(content))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"خواندن فایل ناموفق بود: {e}")
+    try:
+        merged = accum_merge_save(df)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    log_bot_event(f"📥 داده آموزشی اضافه شد ({len(df)} ردیف) — مجموع: {len(merged)}")
+    return {"message": f"{len(df)} ردیف اضافه شد", "total": len(merged)}
 
 
 async def _train_background():

@@ -13,6 +13,44 @@ from .data_fetcher import fetch_5year_data
 
 MODEL_PATH = "ml_model.joblib"
 SCALER_PATH = "ml_scaler.joblib"
+ACCUM_PATH = "training_data.csv"  # مجموعه داده انباشته (بازار + آپلودی کاربر)
+
+_OHLCV_COLS = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+
+
+def accum_load() -> pd.DataFrame:
+    """بارگذاری مجموعه داده انباشته."""
+    if os.path.exists(ACCUM_PATH):
+        try:
+            return pd.read_csv(ACCUM_PATH, parse_dates=["timestamp"])
+        except Exception:
+            return pd.DataFrame()
+    return pd.DataFrame()
+
+
+def accum_merge_save(new_df: pd.DataFrame) -> pd.DataFrame:
+    """داده جدید را با داده انباشته ادغام، تکراری‌زدایی و ذخیره می‌کند."""
+    if new_df is None or new_df.empty:
+        return accum_load()
+    new_df = new_df.copy()
+    if "symbol" not in new_df.columns:
+        new_df["symbol"] = "CUSTOM"
+    missing = [c for c in _OHLCV_COLS if c not in new_df.columns]
+    if missing:
+        raise ValueError(f"ستون‌های لازم موجود نیست: {missing}")
+    new_df = new_df[_OHLCV_COLS]
+    base = accum_load()
+    merged = pd.concat([base, new_df], ignore_index=True) if not base.empty else new_df
+    merged["timestamp"] = pd.to_datetime(merged["timestamp"])
+    merged = (merged.drop_duplicates(subset=["symbol", "timestamp"])
+              .sort_values(["symbol", "timestamp"]).reset_index(drop=True))
+    merged.to_csv(ACCUM_PATH, index=False)
+    return merged
+
+
+def accum_count() -> int:
+    df = accum_load()
+    return 0 if df.empty else len(df)
 
 
 # فهرست ویژگی‌ها: (نام ستون، نام فارسی) — همه مستقل از مقیاس قیمت
@@ -199,11 +237,19 @@ class MLTrainer:
             await progress_callback(5, "در حال دریافت داده ۵ ساله از نوبیتکس...")
 
         raw, source = await fetch_5year_data()
-        if raw.empty or len(raw) < 300:
+
+        if progress_callback:
+            await progress_callback(12, "ادغام با داده‌های انباشته (آموزش تجمعی)...")
+
+        # داده جدید را به مجموعه انباشته اضافه می‌کنیم و روی همه‌ی داده‌ها آموزش می‌دهیم
+        merged = accum_merge_save(raw if not raw.empty else None)
+        if merged.empty or len(merged) < 300:
             raise RuntimeError(
-                "دریافت داده واقعی بازار ناموفق بود. "
-                "بررسی کنید دسترسی نوبیتکس (مستقیم) یا پروکسی (بایننس) فعال باشد."
+                "داده کافی برای آموزش وجود ندارد. دسترسی نوبیتکس را بررسی کنید یا داده آپلود کنید."
             )
+        raw = merged
+        if not source:
+            source = "داده انباشته"
 
         symbols = sorted(raw["symbol"].unique().tolist()) if "symbol" in raw.columns else []
         date_from = str(raw["timestamp"].min())[:10] if "timestamp" in raw.columns else ""
@@ -279,6 +325,7 @@ class MLTrainer:
             "accuracy": round(self.accuracy * 100, 2),
             "precision": round(precision * 100, 2),
             "recall": round(recall * 100, 2),
+            "accumulated_rows": int(len(raw)),
             "total_samples": int(len(df)),
             "train_samples": int(len(X_train)),
             "test_samples": int(len(X_test)),

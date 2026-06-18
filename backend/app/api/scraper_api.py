@@ -5,7 +5,7 @@ from typing import Optional
 from .. import models
 from ..database import get_db
 from ..auth.router import get_current_user
-from ..scraping.scraper import scrape_url, scrape_all
+from ..scraping.scraper import scrape_url, scrape_all, analyze_page
 
 router = APIRouter(prefix="/scraper", tags=["scraper"])
 
@@ -72,6 +72,17 @@ async def toggle_source(source_id: int, db: Session = Depends(get_db), current_u
     s.enabled = not s.enabled
     db.commit()
     return {"enabled": s.enabled}
+
+
+@router.post("/analyze")
+async def analyze(req: TestRequest, current_user: models.User = Depends(get_current_user)):
+    """صفحه را تحلیل می‌کند و گزینه‌های آماده برای انتخاب برمی‌گرداند."""
+    _admin(current_user)
+    try:
+        groups = await analyze_page(req.url, req.use_proxy)
+        return {"ok": True, "groups": groups}
+    except Exception as e:
+        return {"ok": False, "error": f"خطا: {str(e)[:200]}", "groups": []}
 
 
 @router.post("/test")

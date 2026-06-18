@@ -30,6 +30,29 @@ export default function Scraper() {
   const [adding, setAdding] = useState(false)
   const [testing, setTesting] = useState(false)
   const [preview, setPreview] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [groups, setGroups] = useState<{label:string; selector:string; count:number; samples:string[]}[]>([])
+  const [analyzeErr, setAnalyzeErr] = useState('')
+
+  const analyzePage = async () => {
+    if (!url.trim()) { toast.error('آدرس سایت را وارد کنید'); return }
+    setAnalyzing(true); setGroups([]); setAnalyzeErr('')
+    try {
+      const r = await api.post('/scraper/analyze', { url: url.trim(), use_proxy: useProxy })
+      if (r.data.ok) {
+        setGroups(r.data.groups || [])
+        if ((r.data.groups || []).length === 0) setAnalyzeErr('چیزی پیدا نشد')
+      } else setAnalyzeErr(r.data.error || 'خطا')
+    } catch (e: any) { setAnalyzeErr(e.response?.data?.detail || 'خطا در تحلیل صفحه') }
+    finally { setAnalyzing(false) }
+  }
+
+  const pickGroup = (g: {label:string; selector:string}) => {
+    setSelector(g.selector)
+    if (!name.trim()) setName(g.label)
+    setPreview('');
+    toast.success(`«${g.label}» انتخاب شد — حالا «افزودن منبع» را بزنید`)
+  }
 
   const load = async () => {
     try { const r = await api.get('/scraper/sources'); setSources(r.data || []) }
@@ -95,19 +118,45 @@ export default function Scraper() {
             <div><div style={label}>آدرس سایت (URL)</div>
               <input style={inputStyle} value={url} onChange={e => setUrl(e.target.value)} placeholder="https://..." dir="ltr" /></div>
           </div>
-          <div style={{ marginTop: 14 }}>
-            <div style={label}>CSS Selector فیلد موردنظر (اختیاری)</div>
-            <input style={inputStyle} value={selector} onChange={e => setSelector(e.target.value)} placeholder="مثلاً .news-title یا h2 یا .price" dir="ltr" />
-            <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 6, lineHeight: 1.7 }}>
-              با CSS selector انتخاب می‌کنی کدام بخش سایت خوانده شود. خالی بگذاری = کل متن صفحه. (مثال: عنوان اخبار <code>h2 a</code>، قیمت <code>.price</code>)
-            </div>
-          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}>
               <input type="checkbox" checked={useProxy} onChange={e => setUseProxy(e.target.checked)} />
               سایت خارجی است (از پروکسی استفاده کن)
             </label>
+            <button onClick={analyzePage} disabled={analyzing} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '11px 22px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <RefreshCw size={15} style={{ animation: analyzing ? 'spin 1s linear infinite' : 'none' }} /> {analyzing ? 'در حال تحلیل صفحه...' : '🔍 تحلیل صفحه و نمایش گزینه‌ها'}
+            </button>
           </div>
+
+          {analyzeErr && <div style={{ marginTop: 12, color: 'var(--red)', fontSize: 13 }}>{analyzeErr}</div>}
+
+          {/* گزینه‌های تشخیص‌داده‌شده */}
+          {groups.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 13, color: 'var(--dim)', marginBottom: 10 }}>روی گزینه‌ای که می‌خواهی استخراج شود کلیک کن:</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                {groups.map((g, i) => (
+                  <div key={i} onClick={() => pickGroup(g)}
+                    style={{ cursor: 'pointer', padding: 14, borderRadius: 12, background: selector === g.selector ? 'color-mix(in srgb, var(--accent) 14%, var(--bg2))' : 'var(--bg2)', border: `1px solid ${selector === g.selector ? 'var(--accent)' : 'var(--border)'}`, transition: '.15s' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text)' }}>{g.label}</span>
+                      <span style={{ fontSize: 11, color: 'var(--faint)' }}>{g.count} مورد</span>
+                    </div>
+                    {g.samples.slice(0, 3).map((s, j) => (
+                      <div key={j} style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.6, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>• {s}</div>
+                    ))}
+                    {selector === g.selector && <div style={{ marginTop: 6, fontSize: 11, color: 'var(--accent)', fontWeight: 700 }}>✓ انتخاب شد</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CSS selector دستی (پیشرفته) */}
+          <details style={{ marginTop: 16 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 12, color: 'var(--faint)' }}>تنظیم پیشرفته (CSS Selector دستی)</summary>
+            <input style={{ ...inputStyle, marginTop: 8 }} value={selector} onChange={e => setSelector(e.target.value)} placeholder="مثلاً .news-title یا h2 یا .price" dir="ltr" />
+          </details>
 
           <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
             <button onClick={testScrape} disabled={testing} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '11px 20px', borderRadius: 11, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>

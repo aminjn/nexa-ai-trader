@@ -37,6 +37,65 @@ async def scrape_source(source) -> str:
     return await scrape_url(source.url, source.selector or "", source.use_proxy)
 
 
+async def analyze_page(url: str, use_proxy: bool = False) -> list:
+    """صفحه را تحلیل می‌کند و گروه‌های قابل‌انتخاب (عناوین، محتوا، جدول‌ها و...) را برمی‌گرداند."""
+    proxy = settings.GAPGPT_PROXY if use_proxy else None
+    async with httpx.AsyncClient(timeout=25, proxy=proxy, follow_redirects=True,
+                                 headers=_HEADERS, trust_env=False) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        html = resp.text
+
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
+
+    def samples(els, n=4):
+        out = []
+        for e in els:
+            txt = e.get_text(" ", strip=True)
+            if txt and len(txt) > 3:
+                out.append(txt[:120])
+            if len(out) >= n:
+                break
+        return out
+
+    groups = []
+
+    # عناوین / تیترها
+    heads = soup.select("h1, h2, h3, article a, .title")
+    heads = [e for e in heads if e.get_text(strip=True)]
+    if heads:
+        groups.append({"label": "عناوین و تیترها", "selector": "h1, h2, h3, article a, .title",
+                       "count": len(heads), "samples": samples(heads)})
+
+    # محتوا / پاراگراف‌ها
+    paras = [e for e in soup.select("p") if len(e.get_text(strip=True)) > 30]
+    if paras:
+        groups.append({"label": "محتوا و پاراگراف‌ها", "selector": "p",
+                       "count": len(paras), "samples": samples(paras)})
+
+    # لینک‌های خبری
+    links = [a for a in soup.select("a") if len(a.get_text(strip=True)) > 15]
+    if links:
+        groups.append({"label": "لینک‌ها و اخبار", "selector": "a",
+                       "count": len(links), "samples": samples(links)})
+
+    # جدول‌ها
+    tables = soup.find_all("table")
+    if tables:
+        groups.append({"label": "جدول‌ها", "selector": "table",
+                       "count": len(tables), "samples": samples(tables, 2)})
+
+    # آیتم‌های لیست
+    lis = [e for e in soup.select("li") if len(e.get_text(strip=True)) > 10]
+    if lis:
+        groups.append({"label": "آیتم‌های لیست", "selector": "li",
+                       "count": len(lis), "samples": samples(lis)})
+
+    return groups
+
+
 async def scrape_all(db) -> int:
     """همه منابع فعال را اسکرپ و در دیتابیس ذخیره می‌کند. تعداد موفق را برمی‌گرداند."""
     from .. import models

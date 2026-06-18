@@ -36,6 +36,7 @@ async def get_stats(db: Session = Depends(get_db), current_user: models.User = D
 
     # موجودی زنده از صرافی (و به‌روزرسانی مقدار ذخیره‌شده)
     total_balance = 0
+    free_cash_toman = 0  # نقد ریالی قابل‌معامله
     exchanges = db.query(models.ExchangeAPI).filter(
         models.ExchangeAPI.user_id == current_user.id,
         models.ExchangeAPI.is_active == True,
@@ -46,6 +47,10 @@ async def get_stats(db: Session = Depends(get_db), current_user: models.User = D
             if hasattr(ex, "get_portfolio_value_toman"):
                 live = await ex.get_portfolio_value_toman()
                 exch.balance = live
+            bals = await ex.get_balance()
+            rls = bals.get("RLS")
+            if rls:
+                free_cash_toman += rls.free / 10.0
         except Exception:
             pass
         total_balance += exch.balance or 0
@@ -53,6 +58,7 @@ async def get_stats(db: Session = Depends(get_db), current_user: models.User = D
 
     return {
         "total_equity": round(total_balance, 2),
+        "free_cash_toman": round(free_cash_toman, 2),
         "today_pnl": round(today_pnl, 4),
         "today_pnl_pct": round(today_pnl / max(total_balance, 1) * 100, 2),
         "total_trades_24h": today_trades,

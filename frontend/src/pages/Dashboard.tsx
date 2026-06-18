@@ -6,7 +6,7 @@ import api from '../lib/api'
 import { Sparkles, TrendingUp, Activity, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-interface Stats { total_equity:number; today_pnl:number; today_pnl_pct:number; total_trades_24h:number; win_rate:number }
+interface Stats { total_equity:number; free_cash_toman:number; today_pnl:number; today_pnl_pct:number; total_trades_24h:number; win_rate:number }
 interface Trade { id:number; pair:string; side:string; entry:number; exit:number; pnl:number; pnl_pct:number; status:string; opened_at:string; exchange:string }
 interface EquityPoint { date:string; value:number }
 interface ActivityEvent { time:string; message:string; level:string }
@@ -103,7 +103,10 @@ export default function Dashboard() {
   }
 
   const fmtTime = (iso: string) => {
-    try { return new Date(iso).toLocaleTimeString('fa-IR', { hour:'2-digit', minute:'2-digit', second:'2-digit' }) } catch { return '' }
+    try {
+      const norm = (iso.endsWith('Z') || iso.includes('+')) ? iso : iso + 'Z'
+      return new Date(norm).toLocaleTimeString('fa-IR', { timeZone: 'Asia/Tehran', hour:'2-digit', minute:'2-digit', second:'2-digit' })
+    } catch { return '' }
   }
 
   const pnlColor = (v: number) => v >= 0 ? 'var(--green)' : 'var(--red)'
@@ -124,8 +127,8 @@ export default function Dashboard() {
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:16 }}>
           <StatCard label={t.totalEquity} value={`${Math.round(stats?.total_equity||0).toLocaleString('fa-IR')} ت`} sub={stats?.today_pnl_pct ? `${stats.today_pnl_pct>=0?'+':''}${stats.today_pnl_pct}%` : undefined} subColor={pnlColor(stats?.today_pnl_pct||0)} />
           <StatCard label={t.todayPnl} value={`${Math.round(stats?.today_pnl||0).toLocaleString('fa-IR')} ت`} subColor={pnlColor(stats?.today_pnl||0)} />
-          <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub="↑ نرخ موفقیت" subColor="var(--green)" />
-          <StatCard label={t.trades24h} value={`${stats?.total_trades_24h||0}`} sub="معاملات" />
+          <StatCard label="نقد قابل‌معامله" value={`${Math.round(stats?.free_cash_toman||0).toLocaleString('fa-IR')} ت`} sub="موجودی ریالی آزاد" subColor="var(--accent)" />
+          <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub={`${stats?.total_trades_24h||0} معامله امروز`} subColor="var(--green)" />
         </div>
 
         {/* فعالیت زنده ربات */}

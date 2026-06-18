@@ -22,7 +22,7 @@ _activity_log: deque = deque(maxlen=150)
 def log_bot_event(message: str, level: str = "info"):
     """ثبت یک رویداد در لاگ فعالیت قابل‌مشاهده در پنل."""
     _activity_log.appendleft({
-        "time": datetime.utcnow().isoformat(),
+        "time": datetime.utcnow().isoformat() + "Z",  # UTC با علامت Z برای تبدیل صحیح به زمان تهران
         "message": message,
         "level": level,
     })

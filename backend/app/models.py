@@ -30,6 +30,7 @@ class User(Base):
     # شناسه‌های پیام‌رسان برای دریافت سیگنال (هر کاربر آی‌دی عددی خودش را وصل می‌کند)
     telegram_chat_id = Column(String, default="")
     bale_chat_id = Column(String, default="")
+    link_code = Column(String, default="", index=True)  # کد اتصال خودکار ربات (/start CODE)
 
     exchanges = relationship("ExchangeAPI", back_populates="user", cascade="all, delete-orphan")
     trades = relationship("Trade", back_populates="user", cascade="all, delete-orphan")
@@ -133,6 +134,12 @@ class SystemSettings(Base):
     zarinpal_merchant_id = Column(String, default="")
     signal_coins = Column(String, default="BTC,ETH")     # ارزهای تولید سیگنال (با کاما)
     signal_interval_minutes = Column(Integer, default=30)  # هر چند دقیقه سیگنال تولید شود
+    # انتشار خودکار محتوا در کانال عمومی
+    telegram_channel_id = Column(String, default="")     # @channel یا آی‌دی عددی
+    bale_channel_id = Column(String, default="")
+    telegram_bot_username = Column(String, default="")   # برای راهنمای اتصال (@MyBot)
+    bale_bot_username = Column(String, default="")
+    content_interval_hours = Column(Integer, default=6)  # هر چند ساعت محتوا منتشر شود
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

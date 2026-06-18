@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Radio, Send, Check, X, RefreshCw, Crown, Zap, Gift } from 'lucide-react'
+import { Radio, Check, X, RefreshCw, Crown, Zap, Gift, Megaphone } from 'lucide-react'
 import Layout from '../components/Layout'
 import { useAuthStore } from '../stores/authStore'
 import api from '../lib/api'
@@ -38,8 +38,8 @@ export default function Signals() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [sub, setSub] = useState<SubInfo | null>(null)
   const [signals, setSignals] = useState<Signal[]>([])
-  const [tg, setTg] = useState('')
-  const [bale, setBale] = useState('')
+  const [link, setLink] = useState<any>(null)
+  const [publishing, setPublishing] = useState(false)
 
   // admin
   const [adminSettings, setAdminSettings] = useState<any>(null)
@@ -48,16 +48,16 @@ export default function Signals() {
 
   const load = useCallback(async () => {
     try {
-      const [p, s, f] = await Promise.all([
+      const [p, s, f, l] = await Promise.all([
         api.get<Plan[]>('/signals/plans'),
         api.get<SubInfo>('/signals/subscription'),
         api.get<{ signals: Signal[] }>('/signals/feed'),
+        api.get('/signals/link-code'),
       ])
       setPlans(p.data || [])
       setSub(s.data)
-      setTg(s.data?.telegram_chat_id || '')
-      setBale(s.data?.bale_chat_id || '')
       setSignals(f.data?.signals || [])
+      setLink(l.data)
     } catch { /* ignore */ }
   }, [])
 
@@ -76,11 +76,14 @@ export default function Signals() {
   useEffect(() => { load(); loadAdmin() }, [load, loadAdmin])
   useEffect(() => { const id = setInterval(load, 20000); return () => clearInterval(id) }, [load])
 
-  const saveConnect = async () => {
-    try {
-      await api.post('/signals/connect', { telegram_chat_id: tg, bale_chat_id: bale })
-      toast.success('شناسه‌ها ذخیره شد')
-    } catch { toast.error('خطا در ذخیره') }
+  const copyCode = () => {
+    if (link?.code) { navigator.clipboard?.writeText(link.code); toast.success('کد کپی شد') }
+  }
+  const publishNow = async () => {
+    setPublishing(true)
+    try { const r = await api.post('/signals/admin/publish-now'); toast.success(r.data.message) }
+    catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
+    finally { setPublishing(false) }
   }
 
   const subscribe = async (plan: Plan) => {
@@ -136,22 +139,23 @@ export default function Signals() {
               </div>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
-            <div>
-              <div style={label}>شناسه عددی تلگرام (chat id)</div>
-              <input style={inputStyle} value={tg} onChange={e => setTg(e.target.value)} placeholder="مثلاً 123456789" dir="ltr" />
+          <div style={{ marginTop: 18, padding: 16, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>🔗 اتصال خودکار پیام‌رسان</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+              <span style={{ fontSize: 13 }}>تلگرام: {link?.telegram_connected ? <b style={{ color: 'var(--green)' }}>✓ متصل</b> : <span style={{ color: 'var(--dim)' }}>متصل نیست</span>}</span>
+              <span style={{ fontSize: 13 }}>بله: {link?.bale_connected ? <b style={{ color: 'var(--green)' }}>✓ متصل</b> : <span style={{ color: 'var(--dim)' }}>متصل نیست</span>}</span>
             </div>
-            <div>
-              <div style={label}>شناسه عددی بله (chat id)</div>
-              <input style={inputStyle} value={bale} onChange={e => setBale(e.target.value)} placeholder="شناسه بله" dir="ltr" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: 'var(--dim)' }}>در ربات این دستور را بفرست:</span>
+              <code onClick={copyCode} title="کپی" style={{ cursor: 'pointer', background: 'var(--bg3)', border: '1px solid var(--accent)', borderRadius: 8, padding: '6px 12px', fontFamily: "'JetBrains Mono'", color: 'var(--accent)', fontWeight: 700 }} dir="ltr">/start {link?.code || '...'}</code>
+              <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}><RefreshCw size={13} /> بررسی اتصال</button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 10, lineHeight: 1.8 }}>
+              {link?.telegram_bot ? <>ربات تلگرام: <b dir="ltr">{link.telegram_bot}</b> — </> : null}
+              {link?.bale_bot ? <>ربات بله: <b dir="ltr">{link.bale_bot}</b> — </> : null}
+              کافیست ربات را باز کنی و دستور بالا را ارسال کنی؛ حسابت خودکار وصل می‌شود.
             </div>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 8 }}>
-            برای دریافت سیگنال در تلگرام، ابتدا ربات را استارت کن و شناسه عددی‌ات را از <span dir="ltr">@userinfobot</span> بگیر.
-          </div>
-          <button onClick={saveConnect} style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <Send size={15} /> ذخیره شناسه‌ها
-          </button>
         </div>
 
         {/* پلن‌ها */}
@@ -221,21 +225,36 @@ export default function Signals() {
             <div style={card}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
                 <div style={{ fontSize: 16, fontWeight: 700 }}>⚙️ تنظیمات فروش سیگنال (ادمین)</div>
-                <button onClick={generateNow} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  <RefreshCw size={14} style={{ animation: generating ? 'spin 1s linear infinite' : 'none' }} /> تولید و ارسال فوری سیگنال
-                </button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button onClick={generateNow} disabled={generating} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <RefreshCw size={14} style={{ animation: generating ? 'spin 1s linear infinite' : 'none' }} /> تولید و ارسال فوری سیگنال
+                  </button>
+                  <button onClick={publishNow} disabled={publishing} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <Megaphone size={14} style={{ animation: publishing ? 'spin 1s linear infinite' : 'none' }} /> انتشار فوری محتوا در کانال
+                  </button>
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div><div style={label}>توکن ربات تلگرام</div>
                   <input style={inputStyle} value={adminSettings.telegram_bot_token} onChange={e => setAdminSettings({ ...adminSettings, telegram_bot_token: e.target.value })} dir="ltr" /></div>
                 <div><div style={label}>توکن ربات بله</div>
                   <input style={inputStyle} value={adminSettings.bale_bot_token} onChange={e => setAdminSettings({ ...adminSettings, bale_bot_token: e.target.value })} dir="ltr" /></div>
+                <div><div style={label}>یوزرنیم ربات تلگرام (برای راهنما)</div>
+                  <input style={inputStyle} value={adminSettings.telegram_bot_username} onChange={e => setAdminSettings({ ...adminSettings, telegram_bot_username: e.target.value })} dir="ltr" placeholder="@MyBot" /></div>
+                <div><div style={label}>یوزرنیم ربات بله</div>
+                  <input style={inputStyle} value={adminSettings.bale_bot_username} onChange={e => setAdminSettings({ ...adminSettings, bale_bot_username: e.target.value })} dir="ltr" /></div>
+                <div><div style={label}>آی‌دی کانال تلگرام (انتشار محتوا)</div>
+                  <input style={inputStyle} value={adminSettings.telegram_channel_id} onChange={e => setAdminSettings({ ...adminSettings, telegram_channel_id: e.target.value })} dir="ltr" placeholder="@MyChannel" /></div>
+                <div><div style={label}>آی‌دی کانال بله</div>
+                  <input style={inputStyle} value={adminSettings.bale_channel_id} onChange={e => setAdminSettings({ ...adminSettings, bale_channel_id: e.target.value })} dir="ltr" /></div>
                 <div><div style={label}>مرچنت‌آیدی زرین‌پال (اختیاری)</div>
                   <input style={inputStyle} value={adminSettings.zarinpal_merchant_id} onChange={e => setAdminSettings({ ...adminSettings, zarinpal_merchant_id: e.target.value })} dir="ltr" /></div>
                 <div><div style={label}>ارزهای تولید سیگنال (با کاما)</div>
                   <input style={inputStyle} value={adminSettings.signal_coins} onChange={e => setAdminSettings({ ...adminSettings, signal_coins: e.target.value })} dir="ltr" placeholder="BTC,ETH,XRP" /></div>
-                <div><div style={label}>هر چند دقیقه تولید شود</div>
+                <div><div style={label}>هر چند دقیقه سیگنال تولید شود</div>
                   <input type="number" min={5} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>
+                <div><div style={label}>هر چند ساعت محتوا منتشر شود</div>
+                  <input type="number" min={1} style={inputStyle} value={adminSettings.content_interval_hours} onChange={e => setAdminSettings({ ...adminSettings, content_interval_hours: Number(e.target.value) })} /></div>
               </div>
               <button onClick={saveAdminSettings} style={{ marginTop: 14, padding: '10px 22px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>ذخیره تنظیمات</button>
             </div>

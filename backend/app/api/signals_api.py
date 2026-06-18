@@ -127,6 +127,23 @@ async def subscribe(req: SubscribeRequest, db: Session = Depends(get_db), curren
     return {"status": "pending", "message": "درخواست ثبت شد. پس از پرداخت و تأیید ادمین فعال می‌شود.", "subscription_id": sub.id}
 
 
+@router.get("/link-code")
+async def my_link_code(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """کد اتصال خودکار ربات را برمی‌گرداند (در صورت نبود، می‌سازد)."""
+    import secrets
+    if not current_user.link_code:
+        current_user.link_code = secrets.token_hex(4).upper()  # ۸ کاراکتر
+        db.commit()
+    s = db.query(models.SystemSettings).first()
+    return {
+        "code": current_user.link_code,
+        "telegram_bot": (s.telegram_bot_username if s else "") or "",
+        "bale_bot": (s.bale_bot_username if s else "") or "",
+        "telegram_connected": bool(current_user.telegram_chat_id),
+        "bale_connected": bool(current_user.bale_chat_id),
+    }
+
+
 @router.get("/feed")
 async def signal_feed(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     plan = _effective_plan(db, current_user.id)
@@ -333,6 +350,11 @@ class SignalSettingsRequest(BaseModel):
     zarinpal_merchant_id: Optional[str] = None
     signal_coins: Optional[str] = None
     signal_interval_minutes: Optional[int] = None
+    telegram_channel_id: Optional[str] = None
+    bale_channel_id: Optional[str] = None
+    telegram_bot_username: Optional[str] = None
+    bale_bot_username: Optional[str] = None
+    content_interval_hours: Optional[int] = None
 
 
 @router.get("/admin/settings")
@@ -350,6 +372,11 @@ async def admin_get_settings(db: Session = Depends(get_db), current_user: models
         "zarinpal_merchant_id": s.zarinpal_merchant_id or "",
         "signal_coins": s.signal_coins or "BTC,ETH",
         "signal_interval_minutes": s.signal_interval_minutes or 30,
+        "telegram_channel_id": s.telegram_channel_id or "",
+        "bale_channel_id": s.bale_channel_id or "",
+        "telegram_bot_username": s.telegram_bot_username or "",
+        "bale_bot_username": s.bale_bot_username or "",
+        "content_interval_hours": s.content_interval_hours or 6,
     }
 
 
@@ -373,3 +400,13 @@ async def admin_generate_now(db: Session = Depends(get_db), current_user: models
     from ..signals.engine import generate_signals
     n = await generate_signals(db, push=True)
     return {"message": f"{n} سیگنال تولید و ارسال شد", "count": n}
+
+
+@router.post("/admin/publish-now")
+async def admin_publish_now(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    _admin(current_user)
+    from ..signals.content import publish_content
+    ok = await publish_content(db)
+    if ok:
+        return {"message": "محتوا در کانال‌ها منتشر شد"}
+    return {"message": "ارسال نشد — توکن ربات و آی‌دی کانال را بررسی کنید"}

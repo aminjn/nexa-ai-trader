@@ -42,6 +42,16 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN signal_coins VARCHAR DEFAULT 'BTC,ETH'"))
             if "signal_interval_minutes" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN signal_interval_minutes INTEGER DEFAULT 30"))
+            if "telegram_channel_id" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN telegram_channel_id VARCHAR DEFAULT ''"))
+            if "bale_channel_id" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN bale_channel_id VARCHAR DEFAULT ''"))
+            if "telegram_bot_username" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN telegram_bot_username VARCHAR DEFAULT ''"))
+            if "bale_bot_username" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN bale_bot_username VARCHAR DEFAULT ''"))
+            if "content_interval_hours" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN content_interval_hours INTEGER DEFAULT 6"))
     # users: شناسه‌های پیام‌رسان
     if "users" in tables:
         cols = {c["name"] for c in inspector.get_columns("users")}
@@ -50,6 +60,8 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE users ADD COLUMN telegram_chat_id VARCHAR DEFAULT ''"))
             if "bale_chat_id" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN bale_chat_id VARCHAR DEFAULT ''"))
+            if "link_code" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN link_code VARCHAR DEFAULT ''"))
     # ml_models: ستون‌های جزئیات آموزش
     if "ml_models" in tables:
         cols = {c["name"] for c in inspector.get_columns("ml_models")}
@@ -173,6 +185,13 @@ async def lifespan(app: FastAPI):
     # تولید و توزیع خودکار سیگنال (طبق بازه‌ی تنظیم‌شده در پنل)
     from .signals.engine import signals_loop
     _asyncio.create_task(signals_loop())
+
+    # اتصال خودکار ربات‌ها (long-polling) و انتشار خودکار محتوا
+    from .signals.bot_poller import telegram_poll_loop, bale_poll_loop
+    from .signals.content import content_loop
+    _asyncio.create_task(telegram_poll_loop())
+    _asyncio.create_task(bale_poll_loop())
+    _asyncio.create_task(content_loop())
 
     yield
 

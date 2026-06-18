@@ -1,74 +1,100 @@
 import httpx
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
-from typing import List, Optional
-import asyncio
+import time
+from datetime import datetime
+from typing import List
+from ..config import settings
 
 
-async def fetch_binance_ohlcv(symbol: str = "BTCUSDT", interval: str = "1d", limit: int = 1000) -> pd.DataFrame:
-    """Fetch historical data from Binance public API (no key needed)."""
-    url = "https://api.binance.com/api/v3/klines"
-    params = {"symbol": symbol, "interval": interval, "limit": limit}
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(url, params=params)
-        resp.raise_for_status()
-        data = resp.json()
-    df = pd.DataFrame(data, columns=[
-        "timestamp", "open", "high", "low", "close", "volume",
-        "close_time", "quote_volume", "trades", "taker_buy_base",
-        "taker_buy_quote", "ignore"
-    ])
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-    for col in ["open", "high", "low", "close", "volume"]:
-        df[col] = df[col].astype(float)
-    return df[["timestamp", "open", "high", "low", "close", "volume"]]
-
-
-async def fetch_5year_data(pairs: List[str] = None) -> pd.DataFrame:
-    """Fetch 5 years of daily data for training."""
-    if pairs is None:
-        pairs = ["BTCUSDT", "ETHUSDT"]
-
+async def fetch_binance_5y(pairs: List[str]) -> pd.DataFrame:
+    """۵ سال داده روزانه از بایننس (از طریق پروکسی، چون بین‌المللی است)."""
+    proxy = settings.GAPGPT_PROXY or None
     all_frames = []
     for symbol in pairs:
-        # Binance limit is 1000 per call, 5 years = ~1825 days, need 2 calls
         frames = []
         end_time = int(datetime.utcnow().timestamp() * 1000)
-        for _ in range(2):
+        for _ in range(2):  # ~۲۰۰۰ کندل روزانه
             url = "https://api.binance.com/api/v3/klines"
-            params = {
-                "symbol": symbol,
-                "interval": "1d",
-                "limit": 1000,
-                "endTime": end_time,
-            }
-            try:
-                async with httpx.AsyncClient(timeout=30) as client:
-                    resp = await client.get(url, params=params)
-                    resp.raise_for_status()
-                    data = resp.json()
-                if not data:
-                    break
-                df = pd.DataFrame(data, columns=[
-                    "timestamp", "open", "high", "low", "close", "volume",
-                    "close_time", "quote_volume", "trades", "taker_buy_base",
-                    "taker_buy_quote", "ignore"
-                ])
-                df["symbol"] = symbol
-                frames.append(df)
-                end_time = int(data[0][0]) - 1
-            except Exception:
+            params = {"symbol": symbol, "interval": "1d", "limit": 1000, "endTime": end_time}
+            async with httpx.AsyncClient(timeout=30, proxy=proxy) as client:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+            if not data:
                 break
+            df = pd.DataFrame(data, columns=[
+                "timestamp", "open", "high", "low", "close", "volume",
+                "close_time", "quote_volume", "trades", "taker_buy_base",
+                "taker_buy_quote", "ignore"
+            ])
+            df["symbol"] = symbol
+            frames.append(df)
+            end_time = int(data[0][0]) - 1
         if frames:
             combined = pd.concat(frames).drop_duplicates("timestamp").sort_values("timestamp")
             all_frames.append(combined)
 
     if not all_frames:
         return pd.DataFrame()
-
     result = pd.concat(all_frames, ignore_index=True)
     for col in ["open", "high", "low", "close", "volume"]:
         result[col] = result[col].astype(float)
     result["timestamp"] = pd.to_datetime(result["timestamp"], unit="ms")
-    return result
+    return result[["timestamp", "symbol", "open", "high", "low", "close", "volume"]]
+
+
+async def fetch_nobitex_5y(symbols: List[str]) -> pd.DataFrame:
+    """داده روزانه از نوبیتکس (مستقیم، بدون پروکسی). symbols مثل BTCUSDT یا BTCIRT."""
+    base = settings.NOBITEX_BASE_URL
+    to_t = int(time.time())
+    from_t = to_t - 1825 * 86400  # ۵ سال
+    all_frames = []
+    for symbol in symbols:
+        url = f"{base}/market/udf/history"
+        params = {"symbol": symbol, "resolution": "D", "from": from_t, "to": to_t}
+        try:
+            async with httpx.AsyncClient(timeout=30, trust_env=False) as client:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+            if data.get("s") != "ok" or not data.get("t"):
+                continue
+            df = pd.DataFrame({
+                "timestamp": pd.to_datetime(data["t"], unit="s"),
+                "open": [float(x) for x in data["o"]],
+                "high": [float(x) for x in data["h"]],
+                "low": [float(x) for x in data["l"]],
+                "close": [float(x) for x in data["c"]],
+                "volume": [float(x) for x in data["v"]],
+            })
+            df["symbol"] = symbol
+            all_frames.append(df)
+        except Exception:
+            continue
+    if not all_frames:
+        return pd.DataFrame()
+    return pd.concat(all_frames, ignore_index=True)
+
+
+async def fetch_5year_data(pairs: List[str] = None) -> pd.DataFrame:
+    """ابتدا بایننس (از پروکسی)، اگر نشد نوبیتکس (مستقیم). بدون داده ساختگی."""
+    if pairs is None:
+        pairs = ["BTCUSDT", "ETHUSDT"]
+
+    # تلاش اول: بایننس از طریق پروکسی
+    try:
+        df = await fetch_binance_5y(pairs)
+        if not df.empty and len(df) > 300:
+            return df
+    except Exception:
+        pass
+
+    # تلاش دوم: نوبیتکس مستقیم
+    try:
+        df = await fetch_nobitex_5y(pairs)
+        if not df.empty and len(df) > 300:
+            return df
+    except Exception:
+        pass
+
+    return pd.DataFrame()

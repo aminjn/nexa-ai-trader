@@ -39,7 +39,7 @@ async def get_model_status(db: Session = Depends(get_db), current_user: models.U
     }
 
 
-async def _train_background(db: Session):
+async def _train_background():
     global _training_progress
     _training_progress = {"status": "training", "progress": 0, "message": "شروع آموزش..."}
 
@@ -47,6 +47,7 @@ async def _train_background(db: Session):
         _training_progress["progress"] = pct
         _training_progress["message"] = msg
 
+    from ..database import SessionLocal
     trainer = get_trainer()
     try:
         result = await trainer.train(progress_callback=progress_cb)
@@ -56,14 +57,18 @@ async def _train_background(db: Session):
             "message": "مدل آماده است",
             "accuracy": result["accuracy"],
         }
-        ml_model = db.query(models.MLModel).first()
-        if ml_model:
-            ml_model.status = "ready"
-            ml_model.accuracy = result["accuracy"]
-            ml_model.last_trained = datetime.utcnow()
-            db.commit()
+        db = SessionLocal()
+        try:
+            ml_model = db.query(models.MLModel).first()
+            if ml_model:
+                ml_model.status = "ready"
+                ml_model.accuracy = result["accuracy"]
+                ml_model.last_trained = datetime.utcnow()
+                db.commit()
+        finally:
+            db.close()
     except Exception as e:
-        _training_progress = {"status": "error", "progress": 0, "message": str(e)}
+        _training_progress = {"status": "error", "progress": 0, "message": f"خطا: {str(e)}"}
 
 
 @router.post("/train")
@@ -79,7 +84,7 @@ async def start_training(
     if _training_progress.get("status") == "training":
         return {"message": "آموزش در حال انجام است"}
 
-    background_tasks.add_task(_train_background, db)
+    background_tasks.add_task(_train_background)
     return {"message": "آموزش شروع شد"}
 
 
@@ -95,8 +100,10 @@ async def get_prediction(
     try:
         import httpx
         import pandas as pd
+        from ..config import settings
         sym = symbol.replace("/", "")
-        async with httpx.AsyncClient(timeout=10) as client:
+        proxy = settings.GAPGPT_PROXY or None
+        async with httpx.AsyncClient(timeout=10, proxy=proxy) as client:
             resp = await client.get(
                 "https://api.binance.com/api/v3/klines",
                 params={"symbol": sym, "interval": "1h", "limit": 200}

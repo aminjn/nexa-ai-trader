@@ -77,6 +77,12 @@ export default function Model() {
           </div>
         )}
 
+        {status?.status === 'error' && (
+          <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid var(--red)', borderRadius:14, padding:'14px 20px', color:'var(--red)', fontSize:14, fontWeight:600 }}>
+            {status?.message || 'آموزش با خطا مواجه شد'}
+          </div>
+        )}
+
         <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr', gap:16 }}>
           <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:24 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>

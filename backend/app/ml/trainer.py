@@ -16,51 +16,57 @@ SCALER_PATH = "ml_scaler.joblib"
 
 
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Add technical indicators as features."""
+    """افزودن اندیکاتورهای تکنیکال به‌صورت مستقل از مقیاس قیمت.
+
+    همه ویژگی‌ها نسبی هستند تا مدل آموزش‌دیده روی یک بازار (مثلاً دلاری)
+    روی بازار دیگری با مقیاس قیمت متفاوت (مثلاً ریالی) هم کار کند.
+    """
     df = df.copy()
     c = df["close"]
     h = df["high"]
     l = df["low"]
     v = df["volume"]
 
-    # Moving averages
+    # میانگین‌های متحرک — به‌صورت نسبت قیمت به میانگین (مستقل از مقیاس)
     for w in [5, 10, 20, 50, 200]:
-        df[f"sma_{w}"] = c.rolling(w).mean()
-        df[f"ema_{w}"] = c.ewm(span=w).mean()
+        sma = c.rolling(w).mean()
+        ema = c.ewm(span=w).mean()
+        df[f"sma_{w}"] = c / (sma + 1e-9) - 1
+        df[f"ema_{w}"] = c / (ema + 1e-9) - 1
 
-    # RSI
+    # RSI (ذاتاً ۰ تا ۱۰۰، مستقل از مقیاس)
     delta = c.diff()
     gain = delta.clip(lower=0).rolling(14).mean()
     loss = (-delta.clip(upper=0)).rolling(14).mean()
     rs = gain / (loss + 1e-9)
     df["rsi"] = 100 - (100 / (1 + rs))
 
-    # MACD
+    # MACD — نرمال‌شده نسبت به قیمت
     ema12 = c.ewm(span=12).mean()
     ema26 = c.ewm(span=26).mean()
-    df["macd"] = ema12 - ema26
+    df["macd"] = (ema12 - ema26) / (c + 1e-9)
     df["macd_signal"] = df["macd"].ewm(span=9).mean()
     df["macd_hist"] = df["macd"] - df["macd_signal"]
 
-    # Bollinger Bands
+    # باند بولینگر — درصد موقعیت (مستقل از مقیاس)
     sma20 = c.rolling(20).mean()
     std20 = c.rolling(20).std()
-    df["bb_upper"] = sma20 + 2 * std20
-    df["bb_lower"] = sma20 - 2 * std20
-    df["bb_pct"] = (c - df["bb_lower"]) / (df["bb_upper"] - df["bb_lower"] + 1e-9)
+    bb_upper = sma20 + 2 * std20
+    bb_lower = sma20 - 2 * std20
+    df["bb_pct"] = (c - bb_lower) / (bb_upper - bb_lower + 1e-9)
 
-    # Volume features
-    df["vol_sma20"] = v.rolling(20).mean()
-    df["vol_ratio"] = v / (df["vol_sma20"] + 1e-9)
+    # حجم — نسبت حجم به میانگین (مستقل از مقیاس)
+    vol_sma20 = v.rolling(20).mean()
+    df["vol_ratio"] = v / (vol_sma20 + 1e-9)
 
-    # Price features
+    # ویژگی‌های قیمتی نسبی
     df["return_1d"] = c.pct_change(1)
     df["return_3d"] = c.pct_change(3)
     df["return_7d"] = c.pct_change(7)
     df["hl_ratio"] = (h - l) / (c + 1e-9)
-    df["price_vs_sma50"] = c / (df["sma_50"] + 1e-9) - 1
+    df["price_vs_sma50"] = c / (c.rolling(50).mean() + 1e-9) - 1
 
-    # Target: will price be higher in next 1 day?
+    # هدف: آیا قیمت روز بعد بالاتر می‌رود؟
     df["target"] = (c.shift(-1) > c).astype(int)
 
     return df
@@ -110,15 +116,14 @@ class MLTrainer:
         use_cached_data: bool = False,
     ) -> dict:
         if progress_callback:
-            await progress_callback(5, "در حال دریافت داده‌های تاریخی...")
+            await progress_callback(5, "در حال دریافت داده‌های واقعی بازار...")
 
-        try:
-            df = await fetch_5year_data(["BTCUSDT", "ETHUSDT"])
-            if df.empty:
-                # Use synthetic data if fetch fails
-                df = self._generate_synthetic_data()
-        except Exception:
-            df = self._generate_synthetic_data()
+        df = await fetch_5year_data(["BTCUSDT", "ETHUSDT"])
+        if df.empty or len(df) < 300:
+            raise RuntimeError(
+                "دریافت داده واقعی بازار ناموفق بود. "
+                "بررسی کنید پروکسی (برای بایننس) یا دسترسی نوبیتکس فعال باشد."
+            )
 
         if progress_callback:
             await progress_callback(25, "در حال محاسبه ویژگی‌های تکنیکال...")

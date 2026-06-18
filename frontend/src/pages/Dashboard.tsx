@@ -10,6 +10,7 @@ interface Stats { total_equity:number; today_pnl:number; today_pnl_pct:number; t
 interface Trade { id:number; pair:string; side:string; entry:number; exit:number; pnl:number; pnl_pct:number; status:string; opened_at:string; exchange:string }
 interface EquityPoint { date:string; value:number }
 interface ActivityEvent { time:string; message:string; level:string }
+interface Signal { pair:string; signal:string; signal_fa:string; confidence:number }
 
 const StatCard = ({ label, value, sub, subColor }: { label:string; value:string; sub?:string; subColor?:string }) => (
   <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:'18px 20px' }}>
@@ -28,22 +29,25 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [activity, setActivity] = useState<ActivityEvent[]>([])
   const [runningNow, setRunningNow] = useState(false)
+  const [signals, setSignals] = useState<Signal[]>([])
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [s, eq, tr, btc, act] = await Promise.all([
+        const [s, eq, tr, btc, act, sig] = await Promise.all([
           api.get('/dashboard/stats'),
           api.get('/dashboard/equity-curve'),
           api.get('/dashboard/recent-trades'),
           api.get('/dashboard/btc-price'),
           api.get('/strategy/activity'),
+          api.get('/dashboard/signals'),
         ])
         setStats(s.data)
         setEquity(eq.data.data || [])
         setTrades(tr.data || [])
         setBtcPrice(btc.data.price || 0)
         setActivity(act.data.events || [])
+        setSignals(sig.data.signals || [])
       } catch {} finally { setLoading(false) }
     }
     load()
@@ -210,11 +214,27 @@ export default function Dashboard() {
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
             <div style={{ background:'linear-gradient(150deg,color-mix(in srgb,var(--accent2) 18%,var(--card-bg)),var(--card-bg))', border:'1px solid var(--border2)', borderRadius:18, padding:20 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
                 <Sparkles size={22} color="var(--accent2)" />
-                <span style={{ fontFamily:"'Space Grotesk'", fontWeight:600, fontSize:15 }}>{t.aiInsight}</span>
+                <span style={{ fontFamily:"'Space Grotesk'", fontWeight:600, fontSize:15 }}>سیگنال‌های فعلی مدل</span>
               </div>
-              <p style={{ fontSize:13.5, lineHeight:1.7, color:'var(--text)', margin:0 }}>{t.aiInsightText}</p>
+              {signals.length === 0 ? (
+                <p style={{ fontSize:13, color:'var(--faint)', margin:0 }}>مدل آموزش ندیده یا داده‌ای موجود نیست.</p>
+              ) : signals.map(s => {
+                const c = s.signal === 'BUY' ? 'var(--green)' : s.signal === 'SELL' ? 'var(--red)' : 'var(--amber)'
+                return (
+                  <div key={s.pair} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
+                    <span style={{ fontWeight:600, fontFamily:"'JetBrains Mono'" }}>{s.pair}</span>
+                    <span style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ padding:'3px 12px', borderRadius:999, background:`color-mix(in srgb,${c} 16%,transparent)`, color:c, fontSize:13, fontWeight:700 }}>{s.signal_fa}</span>
+                      <span style={{ fontSize:12, color:'var(--dim)', fontFamily:"'JetBrains Mono'" }}>{s.confidence}٪</span>
+                    </span>
+                  </div>
+                )
+              })}
+              <p style={{ fontSize:11, color:'var(--faint)', margin:'12px 0 0', lineHeight:1.7 }}>
+                ربات فقط روی سیگنال «خرید» با اطمینان کافی معامله می‌کند.
+              </p>
             </div>
             <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:20 }}>
               <div style={{ fontFamily:"'Space Grotesk'", fontWeight:600, fontSize:15, marginBottom:14 }}>{t.allocation}</div>

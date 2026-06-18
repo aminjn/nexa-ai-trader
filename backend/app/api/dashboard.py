@@ -113,6 +113,44 @@ async def get_recent_trades(
     } for t in trades]
 
 
+@router.get("/signals")
+async def get_signals(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """سیگنال واقعی فعلی مدل برای جفت‌ارزهای اصلی."""
+    from ..ml.trainer import get_trainer
+    import pandas as pd
+    trainer = get_trainer()
+    out = {"trained": trainer.is_trained, "signals": []}
+    if not trainer.is_trained:
+        return out
+
+    exch_rec = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).first()
+    if not exch_rec:
+        return out
+
+    exchange = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret)
+    label = {"BUY": "خرید", "SELL": "فروش", "WAIT": "صبر"}
+    for pair in ["BTC/RLS", "ETH/RLS"]:
+        try:
+            ohlcv = await exchange.get_ohlcv(pair, "1h", 300)
+            if not ohlcv:
+                continue
+            dfp = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
+            dfp["timestamp"] = pd.to_datetime(dfp["timestamp"], unit="ms")
+            sig = trainer.predict(dfp)
+            out["signals"].append({
+                "pair": pair,
+                "signal": sig["signal"],
+                "signal_fa": label.get(sig["signal"], sig["signal"]),
+                "confidence": round(sig.get("confidence", 0) * 100, 1),
+            })
+        except Exception:
+            continue
+    return out
+
+
 @router.get("/btc-price")
 async def get_btc_price():
     # از نوبیتکس (مستقیم) قیمت بیت‌کوین به دلار را می‌گیریم

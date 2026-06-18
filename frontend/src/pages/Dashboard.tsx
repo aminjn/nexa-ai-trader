@@ -51,6 +51,8 @@ export default function Dashboard() {
     return () => clearInterval(iv)
   }, [])
 
+  const [testing, setTesting] = useState(false)
+
   const runNow = async () => {
     setRunningNow(true)
     try {
@@ -61,6 +63,20 @@ export default function Dashboard() {
     } catch (e: any) {
       toast.error(e.response?.data?.detail || 'خطا در بررسی بازار')
     } finally { setRunningNow(false) }
+  }
+
+  const testTrade = async () => {
+    if (!window.confirm('⚠️ این یک سفارش خرید واقعی با پول واقعی است (حداقل مبلغ). ادامه می‌دهید؟')) return
+    setTesting(true)
+    try {
+      const r = await api.post('/strategy/bot/test-trade', { pair: 'BTC/RLS' })
+      if (r.data.ok) toast.success(r.data.message)
+      else toast.error(r.data.message)
+      const act = await api.get('/strategy/activity')
+      setActivity(act.data.events || [])
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'خطا در تست معامله')
+    } finally { setTesting(false) }
   }
 
   const fmtTime = (iso: string) => {
@@ -96,10 +112,15 @@ export default function Dashboard() {
               <Activity size={18} style={{ color:'var(--accent)' }} />
               <span style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>فعالیت زنده ربات</span>
             </div>
-            <button onClick={runNow} disabled={runningNow} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 18px', border:'none', borderRadius:11, background:'var(--accent)', color:'#05121a', fontWeight:700, fontFamily:'inherit', fontSize:13, cursor:runningNow?'not-allowed':'pointer', opacity:runningNow?0.7:1 }}>
-              <RefreshCw size={14} style={{ animation: runningNow ? 'spin 1s linear infinite' : 'none' }} />
-              بررسی فوری بازار
-            </button>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={testTrade} disabled={testing} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 16px', border:'1px solid var(--amber)', borderRadius:11, background:'color-mix(in srgb,var(--amber) 12%,transparent)', color:'var(--amber)', fontWeight:700, fontFamily:'inherit', fontSize:13, cursor:testing?'not-allowed':'pointer', opacity:testing?0.7:1 }}>
+                🧪 تست معامله واقعی
+              </button>
+              <button onClick={runNow} disabled={runningNow} style={{ display:'flex', alignItems:'center', gap:7, padding:'9px 18px', border:'none', borderRadius:11, background:'var(--accent)', color:'#05121a', fontWeight:700, fontFamily:'inherit', fontSize:13, cursor:runningNow?'not-allowed':'pointer', opacity:runningNow?0.7:1 }}>
+                <RefreshCw size={14} style={{ animation: runningNow ? 'spin 1s linear infinite' : 'none' }} />
+                بررسی فوری بازار
+              </button>
+            </div>
           </div>
           <div style={{ maxHeight:280, overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }}>
             {activity.length === 0 ? (

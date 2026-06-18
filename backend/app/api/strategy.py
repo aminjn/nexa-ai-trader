@@ -94,3 +94,67 @@ async def run_now(
     for exch in exchanges:
         await run_trading_cycle(db, current_user, exch)
     return {"message": "بررسی بازار انجام شد"}
+
+
+class TestTradeRequest(BaseModel):
+    pair: str = "BTC/RLS"
+
+
+@router.post("/bot/test-trade")
+async def test_trade(
+    req: TestTradeRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """یک سفارش خرید واقعی با حداقل مبلغ ثبت می‌کند تا سفارش‌گذاری تست شود.
+
+    ⚠️ این یک سفارش واقعی با پول واقعی است.
+    """
+    from ..trading.bot import MIN_ORDER_VALUE, log_bot_event
+    exch_rec = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).first()
+    if not exch_rec:
+        return {"ok": False, "message": "هیچ صرافی متصلی وجود ندارد"}
+
+    exchange = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret)
+    pair = req.pair
+    quote = pair.split("/")[1].upper()
+    min_value = MIN_ORDER_VALUE.get(quote, 0.0)
+
+    # موجودی
+    try:
+        balances = await exchange.get_balance()
+        qbal = balances.get(quote)
+        free = qbal.free if qbal else 0.0
+    except Exception as e:
+        return {"ok": False, "message": f"خطا در دریافت موجودی: {e}"}
+
+    if free < min_value:
+        return {"ok": False, "message": f"موجودی {quote} ({free:,.0f}) کمتر از حداقل سفارش ({min_value:,.0f}) است"}
+
+    ticker = await exchange.get_ticker(pair)
+    price = ticker.get("last", 0)
+    if not price:
+        return {"ok": False, "message": "قیمت لحظه‌ای دریافت نشد"}
+
+    spend = min_value * 1.05  # کمی بالاتر از حداقل
+    amount = round(spend / price, 6)
+    try:
+        order = await exchange.create_market_order(pair, "buy", amount)
+        trade = models.Trade(
+            user_id=current_user.id,
+            exchange=exch_rec.exchange_name,
+            pair=pair, side="buy",
+            entry_price=price, amount=amount,
+            status="open", trade_type="spot",
+            ai_assisted=False, order_id=order.order_id,
+        )
+        db.add(trade)
+        db.commit()
+        log_bot_event(f"🧪 تست معامله موفق: خرید {pair} | مقدار {amount} | قیمت {price:,.0f}")
+        return {"ok": True, "message": f"سفارش خرید واقعی ثبت شد ✓ | مقدار: {amount} {pair.split('/')[0]} | شناسه: {order.order_id}"}
+    except Exception as e:
+        log_bot_event(f"🧪 تست معامله ناموفق: {str(e)[:100]}", "error")
+        return {"ok": False, "message": f"ثبت سفارش ناموفق بود: {str(e)[:150]}"}

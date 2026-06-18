@@ -34,14 +34,22 @@ async def get_stats(db: Session = Depends(get_db), current_user: models.User = D
         if t.closed_at and t.closed_at >= today
     )
 
-    # Get exchange balance
+    # موجودی زنده از صرافی (و به‌روزرسانی مقدار ذخیره‌شده)
     total_balance = 0
     exchanges = db.query(models.ExchangeAPI).filter(
         models.ExchangeAPI.user_id == current_user.id,
         models.ExchangeAPI.is_active == True,
     ).all()
     for exch in exchanges:
+        try:
+            ex = get_exchange(exch.exchange_name, exch.api_key, exch.api_secret)
+            if hasattr(ex, "get_portfolio_value_toman"):
+                live = await ex.get_portfolio_value_toman()
+                exch.balance = live
+        except Exception:
+            pass
         total_balance += exch.balance or 0
+    db.commit()
 
     return {
         "total_equity": round(total_balance, 2),
@@ -107,13 +115,13 @@ async def get_recent_trades(
 
 @router.get("/btc-price")
 async def get_btc_price():
+    # از نوبیتکس (مستقیم) قیمت بیت‌کوین به دلار را می‌گیریم
+    from ..config import settings
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.get(
-                "https://api.binance.com/api/v3/ticker/price",
-                params={"symbol": "BTCUSDT"}
-            )
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as client:
+            resp = await client.get(f"{settings.NOBITEX_BASE_URL}/v3/orderbook/BTCUSDT")
             data = resp.json()
-            return {"price": float(data.get("price", 0))}
+            price = float(data.get("lastTradePrice", 0))
+            return {"price": price}
     except Exception:
         return {"price": 0}

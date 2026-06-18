@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Globe, Plus, Trash2, Play, Eye, RefreshCw } from 'lucide-react'
+import { Globe, Plus, Trash2, Play, Eye, RefreshCw, MousePointerClick } from 'lucide-react'
 import Layout from '../components/Layout'
 import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
 
@@ -18,6 +19,9 @@ interface Source {
 
 export default function Scraper() {
   const { t } = useAppStore()
+  const token = useAuthStore(s => s.token)
+  const [pickerUrl, setPickerUrl] = useState('')
+  const [pickedText, setPickedText] = useState('')
   const [sources, setSources] = useState<Source[]>([])
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
@@ -59,6 +63,26 @@ export default function Scraper() {
     catch {} finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
+
+  // دریافت انتخاب از داخل قاب (کلیک بصری)
+  useEffect(() => {
+    const onMsg = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'nexa-pick') {
+        setSelector(e.data.selector || '')
+        setPickedText(e.data.text || '')
+        toast.success('عنصر انتخاب شد ✓')
+      }
+    }
+    window.addEventListener('message', onMsg)
+    return () => window.removeEventListener('message', onMsg)
+  }, [])
+
+  const openPicker = () => {
+    if (!url.trim()) { toast.error('آدرس سایت را وارد کنید'); return }
+    const q = new URLSearchParams({ url: url.trim(), token: token || '', use_proxy: String(useProxy) })
+    setPickerUrl(`/api/scraper/proxy?${q.toString()}`)
+    setPickedText('')
+  }
 
   const testScrape = async () => {
     if (!url.trim()) { toast.error('آدرس سایت را وارد کنید'); return }
@@ -123,12 +147,32 @@ export default function Scraper() {
               <input type="checkbox" checked={useProxy} onChange={e => setUseProxy(e.target.checked)} />
               سایت خارجی است (از پروکسی استفاده کن)
             </label>
-            <button onClick={analyzePage} disabled={analyzing} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '11px 22px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              <RefreshCw size={15} style={{ animation: analyzing ? 'spin 1s linear infinite' : 'none' }} /> {analyzing ? 'در حال تحلیل صفحه...' : '🔍 تحلیل صفحه و نمایش گزینه‌ها'}
+            <button onClick={openPicker} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '11px 22px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <MousePointerClick size={15} /> باز کردن سایت و انتخاب با کلیک
+            </button>
+            <button onClick={analyzePage} disabled={analyzing} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '11px 22px', borderRadius: 11, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              <RefreshCw size={15} style={{ animation: analyzing ? 'spin 1s linear infinite' : 'none' }} /> {analyzing ? 'در حال تحلیل...' : 'تشخیص خودکار گزینه‌ها'}
             </button>
           </div>
 
           {analyzeErr && <div style={{ marginTop: 12, color: 'var(--red)', fontSize: 13 }}>{analyzeErr}</div>}
+
+          {/* انتخابگر بصری: سایت داخل قاب */}
+          {pickerUrl && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 600 }}>👆 روی هر بخشی از سایت که می‌خواهی کلیک کن تا انتخاب شود</span>
+                <button onClick={() => setPickerUrl('')} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 12px', color: 'var(--dim)', cursor: 'pointer', fontSize: 12 }}>بستن</button>
+              </div>
+              <iframe src={pickerUrl} title="picker" style={{ width: '100%', height: 460, border: '1px solid var(--border2)', borderRadius: 12, background: '#fff' }} />
+              {pickedText && (
+                <div style={{ marginTop: 10, padding: 12, background: 'color-mix(in srgb, var(--accent) 10%, var(--bg2))', border: '1px solid var(--accent)', borderRadius: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--faint)', marginBottom: 4 }}>انتخاب شد:</div>
+                  <div style={{ fontSize: 13, color: 'var(--text)' }}>{pickedText}</div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* گزینه‌های تشخیص‌داده‌شده */}
           {groups.length > 0 && (

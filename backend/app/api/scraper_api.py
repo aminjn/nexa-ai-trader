@@ -1,13 +1,93 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
+import httpx
+from bs4 import BeautifulSoup
 from .. import models
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..auth.router import get_current_user
+from ..auth.utils import decode_token
+from ..auth import service as auth_service
+from ..config import settings
 from ..scraping.scraper import scrape_url, scrape_all, analyze_page
 
 router = APIRouter(prefix="/scraper", tags=["scraper"])
+
+
+_PICKER_JS = """
+<style>* { cursor: crosshair !important; }
+.nexa-hl { outline: 3px solid #4be0ff !important; outline-offset: -1px !important; background: rgba(75,224,255,0.12) !important; }</style>
+<script>
+(function(){
+  function cssPath(el){
+    if(!(el instanceof Element)) return '';
+    var path=[];
+    while(el && el.nodeType===1 && el.tagName.toLowerCase()!=='body' && el.tagName.toLowerCase()!=='html'){
+      var sel=el.tagName.toLowerCase();
+      if(el.id){ path.unshift('#'+el.id); break; }
+      var cls=(el.className&&typeof el.className==='string')?el.className.trim().split(/\\s+/).filter(Boolean):[];
+      if(cls.length){ sel+='.'+cls.slice(0,2).join('.'); }
+      else { var i=1, sib=el; while(sib=sib.previousElementSibling){ if(sib.tagName===el.tagName) i++; } sel+=':nth-of-type('+i+')'; }
+      path.unshift(sel); el=el.parentElement;
+    }
+    return path.join(' > ');
+  }
+  var hovered=null;
+  document.addEventListener('mouseover',function(e){ if(hovered) hovered.classList.remove('nexa-hl'); hovered=e.target; if(hovered.classList) hovered.classList.add('nexa-hl'); },true);
+  document.addEventListener('click',function(e){
+    e.preventDefault(); e.stopPropagation();
+    var sel=cssPath(e.target);
+    var text=(e.target.innerText||e.target.textContent||'').trim().slice(0,150);
+    parent.postMessage({type:'nexa-pick', selector:sel, text:text}, '*');
+    return false;
+  },true);
+  document.addEventListener('submit',function(e){ e.preventDefault(); },true);
+})();
+</script>
+"""
+
+
+def _check_token(token: str):
+    payload = decode_token(token or "")
+    if not payload:
+        raise HTTPException(status_code=401, detail="توکن نامعتبر")
+    db = SessionLocal()
+    try:
+        user = auth_service.get_user_by_id(db, int(payload.get("sub", 0)))
+        if not user or not user.is_superadmin:
+            raise HTTPException(status_code=403, detail="دسترسی مجاز نیست")
+    finally:
+        db.close()
+
+
+@router.get("/proxy", response_class=HTMLResponse)
+async def proxy_page(url: str = Query(...), token: str = Query(""), use_proxy: bool = Query(False)):
+    """صفحه‌ی هدف را پروکسی و انتخابگر بصری تزریق می‌کند (برای نمایش در iframe)."""
+    _check_token(token)
+    proxy = settings.GAPGPT_PROXY if use_proxy else None
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"}
+    try:
+        async with httpx.AsyncClient(timeout=25, proxy=proxy, follow_redirects=True, headers=headers, trust_env=False) as c:
+            resp = await c.get(url)
+            html = resp.text
+    except Exception as e:
+        return HTMLResponse(f"<html dir='rtl'><body style='font-family:sans-serif;padding:40px;color:#c00'>خطا در بازکردن سایت: {str(e)[:200]}</body></html>")
+
+    soup = BeautifulSoup(html, "html.parser")
+    for s in soup(["script"]):
+        s.decompose()
+    # base href برای بارگذاری CSS/تصاویر
+    if soup.head:
+        base = soup.new_tag("base", href=url)
+        soup.head.insert(0, base)
+    # تزریق انتخابگر
+    target = soup.body or soup
+    picker = BeautifulSoup(_PICKER_JS, "html.parser")
+    target.append(picker)
+    return HTMLResponse(str(soup))
+
 
 
 class SourceRequest(BaseModel):

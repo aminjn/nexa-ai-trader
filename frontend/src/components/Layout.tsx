@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, Globe, Radio, CreditCard, Wallet, UserCircle } from 'lucide-react'
+import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, Globe, Radio, CreditCard, Wallet, UserCircle, Bell } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
 import NotificationBell from './NotificationBell'
@@ -29,6 +29,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
     { path: '/ai', label: t.navAI, icon: Sparkles },
     { path: '/signals', label: 'سیگنال‌ها', icon: Radio },
     { path: '/wallet', label: 'کیف پول', icon: Wallet },
+    { path: '/notifications', label: 'اعلان‌ها', icon: Bell },
     { path: '/plans', label: 'پلن‌ها', icon: CreditCard },
     { path: '/profile', label: 'پروفایل', icon: UserCircle },
     ...(isSuperAdmin ? [

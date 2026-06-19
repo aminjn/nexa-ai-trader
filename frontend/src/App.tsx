@@ -25,6 +25,7 @@ import TradingPlansAdmin from './pages/TradingPlansAdmin'
 import Profile from './pages/Profile'
 import Wallet from './pages/Wallet'
 import AdminWallet from './pages/AdminWallet'
+import Notifications from './pages/Notifications'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -32,20 +33,25 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-// دروازه‌بانی پلن: بدون اشتراک فعال، کاربر فقط صفحهٔ خرید پلن را می‌بیند (سوپر ادمین مستثناست)
+// دروازه‌بانی: ابتدا احراز هویت، سپس اشتراک فعال (سوپر ادمین مستثناست)
 function PlanGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isSuperAdmin } = useAuthStore()
-  const [state, setState] = useState<'loading' | 'ok' | 'denied'>('loading')
+  const [state, setState] = useState<'loading' | 'ok' | 'noplan' | 'nokyc'>('loading')
   useEffect(() => {
     if (!isAuthenticated) return
     if (isSuperAdmin) { setState('ok'); return }
     api.get('/trading/my-access')
-      .then(r => setState(r.data?.has_access ? 'ok' : 'denied'))
-      .catch(() => setState('denied'))
+      .then(r => {
+        if (r.data?.kyc_status !== 'verified') setState('nokyc')
+        else if (r.data?.has_access) setState('ok')
+        else setState('noplan')
+      })
+      .catch(() => setState('noplan'))
   }, [isAuthenticated, isSuperAdmin])
   if (!isAuthenticated) return <Navigate to="/" replace />
   if (state === 'loading') return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--dim)' }}>در حال بارگذاری…</div>
-  if (state === 'denied') return <Navigate to="/plans" replace />
+  if (state === 'nokyc') return <Navigate to="/profile" replace />
+  if (state === 'noplan') return <Navigate to="/plans" replace />
   return <>{children}</>
 }
 
@@ -72,6 +78,7 @@ export default function App() {
           <Route path="/" element={<Auth />} />
           <Route path="/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
           <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><PlanGate><Dashboard /></PlanGate></ProtectedRoute>} />

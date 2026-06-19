@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import api from '../lib/api'
+import { showDeviceNotification, getLastSeenId, setLastSeenId } from '../lib/push'
 
 interface Notif { id: number; type: string; title: string; message: string; link: string; read: boolean; created_at: string | null }
 
@@ -13,7 +14,19 @@ export default function NotificationBell() {
   const navigate = useNavigate()
 
   const load = useCallback(async () => {
-    try { const r = await api.get('/notifications/'); setItems(r.data.items || []); setUnread(r.data.unread || 0) } catch { /* ignore */ }
+    try {
+      const r = await api.get('/notifications/')
+      const list: Notif[] = r.data.items || []
+      setItems(list); setUnread(r.data.unread || 0)
+      // اعلان دستگاه برای موارد جدیدِ نخوانده
+      const lastSeen = getLastSeenId()
+      const fresh = list.filter(n => !n.read && n.id > lastSeen)
+      if (fresh.length && lastSeen > 0) {
+        const top = fresh[0]
+        showDeviceNotification(top.title || 'اعلان جدید', top.message || '', top.link || '/notifications')
+      }
+      if (list.length) setLastSeenId(Math.max(lastSeen, ...list.map(n => n.id)))
+    } catch { /* ignore */ }
   }, [])
 
   useEffect(() => { load(); const id = setInterval(load, 20000); return () => clearInterval(id) }, [load])

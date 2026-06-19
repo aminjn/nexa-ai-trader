@@ -14,7 +14,7 @@ const btn = (c: string): React.CSSProperties => ({ background: 'transparent', bo
 export default function AdminWallet() {
   const [deps, setDeps] = useState<Dep[]>([])
   const [kyc, setKyc] = useState<Kyc[]>([])
-  const [modal, setModal] = useState<{ title: string; imgs: string[] } | null>(null)
+  const [modal, setModal] = useState<{ title: string; imgs: string[]; video?: string; challenge?: string } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -42,7 +42,7 @@ export default function AdminWallet() {
     try { await api.post(`/profile/admin/kyc/${k.id}/decide`, { approve, note }); toast.success(approve ? 'تأیید شد' : 'رد شد'); load() } catch { toast.error('خطا') }
   }
   const viewKyc = async (k: Kyc) => {
-    try { const r = await api.get(`/profile/admin/kyc/${k.id}/images`); setModal({ title: `مدارک ${k.full_name}`, imgs: [r.data.card_image, r.data.selfie_image].filter(Boolean) }) } catch { toast.error('خطا') }
+    try { const r = await api.get(`/profile/admin/kyc/${k.id}/images`); setModal({ title: `مدارک ${k.full_name}`, imgs: [r.data.card_image].filter(Boolean), video: r.data.video, challenge: r.data.challenge }) } catch { toast.error('خطا') }
   }
 
   const ST: Record<string, { t: string; c: string }> = { pending: { t: 'در انتظار', c: 'var(--amber)' }, approved: { t: 'تأییدشده', c: 'var(--green)' }, rejected: { t: 'ردشده', c: 'var(--red)' } }
@@ -127,8 +127,20 @@ export default function AdminWallet() {
               <div style={{ fontWeight: 800 }}>{modal.title}</div>
               <button onClick={() => setModal(null)} style={btn('var(--red)')}><X size={16} /></button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: modal.imgs.length > 1 ? '1fr 1fr' : '1fr', gap: 12 }}>
-              {modal.imgs.map((src, i) => <img key={i} src={src} style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)' }} />)}
+            {modal.challenge && (
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'var(--bg2)', border: '1px solid var(--accent)' }}>
+                <span style={{ fontSize: 12, color: 'var(--dim)' }}>عبارتی که کاربر باید در ویدئو گفته باشد: </span>
+                <b style={{ color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>{modal.challenge}</b>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {modal.imgs.map((src, i) => (
+                <div key={i}><div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 6 }}>کارت ملی</div><img src={src} style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)' }} /></div>
+              ))}
+              {modal.video && (
+                <div><div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 6 }}>ویدئوی احراز هویت (صدا را بررسی کنید)</div>
+                  <video src={modal.video} controls playsInline style={{ width: '100%', borderRadius: 10, border: '1px solid var(--border)' }} /></div>
+              )}
             </div>
           </div>
         </div>

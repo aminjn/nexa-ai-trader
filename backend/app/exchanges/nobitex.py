@@ -66,16 +66,40 @@ class NobitexExchange(BaseExchange):
                 })
         return sorted(out, key=lambda x: x["value_toman"], reverse=True)
 
-    async def get_recent_orders(self, only_buy: bool = True) -> List[Dict]:
-        """تاریخچه سفارش‌های انجام‌شده."""
-        try:
-            params = {"status": "done", "details": 2}
-            if only_buy:
-                params["type"] = "buy"
-            result = await self._get("/market/orders/list", params=params)
-            return result.get("orders", [])
-        except Exception:
-            return []
+    async def get_recent_orders(self, only_buy: bool = True,
+                                max_pages: int = 30, page_size: int = 100) -> List[Dict]:
+        """تاریخچه سفارش‌های انجام‌شده، با صفحه‌بندی برای پوشش کامل ۳۰ روز.
+
+        صفحه‌به‌صفحه می‌خواند تا وقتی سفارش جدیدی نیاید (اگر API صفحه‌بندی را
+        پشتیبانی نکند، صفحهٔ دوم همان داده را برمی‌گرداند و حلقه با dedup متوقف می‌شود).
+        """
+        all_orders: List[Dict] = []
+        seen = set()
+        page = 1
+        while page <= max_pages:
+            try:
+                params = {"status": "done", "details": 2, "pageSize": page_size, "page": page}
+                if only_buy:
+                    params["type"] = "buy"
+                result = await self._get("/market/orders/list", params=params)
+            except Exception:
+                break
+            batch = result.get("orders", []) or []
+            if not batch:
+                break
+            new = 0
+            for o in batch:
+                oid = o.get("id")
+                if oid in seen:
+                    continue
+                seen.add(oid)
+                all_orders.append(o)
+                new += 1
+            # اگر سفارش جدیدی نیامد یا صفحه کامل پر نشد، یعنی به انتها رسیدیم
+            if new == 0 or len(batch) < page_size:
+                break
+            page += 1
+        return all_orders
 
     async def get_portfolio_value_toman(self) -> float:
         """مجموع ارزش کل کیف‌پول‌ها را به تومان برمی‌گرداند."""

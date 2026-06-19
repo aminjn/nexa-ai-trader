@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../lib/api'
 import { CalendarRange } from 'lucide-react'
 
-interface DayRow { date: string; pnl: number; trades: number; wins: number; losses: number }
+interface DayRow { date: string; pnl: number; trades: number | null; wins: number | null; losses: number | null }
 const fmt = (n: number) => Math.round(n || 0).toLocaleString('en-US')
 const card: React.CSSProperties = { background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: 18, padding: 20 }
 const inputStyle: React.CSSProperties = { background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none', fontFamily: 'inherit' }
@@ -70,9 +70,9 @@ export default function DailyReport({ userId }: { userId?: number }) {
                 <td style={{ padding: '9px 10px', fontFamily: 'JetBrains Mono', fontWeight: 700, color: r.pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
                   {r.pnl >= 0 ? '+' : ''}{fmt(r.pnl)} ت
                 </td>
-                <td style={{ padding: '9px 10px' }}>{r.trades}</td>
-                <td style={{ padding: '9px 10px', color: 'var(--green)' }}>{r.wins}</td>
-                <td style={{ padding: '9px 10px', color: 'var(--red)' }}>{r.losses}</td>
+                <td style={{ padding: '9px 10px' }}>{r.trades ?? '—'}</td>
+                <td style={{ padding: '9px 10px', color: 'var(--green)' }}>{r.wins ?? '—'}</td>
+                <td style={{ padding: '9px 10px', color: 'var(--red)' }}>{r.losses ?? '—'}</td>
               </tr>
             ))}
             {rows.length === 0 && (

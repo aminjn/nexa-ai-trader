@@ -135,6 +135,40 @@ async def redeem_units(db, sub, plan, amount_toman: float) -> dict:
     }
 
 
+async def managed_share(db, user):
+    """اطلاعات سهمِ یک کاربرِ managed از استخر، یا None اگر managed نباشد."""
+    from . import access
+    if getattr(user, "is_superadmin", False):
+        return None
+    sub = access.get_active_subscription(db, user.id)
+    if not sub:
+        return None
+    plan = access.get_plan(db, sub.plan_id)
+    if not plan or plan.plan_type != "managed":
+        return None
+    tot = total_units(db)
+    frac = (sub.units or 0.0) / tot if tot > 0 else 0.0
+    value = await user_value_toman(db, sub)
+    pool_ex = get_pool_exchange(db)
+    return {
+        "sub": sub, "plan": plan, "fraction": frac,
+        "value": value, "deposit": sub.deposit_toman or 0,
+        "pool_owner_id": pool_ex.user_id if pool_ex else None,
+    }
+
+
+async def report_scope(db, user):
+    """(owner_id, fraction) برای گزارش‌گیری.
+
+    کاربر managed → (صاحب حساب استخر، سهمِ او)؛ بقیه → (خودِ کاربر، ۱.۰).
+    یعنی هر کاربر فقط سهمِ خودش را می‌بیند، سوپر ادمین کلِ استخر را.
+    """
+    ms = await managed_share(db, user)
+    if ms and ms["pool_owner_id"]:
+        return ms["pool_owner_id"], ms["fraction"]
+    return user.id, 1.0
+
+
 async def pool_summary(db) -> dict:
     ex_rec = get_pool_exchange(db)
     val = await pool_value_toman(db)

@@ -72,7 +72,36 @@ def _compute_technical(df):
 
 @router.get("/stats")
 async def get_stats(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    oid = trade_owner_id(db, current_user)  # managed → معاملات حساب استخر
+    from ..trading import pool
+    ms = await pool.managed_share(db, current_user)
+
+    # ── کاربر managed: فقط سهمِ شخصیِ او از استخر ──
+    if ms:
+        frac = ms["fraction"]
+        oid = ms["pool_owner_id"] or current_user.id
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0)
+        pool_today_pnl = sum(
+            (t.pnl or 0) for t in db.query(models.Trade).filter(
+                models.Trade.user_id == oid, models.Trade.status == "closed",
+                models.Trade.closed_at >= today).all()
+        )
+        my_value = ms["value"]
+        today_pnl = pool_today_pnl * frac
+        return {
+            "total_equity": round(my_value, 2),
+            "free_cash_toman": 0,
+            "today_pnl": round(today_pnl, 2),
+            "today_pnl_pct": round(today_pnl / max(my_value, 1) * 100, 2),
+            "total_trades_24h": 0,
+            "win_rate": 0,
+            "total_pnl": round(my_value - ms["deposit"], 2),  # سود کل = ارزش − واریزی
+            "total_trades": 0,
+            "bot_active": current_user.bot_active,
+            "managed": True,
+        }
+
+    # ── self_api / سوپر ادمین: معاملات خودش ──
+    oid = current_user.id
     total_trades = db.query(models.Trade).filter(models.Trade.user_id == oid).count()
     closed_trades = db.query(models.Trade).filter(
         models.Trade.user_id == oid,
@@ -93,26 +122,6 @@ async def get_stats(db: Session = Depends(get_db), current_user: models.User = D
         t.pnl or 0 for t in closed_trades
         if t.closed_at and t.closed_at >= today
     )
-
-    # برای کاربر managed: ارزش = سهم واحدهای او از استخر (نه موجودی حساب شخصی)
-    from ..trading.access import get_active_subscription, get_plan
-    sub = get_active_subscription(db, current_user.id) if not current_user.is_superadmin else None
-    plan = get_plan(db, sub.plan_id) if sub else None
-    if plan and plan.plan_type == "managed":
-        from ..trading import pool
-        my_value = await pool.user_value_toman(db, sub)
-        return {
-            "total_equity": round(my_value, 2),
-            "free_cash_toman": 0,
-            "today_pnl": round(today_pnl, 4),
-            "today_pnl_pct": round(today_pnl / max(my_value, 1) * 100, 2),
-            "total_trades_24h": today_trades,
-            "win_rate": round(win_rate, 1),
-            "total_pnl": round(total_pnl, 4),
-            "total_trades": total_trades,
-            "bot_active": current_user.bot_active,
-            "managed": True,
-        }
 
     # موجودی زنده از صرافی (و به‌روزرسانی مقدار ذخیره‌شده)
     total_balance = 0
@@ -156,9 +165,26 @@ async def get_equity_curve(
     current_user: models.User = Depends(get_current_user)
 ):
     start = datetime.utcnow() - timedelta(days=days)
-    oid = trade_owner_id(db, current_user)
+    from ..trading import pool
+    ms = await pool.managed_share(db, current_user)
+
+    if ms:
+        # نمودار دارایی شخصیِ کاربر managed: از واریزی شروع و سهمِ سود استخر اضافه می‌شود
+        oid = ms["pool_owner_id"] or current_user.id
+        frac = ms["fraction"]
+        trades = db.query(models.Trade).filter(
+            models.Trade.user_id == oid, models.Trade.status == "closed",
+            models.Trade.closed_at >= start,
+        ).order_by(models.Trade.closed_at).all()
+        equity = float(ms["deposit"])
+        points = [{"date": start.strftime("%Y-%m-%d"), "value": round(equity, 2)}]
+        for trade in trades:
+            equity += (trade.pnl or 0) * frac
+            points.append({"date": trade.closed_at.strftime("%Y-%m-%d"), "value": round(equity, 2)})
+        return {"data": points}
+
     trades = db.query(models.Trade).filter(
-        models.Trade.user_id == oid,
+        models.Trade.user_id == current_user.id,
         models.Trade.status == "closed",
         models.Trade.closed_at >= start,
     ).order_by(models.Trade.closed_at).all()
@@ -181,9 +207,12 @@ async def get_recent_trades(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    oid = trade_owner_id(db, current_user)
+    # کاربر managed معاملات خام استخر را نمی‌بیند (آن‌ها برای همهٔ اعضاست) — فقط سهمِ شخصی‌اش در گزارش
+    from ..trading import pool
+    if await pool.managed_share(db, current_user):
+        return []
     trades = db.query(models.Trade).filter(
-        models.Trade.user_id == oid
+        models.Trade.user_id == current_user.id
     ).order_by(models.Trade.opened_at.desc()).limit(limit).all()
 
     return [{
@@ -217,11 +246,16 @@ async def daily_pnl(
     - user_id: فقط سوپر ادمین می‌تواند گزارش یک کاربر خاص را بگیرد.
     """
     TEHRAN = timedelta(hours=3, minutes=30)
-    # تعیین صاحب معاملات
+    from ..trading import pool
+    # تعیین صاحبِ گزارش و ضریب سهم:
+    #  - سوپر ادمین با user_id → همان کاربر (اگر managed باشد، سهمِ او اعمال می‌شود)
+    #  - کاربر managed → سهمِ شخصی از استخر
+    #  - بقیه → معاملات خودشان (ضریب ۱)
     if user_id and current_user.is_superadmin:
-        oid = user_id
+        target = db.query(models.User).filter(models.User.id == user_id).first() or current_user
     else:
-        oid = trade_owner_id(db, current_user)
+        target = current_user
+    oid, frac = await pool.report_scope(db, target)
 
     # بازهٔ زمانی (به UTC) — ورودی‌ها بر اساس روز تهران تفسیر می‌شوند
     def parse_day(s):
@@ -250,13 +284,14 @@ async def daily_pnl(
         models.Trade.closed_at < end_utc,
     ).all()
 
+    is_share = frac != 1.0 or (await pool.managed_share(db, target) is not None)
     buckets: dict = {}
     for t in trades:
         if not t.closed_at:
             continue
         day = (t.closed_at + TEHRAN).strftime("%Y-%m-%d")  # روز تهران
         b = buckets.setdefault(day, {"date": day, "pnl": 0.0, "trades": 0, "wins": 0, "losses": 0})
-        pnl = t.pnl or 0
+        pnl = (t.pnl or 0) * frac   # سهمِ کاربر از سود/زیان آن معامله
         b["pnl"] += pnl
         b["trades"] += 1
         if pnl > 0:
@@ -267,10 +302,14 @@ async def daily_pnl(
     rows = sorted(buckets.values(), key=lambda x: x["date"], reverse=True)
     for r in rows:
         r["pnl"] = round(r["pnl"], 2)
+        if is_share:
+            # برای عضو استخر، تعداد معاملهٔ شخصی معنا ندارد — فقط سهمِ سود/زیان نمایش داده می‌شود
+            r["trades"] = r["wins"] = r["losses"] = None
     return {
         "days": rows,
         "total_pnl": round(sum(r["pnl"] for r in rows), 2),
-        "total_trades": sum(r["trades"] for r in rows),
+        "total_trades": sum((r["trades"] or 0) for r in rows),
+        "share_based": is_share,
     }
 
 
@@ -296,9 +335,11 @@ async def get_holdings(db: Session = Depends(get_db), current_user: models.User 
 @router.get("/positions")
 async def get_positions(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """معاملات باز با قیمت فروش هدف و حد ضرر."""
-    oid = trade_owner_id(db, current_user)
+    from ..trading import pool
+    if await pool.managed_share(db, current_user):
+        return {"positions": []}  # کاربر managed پوزیشن‌های خام استخر را نمی‌بیند
     open_trades = db.query(models.Trade).filter(
-        models.Trade.user_id == oid,
+        models.Trade.user_id == current_user.id,
         models.Trade.status == "open",
     ).all()
     if not open_trades:

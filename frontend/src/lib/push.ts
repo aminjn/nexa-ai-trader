@@ -1,5 +1,5 @@
-// اعلان‌های دستگاه (موبایل/دسکتاپ) — مبتنی بر Notification API + Service Worker.
-// (بدون نیاز به سرور Push؛ هنگام باز بودن اپ، اعلان لحظه‌ای نمایش داده می‌شود.)
+// اعلان‌های دستگاه (موبایل/دسکتاپ) — Notification API + Service Worker + Web Push.
+import api from './api'
 
 const SEEN_KEY = 'nexa_last_notif_id'
 
@@ -27,8 +27,6 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 /** اشتراکِ Web Push را می‌سازد و در سرور ثبت می‌کند (برای پوشِ واقعی روی گوشی). */
 export async function subscribeToPush(): Promise<boolean> {
   try {
-    const apiMod = await import('./api')
-    const api = apiMod.default
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false
     const reg = await navigator.serviceWorker.ready
     const { data } = await api.get('/notifications/vapid-public-key')

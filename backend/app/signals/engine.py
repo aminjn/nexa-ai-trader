@@ -99,69 +99,77 @@ async def generate_signals(db, push: bool = True) -> int:
             continue
 
     if push and created and settings_row:
-        for sig in created:
-            try:
-                await distribute_signal(db, sig, settings_row)
-            except Exception:
-                pass
-            try:
-                await post_to_channel(sig, settings_row)
-            except Exception:
-                pass
+        # همه‌ی سیگنال‌های این دور در یک پیام جمع‌بندی به کانال می‌روند (نه یک پیام برای هر ارز)
+        try:
+            await post_batch_to_channel(created, settings_row)
+        except Exception:
+            pass
+        # ارسال به مشترکان (هر مشترک یک پیام جمع‌بندی طبق پلنش)
+        try:
+            await distribute_batch(db, created, settings_row)
+        except Exception:
+            pass
     return len(created)
 
 
-async def post_to_channel(sig: "models.Signal", settings_row):
-    """هر سیگنال را در کانال عمومی تلگرام/بله منتشر می‌کند (اگر تنظیم شده باشد)."""
-    text = _signal_text(sig, include_analysis=False)
-    if settings_row.telegram_channel_id and settings_row.telegram_bot_token:
-        await send_telegram(settings_row.telegram_bot_token, settings_row.telegram_channel_id, text)
-    if settings_row.bale_channel_id and settings_row.bale_bot_token:
-        await send_bale(settings_row.bale_bot_token, settings_row.bale_channel_id, text)
-
-
-def _signal_text(sig: models.Signal, include_analysis: bool) -> str:
-    side_fa = {"BUY": "🟢 خرید", "SELL": "🔴 فروش", "WAIT": "⏳ صبر"}.get(sig.side, sig.side)
-    lines = [
-        f"<b>سیگنال {sig.coin}</b>",
-        f"تصمیم: {side_fa}  (اطمینان {round(sig.confidence*100)}٪)",
-        f"قیمت فعلی: {_fmt(sig.entry_price)} تومان",
-    ]
+def _signal_line(sig: models.Signal) -> str:
+    """یک خط فشرده برای هر ارز در پیام جمع‌بندی."""
+    side_fa = {"BUY": "🟢خرید", "SELL": "🔴فروش", "WAIT": "⏳صبر"}.get(sig.side, sig.side)
+    line = f"<b>{sig.coin}</b> {side_fa} ({round(sig.confidence*100)}٪) — {_fmt(sig.entry_price)} ت"
     if sig.side == "BUY":
-        lines.append(f"🎯 هدف فروش: {_fmt(sig.target_price)} تومان")
-        lines.append(f"🛑 حد ضرر: {_fmt(sig.stop_price)} تومان")
-    lines.append(f"تکنیکال: {sig.tech_conclusion} | فاندامنتال: {sig.fund_conclusion}")
-    if include_analysis and sig.analysis:
-        lines.append("\n" + sig.analysis)
-    lines.append("\n— NEXA AI")
-    return "\n".join(lines)
+        line += f" | 🎯{_fmt(sig.target_price)} | 🛑{_fmt(sig.stop_price)}"
+    return line
 
 
-async def distribute_signal(db, sig: models.Signal, settings_row: models.SystemSettings):
-    """سیگنال را به مشترکان فعالی که سطح پلنشان اجازه می‌دهد می‌فرستد (بدون تأخیر)."""
+def _batch_messages(signals, header: str, include_analysis: bool = False, limit: int = 3500):
+    """سیگنال‌ها را به یک (یا چند، اگر خیلی زیاد بود) پیام تبدیل می‌کند."""
+    lines = [_signal_line(s) for s in signals]
+    msgs, cur = [], header
+    for ln in lines:
+        if len(cur) + len(ln) + 1 > limit:
+            msgs.append(cur)
+            cur = header
+        cur += "\n" + ln
+    msgs.append(cur + "\n\n— NEXA AI")
+    return msgs
+
+
+async def post_batch_to_channel(created, settings_row):
+    """همه‌ی سیگنال‌های یک دور را در یک پیام به کانال تلگرام/بله می‌فرستد."""
+    from datetime import datetime as _dt
+    header = f"📡 <b>سیگنال‌های NEXA AI</b> — {_dt.utcnow().strftime('%H:%M')}"
+    for msg in _batch_messages(created, header):
+        if settings_row.telegram_channel_id and settings_row.telegram_bot_token:
+            await send_telegram(settings_row.telegram_bot_token, settings_row.telegram_channel_id, msg)
+        if settings_row.bale_channel_id and settings_row.bale_bot_token:
+            await send_bale(settings_row.bale_bot_token, settings_row.bale_channel_id, msg)
+
+
+async def distribute_batch(db, created, settings_row):
+    """به هر مشترک فعال، یک پیام جمع‌بندی از سیگنال‌های مجازِ پلنش می‌فرستد."""
     tg_token = settings_row.telegram_bot_token or ""
     bale_token = settings_row.bale_bot_token or ""
-
     subs = db.query(models.Subscription).filter(models.Subscription.status == "active").all()
     now = datetime.utcnow()
     for sub in subs:
         if sub.end_at and sub.end_at < now:
             continue
         plan = db.query(models.Plan).filter(models.Plan.id == sub.plan_id).first()
-        if not plan or plan.level < sig.min_level:
+        if not plan or (plan.delay_minutes or 0) > 0:
             continue
-        # پلن‌های دارای تأخیر (رایگان) را همان لحظه push نمی‌کنیم؛ در پنل با تأخیر می‌بینند
-        if (plan.delay_minutes or 0) > 0:
+        allowed = [s for s in created if s.min_level <= plan.level]
+        if not allowed:
             continue
         user = db.query(models.User).filter(models.User.id == sub.user_id).first()
         if not user:
             continue
         channels = plan.channels or []
-        text = _signal_text(sig, include_analysis=bool(plan.include_analysis))
-        if "telegram" in channels and user.telegram_chat_id:
-            await send_telegram(tg_token, user.telegram_chat_id, text)
-        if "bale" in channels and user.bale_chat_id:
-            await send_bale(bale_token, user.bale_chat_id, text)
+        header = "📡 <b>سیگنال‌های NEXA AI</b>"
+        for msg in _batch_messages(allowed, header):
+            if "telegram" in channels and user.telegram_chat_id:
+                await send_telegram(tg_token, user.telegram_chat_id, msg)
+            if "bale" in channels and user.bale_chat_id:
+                await send_bale(bale_token, user.bale_chat_id, msg)
 
 
 async def signals_loop():

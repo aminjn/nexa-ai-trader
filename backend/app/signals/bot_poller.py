@@ -187,5 +187,5 @@ async def bale_poll_loop():
         "bale",
         lambda t: f"https://tapi.bale.ai/bot{t}",
         "bale_bot_token",
-        use_proxy=False,
+        use_proxy=True,  # روی این سرور بله فقط از طریق پروکسی در دسترس است
     )

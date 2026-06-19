@@ -433,7 +433,7 @@ async def admin_test_channel(db: Session = Depends(get_db), current_user: models
     if s and s.bale_bot_token:
         out["bale"] = await _try("bale",
             f"https://tapi.bale.ai/bot{s.bale_bot_token}/sendMessage",
-            s.bale_channel_id, use_proxy=False)
+            s.bale_channel_id, use_proxy=True)
     else:
         out["bale"] = {"ok": False, "detail": "توکن بله تنظیم نشده"}
 

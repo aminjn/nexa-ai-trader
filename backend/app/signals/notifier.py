@@ -38,5 +38,5 @@ async def send_telegram(token: str, chat_id: str, text: str) -> bool:
 async def send_bale(token: str, chat_id: str, text: str) -> bool:
     if not token or not chat_id:
         return False
-    # بله داخلی است → مستقیم
-    return await _post(f"https://tapi.bale.ai/bot{token}/sendMessage", chat_id, text, use_proxy=False, platform="bale")
+    # روی این سرور بله فقط از طریق پروکسی قابل‌دسترس است (مستقیم بسته است)
+    return await _post(f"https://tapi.bale.ai/bot{token}/sendMessage", chat_id, text, use_proxy=True, platform="bale")

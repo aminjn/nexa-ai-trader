@@ -117,14 +117,21 @@ async def _fetch_html(url: str, use_proxy: bool = False, timeout: float = 25) ->
 
 
 async def _fetch_smart(url: str, prefer_proxy: bool, timeout: float = 25) -> str:
-    """ابتدا با مسیر دلخواه تلاش می‌کند؛ اگر خطا/۵۰۳ گرفت، مسیر دیگر (پروکسی↔مستقیم) را امتحان می‌کند.
-    این باعث می‌شود هم سایت‌های ایرانی (مستقیم) و هم خارجی (پروکسی) کار کنند."""
+    """هر دو مسیر (پروکسی و مستقیم) را امتحان می‌کند و اولین پاسخِ معتبرِ غیرخالی را برمی‌گرداند.
+    اگر یک مسیر خطا/۵۰۳ بدهد یا محتوای خالی/کوتاه برگرداند (مثل سایت ایرانی از پروکسی)،
+    خودکار مسیر دیگر امتحان می‌شود تا همیشه تازه‌ترین محتوا گرفته شود."""
     last = None
+    fallback = ""
     for up in (prefer_proxy, not prefer_proxy):
         try:
-            return await _fetch_html(url, up, timeout=timeout)
+            txt = await _fetch_html(url, up, timeout=timeout)
+            if txt and len(txt) > 200:
+                return txt
+            fallback = fallback or (txt or "")
         except Exception as e:
             last = e
+    if fallback:
+        return fallback
     raise last if last else Exception("fetch failed")
 
 

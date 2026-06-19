@@ -418,7 +418,7 @@ async def get_signals(db: Session = Depends(get_db), current_user: models.User =
     label = {"BUY": "خرید", "SELL": "فروش", "WAIT": "صبر"}
     for pair in ["BTC/RLS", "ETH/RLS"]:
         try:
-            ohlcv = await exchange.get_ohlcv(pair, "1h", 300)
+            ohlcv = await exchange.get_ohlcv(pair, "1h", 720)
             if not ohlcv:
                 continue
             dfp = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
@@ -453,7 +453,7 @@ async def full_analysis(db: Session = Depends(get_db), current_user: models.User
         ex = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret)
         # تکنیکال روی BTC
         try:
-            ohlcv = await ex.get_ohlcv("BTC/RLS", "1h", 300)
+            ohlcv = await ex.get_ohlcv("BTC/RLS", "1h", 720)
             if ohlcv:
                 df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
                 df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")

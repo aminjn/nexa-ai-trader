@@ -119,6 +119,11 @@ FEATURES = [
     ("return_30d", "بازده ۳۰ روزه"),
     ("hl_ratio", "نسبت دامنه روزانه"),
     ("close_pos", "موقعیت بسته‌شدن در کندل"),
+    # مولتی‌تایم‌فریم (روند/مومنتومِ تایم‌فریم بالاتر — بدون نشت)
+    ("htf_d_trend", "روند تایم‌فریم روزانه"),
+    ("htf_d_rsi", "RSI تایم‌فریم روزانه"),
+    ("htf_d_ret", "بازده روز قبل (روزانه)"),
+    ("htf_d_dist20", "فاصله تا میانگین ۲۰ روزه"),
 ]
 
 
@@ -231,6 +236,35 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     # ساختار کندل
     df["hl_ratio"] = (h - l) / (c + 1e-9)
     df["close_pos"] = (c - l) / (h - l + 1e-9)
+
+    # ── مولتی‌تایم‌فریم: روند/مومنتومِ تایم‌فریم بالاتر (روزانه و هفتگی) ──
+    # بدون نشت: مقادیر با یک دوره شیفت (تایم‌فریمِ کامل‌شدهٔ قبلی) به کندل‌های جاری نگاشت می‌شوند.
+    df["htf_d_trend"] = 0.0
+    df["htf_d_rsi"] = 50.0
+    df["htf_d_ret"] = 0.0
+    df["htf_d_dist20"] = 0.0
+    if "timestamp" in df.columns:
+        try:
+            ts = pd.to_datetime(df["timestamp"])
+            s = pd.Series(c.values, index=ts.values)
+            d = s.resample("1D").last().dropna()       # کندل‌های روزانه
+            if len(d) >= 6:
+                d_trend = (d / (d.rolling(10).mean() + 1e-9) - 1).shift(1)   # روند ۱۰روزه
+                d_rsi = _rsi(d, 14).shift(1)                                  # RSI روزانه
+                d_ret = d.pct_change().shift(1)                              # بازده روز قبل
+                d_dist20 = (d / (d.rolling(20).mean() + 1e-9) - 1).shift(1)   # فاصله تا SMA20 روزانه
+                day_key = ts.dt.floor("D")
+                df["htf_d_trend"] = day_key.map(d_trend).to_numpy()
+                df["htf_d_rsi"] = day_key.map(d_rsi).to_numpy()
+                df["htf_d_ret"] = day_key.map(d_ret).to_numpy()
+                df["htf_d_dist20"] = day_key.map(d_dist20).to_numpy()
+        except Exception:
+            pass
+    # پیش‌فرضِ خنثی اگر تاریخچهٔ کافی نبود (برای پیش‌بینی با دادهٔ کوتاه — جلوگیری از NaN)
+    df["htf_d_trend"] = pd.to_numeric(df["htf_d_trend"], errors="coerce").fillna(0.0)
+    df["htf_d_rsi"] = pd.to_numeric(df["htf_d_rsi"], errors="coerce").fillna(50.0)
+    df["htf_d_ret"] = pd.to_numeric(df["htf_d_ret"], errors="coerce").fillna(0.0)
+    df["htf_d_dist20"] = pd.to_numeric(df["htf_d_dist20"], errors="coerce").fillna(0.0)
 
     # هدف: آیا قیمت روز بعد بالاتر می‌رود؟
     df["target"] = (c.shift(-1) > c).astype(int)
@@ -428,11 +462,14 @@ class MLTrainer:
             return {"signal": "WAIT", "confidence": 0.0}
 
         feature_cols = get_feature_columns()
-        X = df[feature_cols].iloc[-1:].values
-        X_scaled = self.scaler.transform(X)
-
-        pred = self.model.predict(X_scaled)[0]
-        proba = self.model.predict_proba(X_scaled)[0]
+        try:
+            X = df[feature_cols].iloc[-1:].values
+            X_scaled = self.scaler.transform(X)
+            pred = self.model.predict(X_scaled)[0]
+            proba = self.model.predict_proba(X_scaled)[0]
+        except Exception:
+            # ناسازگاری مدلِ قدیمی با فیچرهای جدید → تا آموزش مجدد، صبر
+            return {"signal": "WAIT", "confidence": 0.0}
         confidence = float(max(proba))
 
         signal = "BUY" if pred == 1 else "SELL"

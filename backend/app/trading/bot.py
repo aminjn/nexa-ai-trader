@@ -163,7 +163,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             ml_conf = 0.0
             df = None
             if trainer.is_trained:
-                ohlcv = await exchange.get_ohlcv(pair, "1h", 300)
+                ohlcv = await exchange.get_ohlcv(pair, "1h", 720)
                 if ohlcv:
                     df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
                     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")

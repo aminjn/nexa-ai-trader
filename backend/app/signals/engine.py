@@ -83,7 +83,7 @@ async def generate_signals(db, push: bool = True) -> int:
                 continue
             price_toman = rial / 10.0
 
-            ohlcv = await ex.get_ohlcv(pair, "1h", 300)
+            ohlcv = await ex.get_ohlcv(pair, "1h", 720)
             if not ohlcv:
                 continue
             df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])

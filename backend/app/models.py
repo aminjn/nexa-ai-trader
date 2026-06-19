@@ -53,6 +53,7 @@ class ExchangeAPI(Base):
     api_secret = Column(String)
     is_primary = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    is_pool = Column(Boolean, default=False)  # حساب استخر مدیریت‌شده (managed)؛ پول مشترک کاربران
     balance = Column(Float, default=0.0)
     last_sync = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -238,6 +239,7 @@ class TradingSubscription(Base):
     plan_id = Column(Integer, ForeignKey("trading_plans.id"))
     status = Column(String, default="pending")          # pending | active | expired | rejected
     deposit_toman = Column(Integer, default=0)          # مبلغ واریزی کاربر (managed — ادمین ثبت می‌کند)
+    units = Column(Float, default=0.0)                  # واحدهای استخر (managed — مثل سهم صندوق)
     commission_settled_toman = Column(Integer, default=0)  # کارمزد سود تسویه‌شده تا کنون
     note = Column(String, default="")
     start_at = Column(DateTime, nullable=True)

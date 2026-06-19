@@ -99,6 +99,18 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE users ADD COLUMN trading_coins VARCHAR DEFAULT 'BTC,ETH,XRP,ADA,DOGE,LTC,TRX,BCH,BNB,SOL,DOT,AVAX,MATIC,SHIB,LINK,UNI,ATOM,FIL,ETC,XLM'"))
             if "fee_pct" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN fee_pct FLOAT DEFAULT 0.25"))
+    # exchange_apis: علامت حساب استخر مدیریت‌شده
+    if "exchange_apis" in tables:
+        cols = {c["name"] for c in inspector.get_columns("exchange_apis")}
+        with engine.begin() as conn:
+            if "is_pool" not in cols:
+                conn.execute(text("ALTER TABLE exchange_apis ADD COLUMN is_pool BOOLEAN DEFAULT 0"))
+    # trading_subscriptions: واحدهای استخر (برای دیتابیس‌هایی که جدول قبلاً ساخته شده)
+    if "trading_subscriptions" in tables:
+        cols = {c["name"] for c in inspector.get_columns("trading_subscriptions")}
+        with engine.begin() as conn:
+            if "units" not in cols:
+                conn.execute(text("ALTER TABLE trading_subscriptions ADD COLUMN units FLOAT DEFAULT 0.0"))
     # ml_models: ستون‌های جزئیات آموزش
     if "ml_models" in tables:
         cols = {c["name"] for c in inspector.get_columns("ml_models")}

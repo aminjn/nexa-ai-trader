@@ -21,17 +21,32 @@ const inputStyle: React.CSSProperties = { width: '100%', background: 'var(--bg2)
 const label: React.CSSProperties = { fontSize: 12, color: 'var(--dim)', marginBottom: 5 }
 const fmt = (n: number) => Math.round(n || 0).toLocaleString('en-US')
 
+interface PoolEx { id: number; name: string; user_id: number; is_pool: boolean }
+interface PoolData {
+  summary: { connected: boolean; exchange_id: number | null; value_toman: number; total_units: number; unit_price: number; total_deposits: number; profit: number; members: number };
+  exchanges: PoolEx[]
+}
+
 export default function TradingPlansAdmin() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [subs, setSubs] = useState<Sub[]>([])
+  const [poolData, setPoolData] = useState<PoolData | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const [p, s] = await Promise.all([api.get('/trading/admin/plans'), api.get('/trading/admin/subscriptions')])
-      setPlans(p.data); setSubs(s.data)
+      const [p, s, pl] = await Promise.all([
+        api.get('/trading/admin/plans'),
+        api.get('/trading/admin/subscriptions'),
+        api.get('/trading/admin/pool'),
+      ])
+      setPlans(p.data); setSubs(s.data); setPoolData(pl.data)
     } catch { toast.error('خطا در بارگذاری') }
   }, [])
   useEffect(() => { load() }, [load])
+
+  const setPool = async (exchange_id: number) => {
+    try { await api.post('/trading/admin/pool/set', { exchange_id }); toast.success('حساب استخر تنظیم شد'); load() } catch { toast.error('خطا') }
+  }
 
   const upd = (i: number, f: keyof Plan, v: any) => setPlans(prev => prev.map((p, idx) => idx === i ? { ...p, [f]: v } : p))
   const updTier = (pi: number, ti: number, f: keyof Tier, v: number) =>
@@ -79,6 +94,42 @@ export default function TradingPlansAdmin() {
   return (
     <Layout title="پلن‌های ربات" subtitle="مدیریت پلن‌ها و اشتراک‌های معامله‌گری">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* حساب استخر مدیریت‌شده */}
+        <div style={card}>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>🏦 حساب استخر مدیریت‌شده (managed)</div>
+          {poolData?.summary.connected ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 16 }}>
+              {[
+                { l: 'ارزش کل استخر', v: fmt(poolData.summary.value_toman) + ' ت', c: 'var(--accent)' },
+                { l: 'مجموع واریزی', v: fmt(poolData.summary.total_deposits) + ' ت' },
+                { l: 'سود کل استخر', v: fmt(poolData.summary.profit) + ' ت', c: poolData.summary.profit >= 0 ? 'var(--green)' : 'var(--red)' },
+                { l: 'قیمت هر واحد', v: poolData.summary.unit_price.toLocaleString('en-US', { maximumFractionDigits: 4 }) },
+                { l: 'اعضا', v: String(poolData.summary.members) },
+              ].map((x, i) => (
+                <div key={i} style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14, textAlign: 'center' }}>
+                  <div style={{ fontSize: 12, color: 'var(--dim)' }}>{x.l}</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, marginTop: 6, color: x.c || 'var(--text)', fontFamily: 'JetBrains Mono' }}>{x.v}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--amber)', fontSize: 13, marginBottom: 12 }}>
+              هنوز حساب استخری انتخاب نشده. ابتدا حساب نوبیتکسِ مشترک را در صفحهٔ «صرافی‌ها» وصل کنید، سپس این‌جا انتخابش کنید. ربات روی همین حساب معامله می‌کند.
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--dim)' }}>انتخاب حساب استخر:</span>
+            {(poolData?.exchanges || []).map(e => (
+              <button key={e.id} onClick={() => setPool(e.id)} style={{
+                ...btn(e.is_pool ? 'var(--green)' : 'var(--border)'),
+                background: e.is_pool ? 'rgba(74,222,128,0.12)' : 'transparent',
+                color: e.is_pool ? 'var(--green)' : 'var(--text)',
+              }}>{e.is_pool ? '✓ ' : ''}{e.name} #{e.id}</button>
+            ))}
+            {(poolData?.exchanges || []).length === 0 && <span style={{ fontSize: 12, color: 'var(--faint)' }}>هیچ صرافی فعالی وجود ندارد.</span>}
+          </div>
+        </div>
 
         {/* اشتراک‌ها */}
         <div style={card}>

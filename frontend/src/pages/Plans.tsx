@@ -12,7 +12,7 @@ interface Plan {
 interface Access {
   has_access: boolean; is_superadmin: boolean; can_use_own_api: boolean; pending?: boolean;
   subscription: null | { status: string; plan_name: string; plan_type: string; end_at: string | null; days_left: number | null; max_trades_per_day: number; trades_today: number };
-  commission: { applicable: boolean; rate: number; deposit: number; profit: number; owed: number; settled: number; remaining: number };
+  commission: { applicable: boolean; rate?: number; deposit?: number; value?: number; units?: number; profit?: number; owed?: number; settled?: number; remaining?: number };
 }
 interface PayInfo { card_number: string; card_holder: string; account_number: string; support_contact: string }
 
@@ -79,10 +79,11 @@ export default function Plans() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
               {[
-                { l: 'مبلغ واریزی شما', v: fmt(comm.deposit) + ' ت' },
-                { l: 'نرخ کارمزد', v: comm.rate + '٪' },
-                { l: 'سود محقق‌شده', v: fmt(comm.profit) + ' ت' },
-                { l: 'کارمزد قابل پرداخت', v: fmt(comm.remaining) + ' ت', c: 'var(--amber)' },
+                { l: 'مبلغ واریزی شما', v: fmt(comm.deposit || 0) + ' ت' },
+                { l: 'ارزش فعلی', v: fmt(comm.value || 0) + ' ت', c: 'var(--accent)' },
+                { l: 'سود شما', v: fmt(comm.profit || 0) + ' ت', c: (comm.profit || 0) >= 0 ? 'var(--green)' : 'var(--red)' },
+                { l: 'نرخ کارمزد', v: (comm.rate || 0) + '٪' },
+                { l: 'کارمزد قابل پرداخت', v: fmt(comm.remaining || 0) + ' ت', c: 'var(--amber)' },
               ].map((x, i) => (
                 <div key={i} style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14, textAlign: 'center' }}>
                   <div style={{ fontSize: 12, color: 'var(--dim)' }}>{x.l}</div>

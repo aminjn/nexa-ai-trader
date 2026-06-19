@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from .. import models
 from ..database import get_db
 from ..auth.router import get_current_user, get_superadmin
-from ..trading import access
+from ..trading import access, pool
 from ..trading.bot import stop_user_bot
 
 router = APIRouter(prefix="/trading", tags=["trading-plans"])
@@ -64,13 +64,18 @@ async def my_access(db: Session = Depends(get_db), current_user: models.User = D
             "max_trades_per_day": plan.max_trades_per_day,
             "trades_today": access.trades_today(db, current_user.id),
         }
+    # کارمزد: برای managed از استخر (واحد)، وگرنه غیرفعال
+    if sub and plan and plan.plan_type == "managed":
+        commission = await pool.managed_commission(db, sub, plan)
+    else:
+        commission = {"applicable": False}
     return {
         "has_access": sub is not None,
         "is_superadmin": False,
         "can_use_own_api": access.can_use_own_api(db, current_user),
         "subscription": sub_out,
         "pending": bool(pending),
-        "commission": access.commission_summary(db, current_user),
+        "commission": commission,
     }
 
 
@@ -171,12 +176,7 @@ async def admin_list_subs(db: Session = Depends(get_db), current_user: models.Us
         p = access.get_plan(db, s.plan_id)
         comm = None
         if p and p.plan_type == "managed":
-            rate = access.commission_rate_for(p, s.deposit_toman or 0)
-            profit = access.realized_profit_toman(db, s.user_id)
-            owed = max(0.0, profit) * rate / 100.0
-            comm = {"rate": rate, "profit": round(profit), "owed": round(owed),
-                    "settled": round(s.commission_settled_toman or 0),
-                    "remaining": round(max(0.0, owed - (s.commission_settled_toman or 0)))}
+            comm = await pool.managed_commission(db, s, p)
         out.append({
             "id": s.id,
             "user_id": s.user_id,
@@ -209,10 +209,15 @@ async def admin_activate(sub_id: int, req: ActivateRequest, db: Session = Depend
     plan = access.get_plan(db, s.plan_id)
     days = req.duration_days if req.duration_days else (plan.duration_days if plan else 30)
     s.status = "active"
-    s.deposit_toman = req.deposit_toman or s.deposit_toman or 0
     s.start_at = datetime.utcnow()
     s.end_at = datetime.utcnow() + timedelta(days=days)
     db.commit()
+    # برای پلن managed: به ازای مبلغ واریزی، واحدِ استخر صادر کن
+    if plan and plan.plan_type == "managed" and (req.deposit_toman or 0) > 0:
+        await pool.issue_units(db, s, float(req.deposit_toman))
+    else:
+        s.deposit_toman = req.deposit_toman or s.deposit_toman or 0
+        db.commit()
     return {"message": f"اشتراک فعال شد (تا {days} روز)", "end_at": s.end_at.isoformat()}
 
 
@@ -257,3 +262,33 @@ async def admin_settle(sub_id: int, req: SettleRequest, db: Session = Depends(ge
     s.commission_settled_toman = (s.commission_settled_toman or 0) + max(0, req.amount_toman)
     db.commit()
     return {"message": "تسویه ثبت شد", "settled": s.commission_settled_toman}
+
+
+# ───────────────────────── حساب استخر مدیریت‌شده ─────────────────────────
+
+@router.get("/admin/pool")
+async def admin_pool(db: Session = Depends(get_db), current_user: models.User = Depends(get_superadmin)):
+    """خلاصهٔ استخر + لیست صرافی‌های قابل انتخاب به‌عنوان استخر."""
+    summary = await pool.pool_summary(db)
+    exchanges = db.query(models.ExchangeAPI).filter(models.ExchangeAPI.is_active == True).all()
+    return {
+        "summary": summary,
+        "exchanges": [{"id": e.id, "name": e.exchange_name, "user_id": e.user_id, "is_pool": bool(e.is_pool)} for e in exchanges],
+    }
+
+
+class SetPoolRequest(BaseModel):
+    exchange_id: int
+
+
+@router.post("/admin/pool/set")
+async def admin_set_pool(req: SetPoolRequest, db: Session = Depends(get_db),
+                         current_user: models.User = Depends(get_superadmin)):
+    """یک حساب صرافی را به‌عنوان حساب استخر علامت می‌زند (بقیه از حالت استخر خارج می‌شوند)."""
+    db.query(models.ExchangeAPI).update({models.ExchangeAPI.is_pool: False})
+    ex = db.query(models.ExchangeAPI).filter(models.ExchangeAPI.id == req.exchange_id).first()
+    if not ex:
+        raise HTTPException(status_code=404, detail="صرافی یافت نشد")
+    ex.is_pool = True
+    db.commit()
+    return {"message": "حساب استخر تنظیم شد"}

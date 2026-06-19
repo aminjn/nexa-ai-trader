@@ -15,10 +15,17 @@ from ..exchanges.nobitex import get_exchange
 
 
 def get_pool_exchange(db):
-    """حساب صرافیِ علامت‌خوردهٔ استخر را برمی‌گرداند (یا None)."""
-    return db.query(models.ExchangeAPI).filter(
+    """حساب صرافیِ استخر را برمی‌گرداند (یا None).
+
+    فقط حسابی که علامت استخر دارد و **متعلق به یک سوپر ادمین** است معتبر است؛
+    حساب کاربرانِ self_api هرگز استخر محسوب نمی‌شود.
+    """
+    return db.query(models.ExchangeAPI).join(
+        models.User, models.User.id == models.ExchangeAPI.user_id
+    ).filter(
         models.ExchangeAPI.is_pool == True,
         models.ExchangeAPI.is_active == True,
+        models.User.is_superadmin == True,
     ).first()
 
 

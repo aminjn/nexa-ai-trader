@@ -334,9 +334,16 @@ async def admin_settle(sub_id: int, req: SettleRequest, db: Session = Depends(ge
 
 @router.get("/admin/pool")
 async def admin_pool(db: Session = Depends(get_db), current_user: models.User = Depends(get_superadmin)):
-    """خلاصهٔ استخر + لیست صرافی‌های قابل انتخاب به‌عنوان استخر."""
+    """خلاصهٔ استخر + لیست حساب‌های قابل انتخاب به‌عنوان استخر.
+
+    فقط حساب‌های خودِ سوپر ادمین قابل انتخاب‌اند؛ حساب کاربرانِ self_api هرگز
+    استخر نمی‌شود (آن‌ها مستقیم با نوبیتکسِ خودشان کار می‌کنند).
+    """
     summary = await pool.pool_summary(db)
-    exchanges = db.query(models.ExchangeAPI).filter(models.ExchangeAPI.is_active == True).all()
+    exchanges = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.is_active == True,
+        models.ExchangeAPI.user_id == current_user.id,  # فقط حساب‌های سوپر ادمین
+    ).all()
     return {
         "summary": summary,
         "exchanges": [{"id": e.id, "name": e.exchange_name, "user_id": e.user_id, "is_pool": bool(e.is_pool)} for e in exchanges],
@@ -350,11 +357,15 @@ class SetPoolRequest(BaseModel):
 @router.post("/admin/pool/set")
 async def admin_set_pool(req: SetPoolRequest, db: Session = Depends(get_db),
                          current_user: models.User = Depends(get_superadmin)):
-    """یک حساب صرافی را به‌عنوان حساب استخر علامت می‌زند (بقیه از حالت استخر خارج می‌شوند)."""
-    db.query(models.ExchangeAPI).update({models.ExchangeAPI.is_pool: False})
+    """یک حساب از حساب‌های خودِ سوپر ادمین را به‌عنوان حساب استخر علامت می‌زند."""
     ex = db.query(models.ExchangeAPI).filter(models.ExchangeAPI.id == req.exchange_id).first()
     if not ex:
         raise HTTPException(status_code=404, detail="صرافی یافت نشد")
+    # حساب باید متعلق به سوپر ادمین باشد — حساب کاربرِ self_api نمی‌تواند استخر شود
+    if ex.user_id != current_user.id:
+        raise HTTPException(status_code=403,
+                            detail="فقط حساب نوبیتکسِ خودِ سوپر ادمین می‌تواند حساب استخر باشد، نه حساب کاربران")
+    db.query(models.ExchangeAPI).update({models.ExchangeAPI.is_pool: False})
     ex.is_pool = True
     db.commit()
     return {"message": "حساب استخر تنظیم شد"}

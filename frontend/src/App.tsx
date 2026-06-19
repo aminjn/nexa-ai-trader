@@ -22,6 +22,9 @@ import Scraper from './pages/Scraper'
 import Signals from './pages/Signals'
 import Plans from './pages/Plans'
 import TradingPlansAdmin from './pages/TradingPlansAdmin'
+import Profile from './pages/Profile'
+import Wallet from './pages/Wallet'
+import AdminWallet from './pages/AdminWallet'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -68,6 +71,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Auth />} />
           <Route path="/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><PlanGate><Dashboard /></PlanGate></ProtectedRoute>} />
           <Route path="/model" element={<AdminRoute><Model /></AdminRoute>} />
@@ -81,6 +86,7 @@ export default function App() {
           <Route path="/admin" element={<AdminRoute><SuperAdmin /></AdminRoute>} />
           <Route path="/admin/users/:id" element={<AdminRoute><UserDetail /></AdminRoute>} />
           <Route path="/admin/trading-plans" element={<AdminRoute><TradingPlansAdmin /></AdminRoute>} />
+          <Route path="/admin/wallet" element={<AdminRoute><AdminWallet /></AdminRoute>} />
           <Route path="/scraper" element={<AdminRoute><Scraper /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

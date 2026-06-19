@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, Globe, Radio, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, Globe, Radio, CreditCard, Wallet, UserCircle } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
+import NotificationBell from './NotificationBell'
 import Logo from './Logo'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
@@ -25,10 +26,13 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
     { path: '/history', label: t.navHistory, icon: History },
     { path: '/ai', label: t.navAI, icon: Sparkles },
     { path: '/signals', label: 'سیگنال‌ها', icon: Radio },
+    { path: '/wallet', label: 'کیف پول', icon: Wallet },
     { path: '/plans', label: 'پلن‌ها', icon: CreditCard },
+    { path: '/profile', label: 'پروفایل', icon: UserCircle },
     ...(isSuperAdmin ? [
       { path: '/model', label: t.navModel, icon: Brain },
       { path: '/admin/trading-plans', label: 'پلن‌های ربات', icon: CreditCard },
+      { path: '/admin/wallet', label: 'واریز و احراز هویت', icon: Wallet },
       { path: '/scraper', label: 'اسکرپر', icon: Globe },
       { path: '/admin', label: t.navAdmin, icon: Shield },
       { path: '/settings', label: t.navSettings, icon: Settings },
@@ -97,7 +101,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
 
         {/* User card */}
         <div style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 14, background: 'var(--bg3)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <div onClick={() => navigate('/profile')} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, cursor: 'pointer' }} title="پروفایل">
             <div style={{ width: 32, height: 32, borderRadius: '50%', background: accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#05121a', fontSize: 13 }}>{initials}</div>
             <div style={{ overflow: 'hidden' }}>
               <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fullName}</div>
@@ -127,6 +131,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: botActive ? 'var(--green)' : 'var(--dim)', boxShadow: botActive ? '0 0 8px var(--green)' : 'none', animation: botActive ? 'pulse 2s infinite' : 'none' }} />
               {botActive ? t.botRunning : t.botStopped}
             </button>
+            <NotificationBell />
             <button onClick={toggleTheme} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', width: 40, height: 38, borderRadius: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>

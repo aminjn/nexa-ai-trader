@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAppStore } from './stores/appStore'
 import { useAuthStore } from './stores/authStore'
+import api from './lib/api'
 
 // Pages (lazy-loadable in production)
 import Auth from './pages/Auth'
@@ -19,10 +20,29 @@ import UserDetail from './pages/UserDetail'
 import AdminSettings from './pages/AdminSettings'
 import Scraper from './pages/Scraper'
 import Signals from './pages/Signals'
+import Plans from './pages/Plans'
+import TradingPlansAdmin from './pages/TradingPlansAdmin'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   if (!isAuthenticated) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
+// دروازه‌بانی پلن: بدون اشتراک فعال، کاربر فقط صفحهٔ خرید پلن را می‌بیند (سوپر ادمین مستثناست)
+function PlanGate({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isSuperAdmin } = useAuthStore()
+  const [state, setState] = useState<'loading' | 'ok' | 'denied'>('loading')
+  useEffect(() => {
+    if (!isAuthenticated) return
+    if (isSuperAdmin) { setState('ok'); return }
+    api.get('/trading/my-access')
+      .then(r => setState(r.data?.has_access ? 'ok' : 'denied'))
+      .catch(() => setState('denied'))
+  }, [isAuthenticated, isSuperAdmin])
+  if (!isAuthenticated) return <Navigate to="/" replace />
+  if (state === 'loading') return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--dim)' }}>در حال بارگذاری…</div>
+  if (state === 'denied') return <Navigate to="/plans" replace />
   return <>{children}</>
 }
 
@@ -47,18 +67,20 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Auth />} />
+          <Route path="/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/model" element={<ProtectedRoute><Model /></ProtectedRoute>} />
-          <Route path="/strategy" element={<ProtectedRoute><Strategy /></ProtectedRoute>} />
-          <Route path="/short" element={<ProtectedRoute><Short /></ProtectedRoute>} />
-          <Route path="/exchanges" element={<ProtectedRoute><Exchanges /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-          <Route path="/ai" element={<ProtectedRoute><AI /></ProtectedRoute>} />
-          <Route path="/signals" element={<ProtectedRoute><Signals /></ProtectedRoute>} />
-          <Route path="/subscription" element={<ProtectedRoute><Signals /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><PlanGate><Dashboard /></PlanGate></ProtectedRoute>} />
+          <Route path="/model" element={<ProtectedRoute><PlanGate><Model /></PlanGate></ProtectedRoute>} />
+          <Route path="/strategy" element={<ProtectedRoute><PlanGate><Strategy /></PlanGate></ProtectedRoute>} />
+          <Route path="/short" element={<ProtectedRoute><PlanGate><Short /></PlanGate></ProtectedRoute>} />
+          <Route path="/exchanges" element={<ProtectedRoute><PlanGate><Exchanges /></PlanGate></ProtectedRoute>} />
+          <Route path="/history" element={<ProtectedRoute><PlanGate><History /></PlanGate></ProtectedRoute>} />
+          <Route path="/ai" element={<ProtectedRoute><PlanGate><AI /></PlanGate></ProtectedRoute>} />
+          <Route path="/signals" element={<ProtectedRoute><PlanGate><Signals /></PlanGate></ProtectedRoute>} />
+          <Route path="/subscription" element={<ProtectedRoute><PlanGate><Signals /></PlanGate></ProtectedRoute>} />
           <Route path="/admin" element={<AdminRoute><SuperAdmin /></AdminRoute>} />
           <Route path="/admin/users/:id" element={<AdminRoute><UserDetail /></AdminRoute>} />
+          <Route path="/admin/trading-plans" element={<AdminRoute><TradingPlansAdmin /></AdminRoute>} />
           <Route path="/scraper" element={<AdminRoute><Scraper /></AdminRoute>} />
           <Route path="/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -74,6 +74,18 @@ async def my_access(db: Session = Depends(get_db), current_user: models.User = D
     }
 
 
+@router.get("/payment-info")
+async def payment_info(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """اطلاعات پرداخت کارت‌به‌کارت برای خرید پلن (از تنظیمات سیستم)."""
+    s = db.query(models.SystemSettings).first()
+    return {
+        "card_number": (s.card_number if s else "") or "",
+        "card_holder": (s.card_holder if s else "") or "",
+        "account_number": (s.account_number if s else "") or "",
+        "support_contact": (s.support_contact if s else "") or "",
+    }
+
+
 class SubscribeRequest(BaseModel):
     plan_id: int
 

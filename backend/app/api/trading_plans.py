@@ -113,6 +113,45 @@ async def subscribe(req: SubscribeRequest, db: Session = Depends(get_db),
     return {"message": "درخواست شما ثبت شد. پس از واریز و تأیید ادمین، پلن فعال می‌شود.", "subscription_id": sub.id}
 
 
+class WithdrawRequest(BaseModel):
+    amount_toman: int = 0   # ۰ = برداشت کل موجودی
+
+
+@router.post("/withdraw")
+async def request_withdraw(req: WithdrawRequest, db: Session = Depends(get_db),
+                           current_user: models.User = Depends(get_current_user)):
+    """درخواست برداشت از استخر مدیریت‌شده (فقط پلن managed با اشتراک فعال)."""
+    sub = access.get_active_subscription(db, current_user.id)
+    plan = access.get_plan(db, sub.plan_id) if sub else None
+    if not sub or not plan or plan.plan_type != "managed":
+        raise HTTPException(status_code=400, detail="برداشت فقط برای پلن مدیریت‌شدهٔ فعال ممکن است")
+    value = await pool.user_value_toman(db, sub)
+    if req.amount_toman and req.amount_toman > value + 1:
+        raise HTTPException(status_code=400, detail=f"مبلغ درخواستی بیش از موجودی شماست ({round(value):,} تومان)")
+    # جلوگیری از درخواست تکراری در انتظار
+    existing = db.query(models.PoolWithdrawal).filter(
+        models.PoolWithdrawal.subscription_id == sub.id,
+        models.PoolWithdrawal.status == "pending",
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="یک درخواست برداشت در انتظار تأیید دارید")
+    w = models.PoolWithdrawal(user_id=current_user.id, subscription_id=sub.id,
+                              amount_toman=max(0, req.amount_toman), status="pending")
+    db.add(w)
+    db.commit()
+    return {"message": "درخواست برداشت ثبت شد و پس از تأیید ادمین پرداخت می‌شود."}
+
+
+@router.get("/my-withdrawals")
+async def my_withdrawals(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    ws = db.query(models.PoolWithdrawal).filter(
+        models.PoolWithdrawal.user_id == current_user.id,
+    ).order_by(models.PoolWithdrawal.id.desc()).limit(20).all()
+    return [{"id": w.id, "amount_toman": w.amount_toman, "payout_toman": w.payout_toman,
+             "commission_toman": w.commission_toman, "status": w.status,
+             "created_at": w.created_at.isoformat() if w.created_at else None} for w in ws]
+
+
 # ───────────────────────── سوپر ادمین ─────────────────────────
 
 class PlanRequest(BaseModel):
@@ -292,3 +331,63 @@ async def admin_set_pool(req: SetPoolRequest, db: Session = Depends(get_db),
     ex.is_pool = True
     db.commit()
     return {"message": "حساب استخر تنظیم شد"}
+
+
+@router.get("/admin/withdrawals")
+async def admin_list_withdrawals(db: Session = Depends(get_db),
+                                 current_user: models.User = Depends(get_superadmin)):
+    ws = db.query(models.PoolWithdrawal).order_by(models.PoolWithdrawal.id.desc()).all()
+    out = []
+    for w in ws:
+        u = db.query(models.User).filter(models.User.id == w.user_id).first()
+        sub = db.query(models.TradingSubscription).filter(models.TradingSubscription.id == w.subscription_id).first()
+        cur_value = None
+        if w.status == "pending" and sub:
+            cur_value = round(await pool.user_value_toman(db, sub))
+        out.append({
+            "id": w.id, "user_name": u.full_name if u else "—",
+            "user_phone": (u.phone or u.email) if u else "—",
+            "amount_toman": w.amount_toman, "current_value": cur_value,
+            "payout_toman": w.payout_toman, "commission_toman": w.commission_toman,
+            "units_redeemed": w.units_redeemed, "status": w.status,
+            "created_at": w.created_at.isoformat() if w.created_at else None,
+        })
+    return out
+
+
+@router.post("/admin/withdrawals/{wid}/approve")
+async def admin_approve_withdrawal(wid: int, db: Session = Depends(get_db),
+                                   current_user: models.User = Depends(get_superadmin)):
+    """تأیید برداشت: واحدها بازخرید و حساب‌داری به‌روزرسانی می‌شود.
+
+    انتقال واقعی پول به کاربر را خودِ ادمین در نوبیتکس انجام می‌دهد (مبلغ payout).
+    """
+    w = db.query(models.PoolWithdrawal).filter(models.PoolWithdrawal.id == wid).first()
+    if not w or w.status != "pending":
+        raise HTTPException(status_code=404, detail="درخواست یافت نشد یا قبلاً پردازش شده")
+    sub = db.query(models.TradingSubscription).filter(models.TradingSubscription.id == w.subscription_id).first()
+    plan = access.get_plan(db, sub.plan_id) if sub else None
+    if not sub or not plan:
+        raise HTTPException(status_code=400, detail="اشتراک مرتبط یافت نشد")
+    res = await pool.redeem_units(db, sub, plan, float(w.amount_toman))
+    w.status = "approved"
+    w.units_redeemed = res["units_redeemed"]
+    w.payout_toman = res["payout"]
+    w.commission_toman = res["commission"]
+    w.processed_at = datetime.utcnow()
+    db.commit()
+    if sub.status == "expired":
+        stop_user_bot(sub.user_id)
+    return {"message": f"تأیید شد. مبلغ پرداختی به کاربر: {res['payout']:,} تومان (کارمزد کسرشده: {res['commission']:,})",
+            **res}
+
+
+@router.post("/admin/withdrawals/{wid}/reject")
+async def admin_reject_withdrawal(wid: int, db: Session = Depends(get_db),
+                                  current_user: models.User = Depends(get_superadmin)):
+    w = db.query(models.PoolWithdrawal).filter(models.PoolWithdrawal.id == wid).first()
+    if w and w.status == "pending":
+        w.status = "rejected"
+        w.processed_at = datetime.utcnow()
+        db.commit()
+    return {"message": "رد شد"}

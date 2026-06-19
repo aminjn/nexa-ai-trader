@@ -99,6 +99,42 @@ async def managed_commission(db, sub, plan) -> dict:
     }
 
 
+async def redeem_units(db, sub, plan, amount_toman: float) -> dict:
+    """بازخرید واحد به ازای مبلغ درخواستی (۰ = کل موجودی).
+
+    سهم اصل و سود به نسبت واحدهای بازخریدشده جدا می‌شود؛ کارمزد سودِ همان بخش
+    کسر و ثبت می‌شود (چون در زمان برداشت محقق شده است).
+    """
+    from . import access
+    price = await unit_price(db)
+    if price <= 0:
+        price = 1.0
+    value = (sub.units or 0.0) * price
+    amount = value if (amount_toman <= 0 or amount_toman >= value) else amount_toman
+    units_to_redeem = min(sub.units or 0.0, amount / price)
+    fraction = (units_to_redeem / sub.units) if (sub.units or 0) > 0 else 1.0
+    deposit_removed = (sub.deposit_toman or 0) * fraction
+    profit_realized = amount - deposit_removed
+    rate = access.commission_rate_for(plan, sub.deposit_toman or 0)
+    commission = max(0.0, profit_realized) * rate / 100.0
+    payout = amount - commission
+
+    # به‌روزرسانی اشتراک
+    sub.units = max(0.0, (sub.units or 0.0) - units_to_redeem)
+    sub.deposit_toman = max(0, int((sub.deposit_toman or 0) - deposit_removed))
+    sub.commission_settled_toman = (sub.commission_settled_toman or 0) + int(commission)
+    if sub.units <= 1e-6:
+        sub.status = "expired"
+    db.commit()
+    return {
+        "units_redeemed": round(units_to_redeem, 6),
+        "amount": round(amount),
+        "commission": round(commission),
+        "payout": round(payout),
+        "profit_realized": round(profit_realized),
+    }
+
+
 async def pool_summary(db) -> dict:
     ex_rec = get_pool_exchange(db)
     val = await pool_value_toman(db)

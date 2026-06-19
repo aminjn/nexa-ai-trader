@@ -230,6 +230,23 @@ class TradingPlan(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class PoolWithdrawal(Base):
+    """درخواست برداشت/بازخرید واحد از استخر مدیریت‌شده (managed)."""
+    __tablename__ = "pool_withdrawals"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    subscription_id = Column(Integer, ForeignKey("trading_subscriptions.id"))
+    amount_toman = Column(Integer, default=0)        # مبلغ درخواستی (۰ = کل موجودی)
+    units_redeemed = Column(Float, default=0.0)      # واحد بازخریدشده (هنگام تأیید)
+    payout_toman = Column(Integer, default=0)        # مبلغ پرداختی نهایی (هنگام تأیید)
+    commission_toman = Column(Integer, default=0)    # کارمزد سودِ کسرشده (هنگام تأیید)
+    status = Column(String, default="pending")       # pending | approved | rejected
+    note = Column(String, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime, nullable=True)
+
+
 class TradingSubscription(Base):
     """اشتراک ربات معامله‌گر برای هر کاربر."""
     __tablename__ = "trading_subscriptions"

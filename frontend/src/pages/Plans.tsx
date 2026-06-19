@@ -24,17 +24,30 @@ export default function Plans() {
   const [access, setAccess] = useState<Access | null>(null)
   const [pay, setPay] = useState<PayInfo | null>(null)
   const [busy, setBusy] = useState(false)
+  const [withdrawals, setWithdrawals] = useState<{ id: number; amount_toman: number; payout_toman: number; commission_toman: number; status: string }[]>([])
 
   const load = useCallback(async () => {
     try {
-      const [p, a, pi] = await Promise.all([
+      const [p, a, pi, w] = await Promise.all([
         api.get('/trading/plans'),
         api.get('/trading/my-access'),
         api.get('/trading/payment-info'),
+        api.get('/trading/my-withdrawals'),
       ])
-      setPlans(p.data); setAccess(a.data); setPay(pi.data)
+      setPlans(p.data); setAccess(a.data); setPay(pi.data); setWithdrawals(w.data)
     } catch { /* ignore */ }
   }, [])
+
+  const requestWithdraw = async () => {
+    const raw = prompt('مبلغ برداشت به تومان (خالی = کل موجودی):', '')
+    if (raw === null) return
+    const amount = raw.trim() === '' ? 0 : Number(raw)
+    if (raw.trim() !== '' && (!amount || amount <= 0)) { toast.error('مبلغ نامعتبر'); return }
+    try {
+      const r = await api.post('/trading/withdraw', { amount_toman: amount })
+      toast.success(r.data.message || 'ثبت شد'); load()
+    } catch (e: any) { toast.error(e?.response?.data?.detail || 'خطا') }
+  }
 
   useEffect(() => { load() }, [load])
 
@@ -92,8 +105,28 @@ export default function Plans() {
               ))}
             </div>
             <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 12 }}>
-              کارمزد فقط از سودِ مثبت محاسبه می‌شود. برای تسویه، مبلغ را کارت‌به‌کارت کنید و به ادمین اطلاع دهید.
+              کارمزد فقط از سودِ مثبت محاسبه می‌شود و هنگام برداشت از سود کسر می‌گردد.
             </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button onClick={requestWithdraw} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                درخواست برداشت
+              </button>
+              {withdrawals.filter(w => w.status === 'pending').length > 0 && (
+                <span style={{ fontSize: 12, color: 'var(--amber)' }}>یک درخواست برداشت در انتظار تأیید دارید</span>
+              )}
+            </div>
+            {withdrawals.length > 0 && (
+              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--dim)' }}>
+                {withdrawals.slice(0, 4).map(w => (
+                  <div key={w.id} style={{ display: 'flex', gap: 12, padding: '4px 0' }}>
+                    <span>برداشت {w.amount_toman ? fmt(w.amount_toman) + ' ت' : 'کل موجودی'}</span>
+                    <span style={{ color: w.status === 'approved' ? 'var(--green)' : w.status === 'rejected' ? 'var(--red)' : 'var(--amber)' }}>
+                      {w.status === 'approved' ? `پرداخت‌شده: ${fmt(w.payout_toman)} ت` : w.status === 'rejected' ? 'ردشده' : 'در انتظار'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

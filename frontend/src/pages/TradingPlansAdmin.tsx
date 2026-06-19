@@ -21,6 +21,10 @@ const inputStyle: React.CSSProperties = { width: '100%', background: 'var(--bg2)
 const label: React.CSSProperties = { fontSize: 12, color: 'var(--dim)', marginBottom: 5 }
 const fmt = (n: number) => Math.round(n || 0).toLocaleString('en-US')
 
+interface WD {
+  id: number; user_name: string; user_phone: string; amount_toman: number; current_value: number | null;
+  payout_toman: number; commission_toman: number; units_redeemed: number; status: string; created_at: string | null
+}
 interface PoolEx { id: number; name: string; user_id: number; is_pool: boolean }
 interface PoolData {
   summary: { connected: boolean; exchange_id: number | null; value_toman: number; total_units: number; unit_price: number; total_deposits: number; profit: number; members: number };
@@ -31,18 +35,26 @@ export default function TradingPlansAdmin() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [subs, setSubs] = useState<Sub[]>([])
   const [poolData, setPoolData] = useState<PoolData | null>(null)
+  const [withdrawals, setWithdrawals] = useState<WD[]>([])
 
   const load = useCallback(async () => {
     try {
-      const [p, s, pl] = await Promise.all([
+      const [p, s, pl, w] = await Promise.all([
         api.get('/trading/admin/plans'),
         api.get('/trading/admin/subscriptions'),
         api.get('/trading/admin/pool'),
+        api.get('/trading/admin/withdrawals'),
       ])
-      setPlans(p.data); setSubs(s.data); setPoolData(pl.data)
+      setPlans(p.data); setSubs(s.data); setPoolData(pl.data); setWithdrawals(w.data)
     } catch { toast.error('خطا در بارگذاری') }
   }, [])
   useEffect(() => { load() }, [load])
+
+  const approveWd = async (w: WD) => {
+    if (!confirm(`تأیید برداشت ${w.user_name}؟ پس از تأیید باید مبلغ پرداختی را در نوبیتکس به کاربر واریز کنید.`)) return
+    try { const r = await api.post(`/trading/admin/withdrawals/${w.id}/approve`); toast.success(r.data.message); load() } catch (e: any) { toast.error(e?.response?.data?.detail || 'خطا') }
+  }
+  const rejectWd = async (w: WD) => { try { await api.post(`/trading/admin/withdrawals/${w.id}/reject`); load() } catch { toast.error('خطا') } }
 
   const setPool = async (exchange_id: number) => {
     try { await api.post('/trading/admin/pool/set', { exchange_id }); toast.success('حساب استخر تنظیم شد'); load() } catch { toast.error('خطا') }
@@ -130,6 +142,42 @@ export default function TradingPlansAdmin() {
             {(poolData?.exchanges || []).length === 0 && <span style={{ fontSize: 12, color: 'var(--faint)' }}>هیچ صرافی فعالی وجود ندارد.</span>}
           </div>
         </div>
+
+        {/* درخواست‌های برداشت */}
+        {withdrawals.length > 0 && (
+          <div style={card}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>💸 درخواست‌های برداشت</div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead><tr style={{ color: 'var(--dim)', textAlign: 'right' }}>
+                  {['کاربر', 'درخواست', 'موجودی فعلی', 'پرداختی', 'کارمزد', 'وضعیت', 'عملیات'].map(c => <th key={c} style={{ padding: '8px 10px', fontWeight: 600 }}>{c}</th>)}
+                </tr></thead>
+                <tbody>
+                  {withdrawals.map(w => (
+                    <tr key={w.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px' }}>{w.user_name}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono' }}>{w.amount_toman ? fmt(w.amount_toman) : 'کل موجودی'}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono' }}>{w.current_value != null ? fmt(w.current_value) : '—'}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', color: 'var(--green)' }}>{w.payout_toman ? fmt(w.payout_toman) : '—'}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', color: 'var(--amber)' }}>{w.commission_toman ? fmt(w.commission_toman) : '—'}</td>
+                      <td style={{ padding: '10px', fontWeight: 700, color: w.status === 'approved' ? 'var(--green)' : w.status === 'rejected' ? 'var(--red)' : 'var(--amber)' }}>
+                        {w.status === 'approved' ? 'تأییدشده' : w.status === 'rejected' ? 'ردشده' : 'در انتظار'}
+                      </td>
+                      <td style={{ padding: '10px' }}>
+                        {w.status === 'pending' && (
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => approveWd(w)} title="تأیید" style={btn('var(--green)')}><Check size={15} /></button>
+                            <button onClick={() => rejectWd(w)} title="رد" style={btn('var(--red)')}><X size={15} /></button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* اشتراک‌ها */}
         <div style={card}>

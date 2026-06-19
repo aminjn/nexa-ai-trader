@@ -47,6 +47,21 @@ def _pct(conf: float) -> str:
     return f"{round((conf or 0) * 100)}".translate(_FA_DIGITS)
 
 
+def _signed_pct(entry: float, target: float) -> str:
+    """درصد تغییر هدف/حد ضرر نسبت به قیمت ورود، با علامت و رقم فارسی."""
+    try:
+        if not entry:
+            return ""
+        p = (target / entry - 1.0) * 100.0
+        sign = "+" if p >= 0 else "−"
+        return f"{sign}{abs(p):.1f}".translate(_FA_DIGITS) + "٪"
+    except Exception:
+        return ""
+
+
+SEP = "━━━━━━━━━━━━━"
+
+
 async def generate_signals(db, push: bool = True) -> int:
     """برای هر ارز تنظیم‌شده یک سیگنال می‌سازد و (در صورت push) توزیع می‌کند."""
     settings_row = db.query(models.SystemSettings).first()
@@ -136,27 +151,46 @@ async def generate_signals(db, push: bool = True) -> int:
 
 def _buy_card(s) -> str:
     return (
-        f"🟢 <b>خرید {s.coin}</b>\n"
-        f"💵 قیمت: {_fmt(s.entry_price)} ت\n"
-        f"🎯 هدف: {_fmt(s.target_price)}  ┊  🛑 حد ضرر: {_fmt(s.stop_price)}\n"
+        f"🟢 <b>خرید · {s.coin}</b>\n"
+        f"💵 ورود: <b>{_fmt(s.entry_price)}</b> ت\n"
+        f"🎯 هدف: {_fmt(s.target_price)} ت  ({_signed_pct(s.entry_price, s.target_price)})\n"
+        f"🛑 ضرر: {_fmt(s.stop_price)} ت  ({_signed_pct(s.entry_price, s.stop_price)})\n"
         f"📊 اطمینان: {_bar(s.confidence)} {_pct(s.confidence)}٪"
     )
 
 
 def _sell_card(s) -> str:
     return (
-        f"🔴 <b>فروش / احتیاط {s.coin}</b>\n"
-        f"💵 قیمت: {_fmt(s.entry_price)} ت\n"
+        f"🔴 <b>فروش / احتیاط · {s.coin}</b>\n"
+        f"💵 قیمت: <b>{_fmt(s.entry_price)}</b> ت\n"
         f"📊 اطمینان: {_bar(s.confidence)} {_pct(s.confidence)}٪"
     )
 
 
-def _batch_messages(signals, header: str, include_analysis: bool = False, limit: int = 3500):
+def _channel_join_url(platform: str, settings_row) -> str:
+    """لینک عضویت کانال را از آی‌دی کانال (@username) می‌سازد."""
+    cid = (settings_row.telegram_channel_id if platform == "telegram" else settings_row.bale_channel_id) or ""
+    cid = cid.strip()
+    if cid.startswith("@"):
+        name = cid[1:]
+        return f"https://t.me/{name}" if platform == "telegram" else f"https://ble.ir/{name}"
+    if cid.startswith("https://"):
+        return cid
+    return ""
+
+
+def _channel_handle(platform: str, settings_row) -> str:
+    cid = (settings_row.telegram_channel_id if platform == "telegram" else settings_row.bale_channel_id) or ""
+    cid = cid.strip()
+    return cid if cid.startswith("@") else ""
+
+
+def _batch_messages(signals, header: str, channel_handle: str = "",
+                    include_analysis: bool = False, limit: int = 3500):
     """سیگنال‌ها را به‌صورت کارت‌های گرافیکی خوانا می‌سازد (خرید/فروش جدا، صبر جمع‌وجور)."""
     buys = [s for s in signals if s.side == "BUY"]
     sells = [s for s in signals if s.side == "SELL"]
     waits = [s for s in signals if s.side not in ("BUY", "SELL")]
-    sep = "➖➖➖➖➖➖➖➖➖"
 
     blocks = []
     for s in buys:
@@ -164,19 +198,22 @@ def _batch_messages(signals, header: str, include_analysis: bool = False, limit:
     for s in sells:
         blocks.append(_sell_card(s))
 
-    head = header + "\n" + sep
+    head = header + "\n" + SEP
     foot_parts = []
     if waits:
         foot_parts.append("⏳ <b>در انتظار:</b> " + "، ".join(s.coin for s in waits))
-    foot_parts.append("🤖 <b>NEXA AI</b>")
-    footer = sep + "\n" + "\n".join(foot_parts)
+    foot_parts.append("🤖 <b>NEXA AI</b> — هوش مصنوعی تحلیل بازار")
+    if channel_handle:
+        foot_parts.append(f"📢 عضو کانال ما شو: <b>{channel_handle}</b>")
+    foot_parts.append("⚠️ سیگنال‌ها تضمین سود نیستند؛ مدیریت ریسک کن.")
+    footer = SEP + "\n" + "\n".join(foot_parts)
 
     # کارت‌ها را با جداکننده کنار هم بگذار و در صورت طولانی‌شدن به چند پیام تقسیم کن
     msgs, cur = [], head
     for b in blocks:
         piece = "\n\n" + b
         if len(cur) + len(piece) + len(footer) + 4 > limit:
-            msgs.append(cur + "\n\n" + sep)
+            msgs.append(cur + "\n\n" + SEP)
             cur = head
         cur += piece
     msgs.append(cur + "\n\n" + footer)
@@ -184,13 +221,34 @@ def _batch_messages(signals, header: str, include_analysis: bool = False, limit:
 
 
 async def post_batch_to_channel(created, settings_row):
-    """همه‌ی سیگنال‌های یک دور را در یک پیام به کانال تلگرام/بله می‌فرستد."""
-    header = f"📡 <b>سیگنال‌های NEXA AI</b> — {tehran_now().strftime('%H:%M')}"
-    for msg in _batch_messages(created, header):
-        if settings_row.telegram_channel_id and settings_row.telegram_bot_token:
-            await send_telegram(settings_row.telegram_bot_token, settings_row.telegram_channel_id, msg)
-        if settings_row.bale_channel_id and settings_row.bale_bot_token:
-            await send_bale(settings_row.bale_bot_token, settings_row.bale_channel_id, msg)
+    """همه‌ی سیگنال‌های یک دور را در یک پیام به کانال تلگرام/بله می‌فرستد.
+
+    پیام کانال دکمه‌های واکنش (👍 ❤️ 🔥) و دکمهٔ عضویت در کانال می‌گیرد تا
+    برای کسی که فوروارد می‌شود جذاب باشد و عضو شود.
+    """
+    from .notifier import send_telegram_post, send_bale_post
+    from . import reactions
+    header = f"📡✨ <b>سیگنال‌های NEXA AI</b> ✨\n🕒 {tehran_now().strftime('%H:%M')} — به وقت تهران"
+
+    if settings_row.telegram_channel_id and settings_row.telegram_bot_token:
+        handle = _channel_handle("telegram", settings_row)
+        join = _channel_join_url("telegram", settings_row)
+        for msg in _batch_messages(created, header, channel_handle=handle):
+            kb = reactions.keyboard("telegram", settings_row.telegram_channel_id, 0, join)
+            mid = await send_telegram_post(settings_row.telegram_bot_token,
+                                           settings_row.telegram_channel_id, msg, reply_markup=kb)
+            if mid:
+                reactions.register("telegram", settings_row.telegram_channel_id, mid)
+
+    if settings_row.bale_channel_id and settings_row.bale_bot_token:
+        handle = _channel_handle("bale", settings_row)
+        join = _channel_join_url("bale", settings_row)
+        for msg in _batch_messages(created, header, channel_handle=handle):
+            kb = reactions.keyboard("bale", settings_row.bale_channel_id, 0, join)
+            mid = await send_bale_post(settings_row.bale_bot_token,
+                                       settings_row.bale_channel_id, msg, reply_markup=kb)
+            if mid:
+                reactions.register("bale", settings_row.bale_channel_id, mid)
 
 
 async def distribute_batch(db, created, settings_row):

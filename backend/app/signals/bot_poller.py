@@ -138,6 +138,11 @@ async def _poll_loop(platform: str, base_fn, token_field: str, use_proxy: bool):
             data = await _api(base, "getUpdates", use_proxy, offset=offset, timeout=30)
             for u in data.get("result", []):
                 offset = max(offset, u.get("update_id", 0) + 1)
+                # کلیک روی دکمه‌های واکنش زیر پست کانال
+                cq = u.get("callback_query")
+                if cq:
+                    asyncio.create_task(_handle_callback(platform, base, use_proxy, cq))
+                    continue
                 msg = u.get("message") or u.get("edited_message") or {}
                 chat = msg.get("chat") or {}
                 chat_id = chat.get("id")
@@ -183,6 +188,44 @@ async def _handle_message(platform, base, use_proxy, chat_id, text):
             pass
     except Exception:
         pass
+
+
+async def _handle_callback(platform, base, use_proxy, cq):
+    """کلیک روی واکنش 👍/❤️/🔥 را پردازش و شمارنده را به‌روز می‌کند."""
+    from . import reactions
+    from .notifier import edit_markup, answer_callback
+    from .engine import _channel_join_url
+    try:
+        data = (cq.get("data") or "")
+        cb_id = cq.get("id")
+        if not data.startswith("react:"):
+            if cb_id:
+                await answer_callback(base, cb_id, use_proxy=use_proxy)
+            return
+        kind = data.split(":", 1)[1]
+        message = cq.get("message") or {}
+        chat = message.get("chat") or {}
+        chat_id = chat.get("id")
+        message_id = message.get("message_id")
+        user_id = (cq.get("from") or {}).get("id")
+        if chat_id is None or message_id is None:
+            return
+        reactions.toggle(platform, chat_id, message_id, kind, user_id)
+        # لینک عضویت را دوباره از تنظیمات بساز تا دکمهٔ عضویت حفظ شود
+        join = ""
+        db = SessionLocal()
+        try:
+            s = db.query(models.SystemSettings).first()
+            if s:
+                join = _channel_join_url(platform, s)
+        finally:
+            db.close()
+        kb = reactions.keyboard(platform, chat_id, message_id, join)
+        await edit_markup(base, chat_id, message_id, kb, use_proxy=use_proxy)
+        if cb_id:
+            await answer_callback(base, cb_id, "ثبت شد ✓", use_proxy=use_proxy)
+    except Exception as e:
+        print(f"⚠️ callback error: {str(e)[:150]}")
 
 
 async def telegram_poll_loop():

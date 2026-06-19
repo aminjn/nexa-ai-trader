@@ -116,6 +116,22 @@ async def generate_market_content(db) -> str:
     return "\n".join(lines)
 
 
+def _join_footer(platform: str, srow) -> str:
+    """فوتر متنیِ عضویت/پشتیبانی — چون متن است، هنگام فوروارد حفظ می‌شود
+    (برخلاف دکمه‌های inline که تلگرام/بله موقع فوروارد حذف می‌کنند)."""
+    from .engine import _channel_join_url, SEP
+    parts = []
+    url = _channel_join_url(platform, srow)
+    if url:
+        parts.append(f"📢 عضویت و دنبال‌کردن کانال: {url}")
+    sup = (getattr(srow, "support_contact", "") or "").strip()
+    if sup:
+        parts.append(f"💬 ثبت‌نام و پشتیبانی: {sup}")
+    if not parts:
+        return ""
+    return "\n" + SEP + "\n" + "\n".join(parts)
+
+
 async def publish_content(db) -> bool:
     srow = db.query(models.SystemSettings).first()
     if not srow:
@@ -123,9 +139,9 @@ async def publish_content(db) -> bool:
     text = await generate_market_content(db)
     ok = False
     if srow.telegram_channel_id and srow.telegram_bot_token:
-        ok = await send_telegram(srow.telegram_bot_token, srow.telegram_channel_id, text) or ok
+        ok = await send_telegram(srow.telegram_bot_token, srow.telegram_channel_id, text + _join_footer("telegram", srow)) or ok
     if srow.bale_channel_id and srow.bale_bot_token:
-        ok = await send_bale(srow.bale_bot_token, srow.bale_channel_id, text) or ok
+        ok = await send_bale(srow.bale_bot_token, srow.bale_channel_id, text + _join_footer("bale", srow)) or ok
     return ok
 
 
@@ -203,9 +219,9 @@ async def publish_ad(db) -> bool:
     text = await generate_ad(db)
     ok = False
     if srow.telegram_channel_id and srow.telegram_bot_token:
-        ok = await send_telegram(srow.telegram_bot_token, srow.telegram_channel_id, text) or ok
+        ok = await send_telegram(srow.telegram_bot_token, srow.telegram_channel_id, text + _join_footer("telegram", srow)) or ok
     if srow.bale_channel_id and srow.bale_bot_token:
-        ok = await send_bale(srow.bale_bot_token, srow.bale_channel_id, text) or ok
+        ok = await send_bale(srow.bale_bot_token, srow.bale_channel_id, text + _join_footer("bale", srow)) or ok
     return ok
 
 

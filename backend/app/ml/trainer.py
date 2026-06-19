@@ -16,6 +16,11 @@ SCALER_PATH = "ml_scaler.joblib"
 THRESHOLD_PATH = "ml_threshold.txt"  # آستانه اطمینان تنظیم‌شده توسط هوش مصنوعی
 ACCUM_PATH = "training_data.csv"  # مجموعه داده انباشته (بازار + آپلودی کاربر)
 
+# پارامترهای تریپل‌بَریر (هدفِ آموزش): رسیدن به +TB_TP قبل از −TB_SL در TB_H کندلِ ساعتی
+TB_TP = 0.02    # +۲٪ هدف سود
+TB_SL = 0.015   # −۱.۵٪ حد ضرر
+TB_H = 48       # افق ۴۸ ساعته (۲ روز)
+
 _OHLCV_COLS = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
 
 # نام‌های رایج معادل برای هر ستون (تا فایل با هر قالبی شناخته شود)
@@ -266,8 +271,34 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["htf_d_ret"] = pd.to_numeric(df["htf_d_ret"], errors="coerce").fillna(0.0)
     df["htf_d_dist20"] = pd.to_numeric(df["htf_d_dist20"], errors="coerce").fillna(0.0)
 
-    # هدف: آیا قیمت روز بعد بالاتر می‌رود؟
-    df["target"] = (c.shift(-1) > c).astype(int)
+    # ── هدف (تریپل‌بَریر): آیا قیمت قبل از افتِ TB_SL به سودِ TB_TP می‌رسد؟ ──
+    # برچسب ۱ = ستاپِ سوددهِ تمیز (به هدف می‌رسد بدون خوردنِ حد ضرر در بازه)؛ ۰ = غیر آن.
+    # این هدف با نحوهٔ معاملهٔ ربات (ورود → خروج در هدف/حد ضرر) هم‌راستاست.
+    hi = h.values
+    lo = l.values
+    cl = c.values
+    n = len(cl)
+    up = cl * (1 + TB_TP)
+    dn = cl * (1 - TB_SL)
+    label = np.zeros(n, dtype=float)
+    resolved = np.zeros(n, dtype=bool)
+    idx = np.arange(n)
+    for k in range(1, TB_H + 1):
+        j = idx + k
+        valid = j < n
+        jj = np.clip(j, 0, n - 1)
+        hh = hi[jj]
+        ll = lo[jj]
+        up_hit = valid & ~resolved & (hh >= up)
+        dn_hit = valid & ~resolved & (ll <= dn)
+        only_up = up_hit & ~dn_hit          # فقط هدف خورد → برد
+        close_first = up_hit | dn_hit        # هر چه اول رخ داد (اگر هر دو در یک کندل → محتاطانه ضرر)
+        label[only_up] = 1.0
+        resolved[close_first] = True
+    # ردیف‌های انتهایی که پنجرهٔ آیندهٔ کامل ندارند و حل‌نشده‌اند → NaN (حذف در آموزش)
+    incomplete = (idx + TB_H) >= n
+    label[incomplete & ~resolved] = np.nan
+    df["target"] = label
 
     return df.replace([np.inf, -np.inf], np.nan)
 
@@ -457,11 +488,11 @@ class MLTrainer:
             return {"signal": "WAIT", "confidence": 0.0}
 
         df = add_features(df_recent)
-        df = df.dropna()
+        feature_cols = get_feature_columns()
+        # فقط روی فیچرها dropna می‌کنیم نه target — وگرنه کندلِ جاری (که target=NaN دارد) حذف می‌شد
+        df = df.dropna(subset=feature_cols)
         if df.empty:
             return {"signal": "WAIT", "confidence": 0.0}
-
-        feature_cols = get_feature_columns()
         try:
             X = df[feature_cols].iloc[-1:].values
             X_scaled = self.scaler.transform(X)

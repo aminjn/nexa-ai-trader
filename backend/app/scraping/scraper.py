@@ -19,19 +19,27 @@ def _is_feed(url: str, html: str) -> bool:
     return ("<rss" in head or "<feed" in head or "<?xml" in head) or url.rstrip("/").endswith(("feed", "rss", ".xml"))
 
 
-def _parse_feed(html: str, max_items: int):
-    """خوراک RSS/Atom را پارس می‌کند و آیتم‌های تازه را برمی‌گرداند (عنوان + خلاصه + لینک)."""
+def _parse_feed(html: str, max_items: int, body_chars: int = 900):
+    """خوراک RSS/Atom را پارس می‌کند: عنوان + متن کامل مطلب (content:encoded در وردپرس)."""
     soup = BeautifulSoup(html, "html.parser")
     nodes = soup.find_all("item") or soup.find_all("entry")
     out = []
     for n in nodes[:max_items]:
         title = n.find("title")
         title = title.get_text(" ", strip=True) if title else ""
-        desc = n.find("description") or n.find("summary") or n.find("content")
-        desc = BeautifulSoup(desc.get_text(" ", strip=True), "html.parser").get_text(" ", strip=True) if desc else ""
+        # متن کامل: ابتدا content:encoded (وردپرس)، سپس description/summary/content
+        body_node = (
+            n.find(lambda t: t.name and t.name.lower().endswith("encoded"))
+            or n.find("description") or n.find("summary") or n.find("content")
+        )
+        raw = body_node.get_text(" ", strip=True) if body_node else ""
+        body = BeautifulSoup(raw, "html.parser").get_text(" ", strip=True)
         link = n.find("link")
         href = (link.get("href") or link.get_text(strip=True)) if link else ""
-        text = title if not desc else f"{title} — {desc[:300]}"
+        if body and body.strip() != title.strip():
+            text = f"📰 {title}\n{body[:body_chars]}"
+        else:
+            text = f"📰 {title}"
         if text.strip():
             out.append({"url": href or title, "text": text.strip()})
     return out

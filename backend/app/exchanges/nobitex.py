@@ -10,10 +10,11 @@ class NobitexExchange(BaseExchange):
     def __init__(self, api_key: str, api_secret: str = ""):
         super().__init__(api_key, api_secret)
         self.base_url = settings.NOBITEX_BASE_URL
-        self.headers = {
-            "Authorization": f"Token {api_key}",
-            "Content-Type": "application/json",
-        }
+        # برای داده‌ی عمومی (قیمت/کندل) توکن لازم نیست؛ هدر احراز هویت فقط وقتی
+        # توکن داریم فرستاده می‌شود تا endpointهای عمومی با توکن خالی رد نشوند.
+        self.headers = {"Content-Type": "application/json"}
+        if api_key:
+            self.headers["Authorization"] = f"Token {api_key}"
 
     async def _get(self, path: str, params: dict = None) -> dict:
         # trust_env=False تا هیچ‌گاه از پروکسی استفاده نشود (نوبیتکس فقط مستقیم از ایران)

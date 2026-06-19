@@ -270,9 +270,9 @@ export default function Signals() {
                   <input style={inputStyle} value={adminSettings.zarinpal_merchant_id} onChange={e => setAdminSettings({ ...adminSettings, zarinpal_merchant_id: e.target.value })} dir="ltr" /></div>
                 <div><div style={label}>ارزهای تولید سیگنال (با کاما)</div>
                   <input style={inputStyle} value={adminSettings.signal_coins} onChange={e => setAdminSettings({ ...adminSettings, signal_coins: e.target.value })} dir="ltr" placeholder="BTC,ETH,XRP" /></div>
-                <div><div style={label}>هر چند دقیقه سیگنال تولید شود</div>
+                <div><div style={label}>سیگنال هر چند دقیقه (تلگرام + بله)</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>
-                <div><div style={label}>هر چند ساعت محتوا منتشر شود</div>
+                <div><div style={label}>محتوای تحلیلی هر چند ساعت (تلگرام + بله)</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.content_interval_hours} onChange={e => setAdminSettings({ ...adminSettings, content_interval_hours: Number(e.target.value) })} /></div>
                 <div><div style={label}>شماره کارت (پرداخت کارت‌به‌کارت)</div>
                   <input style={inputStyle} value={adminSettings.card_number} onChange={e => setAdminSettings({ ...adminSettings, card_number: e.target.value })} dir="ltr" placeholder="6037-XXXX-XXXX-XXXX" /></div>

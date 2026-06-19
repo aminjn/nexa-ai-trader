@@ -72,6 +72,8 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE users ADD COLUMN link_code VARCHAR DEFAULT ''"))
             if "ml_exit_enabled" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN ml_exit_enabled BOOLEAN DEFAULT 0"))
+            if "trading_coins" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN trading_coins VARCHAR DEFAULT 'BTC,ETH,XRP,ADA,DOGE,LTC,TRX,BCH,BNB,SOL,DOT,AVAX,MATIC,SHIB,LINK,UNI,ATOM,FIL,ETC,XLM'"))
     # ml_models: ستون‌های جزئیات آموزش
     if "ml_models" in tables:
         cols = {c["name"] for c in inspector.get_columns("ml_models")}

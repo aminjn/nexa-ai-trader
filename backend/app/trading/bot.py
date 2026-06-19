@@ -80,16 +80,17 @@ MIN_ORDER_VALUE = {
 }
 
 
-def _pairs_and_quote(market_type: str, balances: dict):
-    """جفت‌ارزها و ارز پایه را بر اساس موجودی انتخاب می‌کند."""
+def _pairs_and_quote(user, balances: dict):
+    """جفت‌ارزها (از لیست تنظیم‌شده‌ی کاربر) و ارز پایه را بر اساس موجودی انتخاب می‌کند."""
+    coins_raw = getattr(user, "trading_coins", "") or "BTC,ETH"
+    coins = [c.strip().upper() for c in coins_raw.split(",") if c.strip()]
+    if not coins:
+        coins = ["BTC", "ETH"]
     rls = balances.get("RLS")
     usdt = balances.get("USDT")
-    if rls and rls.free > 0:
-        return ["BTC/RLS", "ETH/RLS"], "RLS"
-    if usdt and usdt.free > 0:
-        return ["BTC/USDT", "ETH/USDT"], "USDT"
-    # پیش‌فرض ریالی
-    return ["BTC/RLS", "ETH/RLS"], "RLS"
+    quote = "RLS" if (rls and rls.free > 0) else ("USDT" if (usdt and usdt.free > 0) else "RLS")
+    pairs = [f"{c}/{quote}" for c in coins if c != quote]
+    return pairs, quote
 
 
 async def run_trading_cycle(db: Session, user: models.User, exch: models.ExchangeAPI):
@@ -100,7 +101,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
 
         exchange = get_exchange(exch.exchange_name, exch.api_key, exch.api_secret)
         balances = await exchange.get_balance()
-        pairs, quote = _pairs_and_quote(user.market_type, balances)
+        pairs, quote = _pairs_and_quote(user, balances)
         quote_free = balances[quote].free if balances.get(quote) else 0.0
         min_value = MIN_ORDER_VALUE.get(quote, 0.0)
         trainer = get_trainer()

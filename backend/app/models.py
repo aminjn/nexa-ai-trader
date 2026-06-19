@@ -28,6 +28,8 @@ class User(Base):
     ai_trading_enabled = Column(Boolean, default=True)
     # خروج زودهنگام با سیگنال فروش ML (اگر خاموش باشد فقط سود هدف/حد ضرر اعمال می‌شود)
     ml_exit_enabled = Column(Boolean, default=False)
+    # ارزهایی که ربات روی آن‌ها معامله می‌کند (با کاما)
+    trading_coins = Column(String, default="BTC,ETH,XRP,ADA,DOGE,LTC,TRX,BCH,BNB,SOL,DOT,AVAX,MATIC,SHIB,LINK,UNI,ATOM,FIL,ETC,XLM")
 
     # شناسه‌های پیام‌رسان برای دریافت سیگنال (هر کاربر آی‌دی عددی خودش را وصل می‌کند)
     telegram_chat_id = Column(String, default="")

@@ -16,6 +16,7 @@ export default function Strategy() {
   const [capitalPct, setCapitalPct] = useState(50)
   const [stopLoss, setStopLoss] = useState(2)
   const [mlExit, setMlExit] = useState(false)
+  const [tradingCoins, setTradingCoins] = useState('BTC,ETH')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -30,6 +31,7 @@ export default function Strategy() {
         if (d.capital_pct != null) setCapitalPct(d.capital_pct)
         if (d.stop_loss != null) setStopLoss(d.stop_loss)
         if (d.ml_exit_enabled != null) setMlExit(d.ml_exit_enabled)
+        if (d.trading_coins) setTradingCoins(d.trading_coins)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -57,6 +59,7 @@ export default function Strategy() {
         capital_pct: capitalPct,
         stop_loss: stopLoss,
         ml_exit_enabled: mlExit,
+        trading_coins: tradingCoins,
       })
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
@@ -224,6 +227,21 @@ export default function Strategy() {
                   )
                 })}
               </div>
+            </div>
+
+            {/* ارزهای معاملاتی */}
+            <div style={cardStyle}>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>ارزهایی که ربات معامله کند</div>
+              <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.8, marginBottom: 10 }}>
+                نمادها را با کاما جدا کن (مثل <span dir="ltr">BTC,ETH,XRP,SOL</span>). ربات روی همه‌ی این ارزها در بازار ریالی نوبیتکس کار می‌کند. ارزی که در نوبیتکس نباشد خودکار رد می‌شود.
+              </div>
+              <input
+                value={tradingCoins}
+                onChange={e => setTradingCoins(e.target.value.toUpperCase())}
+                dir="ltr"
+                placeholder="BTC,ETH,XRP,ADA,..."
+                style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: "'JetBrains Mono', monospace" }}
+              />
             </div>
 
             {/* خروج هوشمند با ML */}

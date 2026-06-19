@@ -20,6 +20,7 @@ class StrategyUpdate(BaseModel):
     leverage: int = 3
     ai_trading_enabled: bool = True
     ml_exit_enabled: bool = False
+    trading_coins: str = "BTC,ETH"
 
 
 @router.get("/")
@@ -37,6 +38,7 @@ async def get_strategy(
         "leverage": current_user.leverage,
         "ai_trading_enabled": current_user.ai_trading_enabled,
         "ml_exit_enabled": current_user.ml_exit_enabled,
+        "trading_coins": current_user.trading_coins,
         "bot_active": current_user.bot_active,
     }
 
@@ -56,6 +58,8 @@ async def update_strategy(
     current_user.leverage = data.leverage
     current_user.ai_trading_enabled = data.ai_trading_enabled
     current_user.ml_exit_enabled = data.ml_exit_enabled
+    if data.trading_coins is not None:
+        current_user.trading_coins = data.trading_coins
     db.commit()
     return {"message": "استراتژی با موفقیت ذخیره شد"}
 

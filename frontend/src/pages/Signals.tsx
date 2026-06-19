@@ -47,6 +47,7 @@ export default function Signals() {
   const [generating, setGenerating] = useState(false)
   const [testResult, setTestResult] = useState<any>(null)
   const [adminPlans, setAdminPlans] = useState<Plan[]>([])
+  const [availableCoins, setAvailableCoins] = useState<string[]>([])
 
   const load = useCallback(async () => {
     try {
@@ -66,16 +67,27 @@ export default function Signals() {
   const loadAdmin = useCallback(async () => {
     if (!isSuperAdmin) return
     try {
-      const [st, su, pl] = await Promise.all([
+      const [st, su, pl, co] = await Promise.all([
         api.get('/signals/admin/settings'),
         api.get<AdminSub[]>('/signals/admin/subscriptions'),
         api.get<Plan[]>('/signals/admin/plans'),
+        api.get<{ coins: string[] }>('/signals/admin/available-coins'),
       ])
       setAdminSettings(st.data)
       setAdminSubs(su.data || [])
       setAdminPlans(pl.data || [])
+      setAvailableCoins(co.data?.coins || [])
     } catch { /* ignore */ }
   }, [isSuperAdmin])
+
+  const selectedCoins = () => (adminSettings?.signal_coins || '').split(',').map((c: string) => c.trim().toUpperCase()).filter(Boolean)
+  const toggleSignalCoin = (coin: string) => {
+    const cur = selectedCoins()
+    const next = cur.includes(coin) ? cur.filter((c: string) => c !== coin) : [...cur, coin]
+    setAdminSettings({ ...adminSettings, signal_coins: next.join(',') })
+  }
+  const selectAllCoins = () => setAdminSettings({ ...adminSettings, signal_coins: availableCoins.join(',') })
+  const clearCoins = () => setAdminSettings({ ...adminSettings, signal_coins: '' })
 
   const setPlanField = (idx: number, field: string, value: any) => {
     setAdminPlans(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
@@ -303,8 +315,25 @@ export default function Signals() {
                   <input style={inputStyle} value={adminSettings.bale_channel_id} onChange={e => setAdminSettings({ ...adminSettings, bale_channel_id: e.target.value })} dir="ltr" /></div>
                 <div><div style={label}>مرچنت‌آیدی زرین‌پال (اختیاری)</div>
                   <input style={inputStyle} value={adminSettings.zarinpal_merchant_id} onChange={e => setAdminSettings({ ...adminSettings, zarinpal_merchant_id: e.target.value })} dir="ltr" /></div>
-                <div><div style={label}>ارزهای تولید سیگنال (با کاما)</div>
-                  <input style={inputStyle} value={adminSettings.signal_coins} onChange={e => setAdminSettings({ ...adminSettings, signal_coins: e.target.value })} dir="ltr" placeholder="BTC,ETH,XRP" /></div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div style={label}>ارزهای تولید سیگنال ({selectedCoins().length} انتخاب‌شده)</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button type="button" onClick={selectAllCoins} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' }}>انتخاب همه</button>
+                      <button type="button" onClick={clearCoins} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' }}>پاک کردن</button>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, maxHeight: 150, overflowY: 'auto', padding: 8, background: 'var(--bg2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                    {availableCoins.map(coin => {
+                      const on = selectedCoins().includes(coin)
+                      return (
+                        <span key={coin} onClick={() => toggleSignalCoin(coin)} style={{ cursor: 'pointer', userSelect: 'none', padding: '5px 10px', borderRadius: 999, fontSize: 12, fontFamily: "'JetBrains Mono'", border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'color-mix(in srgb, var(--accent) 18%, transparent)' : 'transparent', color: on ? 'var(--accent)' : 'var(--dim)' }}>
+                          {on ? '✓ ' : ''}{coin}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
                 <div><div style={label}>سیگنال هر چند دقیقه (تلگرام + بله)</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>
                 <div><div style={label}>محتوای تحلیلی هر چند ساعت (تلگرام + بله)</div>

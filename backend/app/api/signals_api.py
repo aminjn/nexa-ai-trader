@@ -362,6 +362,23 @@ class SignalSettingsRequest(BaseModel):
     support_contact: Optional[str] = None
 
 
+# ارزهای رایج نوبیتکس برای انتخاب در لیست
+AVAILABLE_COINS = [
+    "BTC", "ETH", "USDT", "XRP", "ADA", "DOGE", "LTC", "TRX", "BCH", "BNB",
+    "SOL", "DOT", "AVAX", "MATIC", "SHIB", "LINK", "UNI", "ATOM", "FIL", "ETC",
+    "XLM", "NEAR", "AAVE", "GRT", "SAND", "MANA", "FTM", "GALA", "AXS", "APE",
+    "GMT", "CRV", "COMP", "MKR", "1INCH", "ENS", "SNX", "IMX", "FLOW", "CHZ",
+    "ENJ", "BAT", "QNT", "LDO", "ARB", "OP", "APT", "FET", "TON", "NOT",
+    "PEPE", "WLD", "FLOKI", "INJ", "DYDX",
+]
+
+
+@router.get("/admin/available-coins")
+async def available_coins(current_user: models.User = Depends(get_current_user)):
+    _admin(current_user)
+    return {"coins": AVAILABLE_COINS}
+
+
 @router.get("/admin/settings")
 async def admin_get_settings(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     _admin(current_user)

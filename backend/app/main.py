@@ -190,6 +190,49 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE scrape_sources ADD COLUMN items JSON"))
 
 
+def backfill_trade_pnl():
+    """معاملات بسته‌شدهٔ قدیمی را به سود/زیانِ خالصِ پس از کمیسیون بازمحاسبه می‌کند،
+    تا داشبورد/تاریخچه/گزارش با کیف‌پول یکدست شوند. فقط معاملاتی که هنوز کارمزدشان
+    ثبت نشده (fee_toman=0) و قیمت خروج دارند را به‌روزرسانی می‌کند."""
+    db = SessionLocal()
+    try:
+        rows = db.query(models.Trade).filter(
+            models.Trade.status == "closed",
+            models.Trade.exit_price.isnot(None),
+        ).all()
+        fee_cache = {}
+        changed = 0
+        for t in rows:
+            if (t.fee_toman or 0) > 0:
+                continue  # قبلاً به‌صورت خالص ثبت شده
+            if not t.entry_price or not t.exit_price or not t.amount:
+                continue
+            uid = t.user_id
+            if uid not in fee_cache:
+                u = db.query(models.User).filter(models.User.id == uid).first()
+                fee_cache[uid] = (getattr(u, "fee_pct", 0.25) or 0.25)
+            fee_pct = fee_cache[uid]
+            q = (t.pair.split("/")[-1].upper() if t.pair and "/" in t.pair else "")
+            div = 10.0 if q in ("RLS", "IRR", "IRT") else 1.0
+            cost = t.entry_price * t.amount / div
+            proceeds = t.exit_price * t.amount / div
+            fee = (cost + proceeds) * fee_pct / 100.0
+            net = proceeds - cost - fee
+            t.cost_toman = round(cost, 2)
+            t.proceeds_toman = round(proceeds, 2)
+            t.fee_toman = round(fee, 2)
+            t.pnl = round(net, 2)
+            t.pnl_pct = round(net / cost * 100.0, 3) if cost else 0
+            changed += 1
+        if changed:
+            db.commit()
+            print(f"✅ backfilled net P/L (incl. commission) for {changed} trades")
+    except Exception as e:
+        print(f"⚠️ trade pnl backfill warning: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables
@@ -200,6 +243,11 @@ async def lifespan(app: FastAPI):
         ensure_columns()
     except Exception as e:
         print(f"⚠️ migration warning: {e}")
+
+    try:
+        backfill_trade_pnl()
+    except Exception as e:
+        print(f"⚠️ backfill warning: {e}")
 
     # Create super admin if not exists
     db = SessionLocal()

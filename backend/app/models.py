@@ -185,6 +185,9 @@ class SystemSettings(Base):
     ippanel_from_number = Column(String, default="")    # شمارهٔ فرستنده (مثلاً +983000505)
     ippanel_param_name = Column(String, default="code") # نام متغیر کد در الگو
     sms_login_enabled = Column(Boolean, default=False)  # ارسال واقعی پیامک فعال است؟
+    # کلیدهای Web Push (VAPID) — یک‌بار خودکار ساخته می‌شوند
+    vapid_public_key = Column(Text, default="")
+    vapid_private_key = Column(Text, default="")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -253,6 +256,18 @@ class TradingPlan(Base):
     features = Column(JSON, default=list)              # لیست امکانات (نمایشی)
     active = Column(Boolean, default=True)
     sort = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PushSubscription(Base):
+    """اشتراک Web Push مرورگر/PWA کاربر (برای پوشِ واقعی روی گوشی حتی با اپِ بسته)."""
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    endpoint = Column(Text, unique=True)
+    p256dh = Column(String)
+    auth = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import api from '../lib/api'
-import { showDeviceNotification, getLastSeenId, setLastSeenId } from '../lib/push'
+import { showDeviceNotification, getLastSeenId, setLastSeenId, subscribeToPush } from '../lib/push'
 
 interface Notif { id: number; type: string; title: string; message: string; link: string; read: boolean; created_at: string | null }
 
@@ -30,6 +30,12 @@ export default function NotificationBell() {
   }, [])
 
   useEffect(() => { load(); const id = setInterval(load, 20000); return () => clearInterval(id) }, [load])
+  // اگر اجازهٔ اعلان قبلاً داده شده، اشتراک Web Push را تضمین کن (برای پوشِ گوشی)
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      subscribeToPush().catch(() => {})
+    }
+  }, [])
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h)

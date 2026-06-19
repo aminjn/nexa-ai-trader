@@ -50,6 +50,38 @@ async def mark_read(nid: int, db: Session = Depends(get_db), current_user: model
     return {"message": "خوانده شد"}
 
 
+# ───────────────────────── Web Push (PWA/موبایل) ─────────────────────────
+
+@router.get("/vapid-public-key")
+async def vapid_public_key(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    from ..push_web import ensure_vapid_keys
+    pub, _ = ensure_vapid_keys(db)
+    return {"key": pub}
+
+
+class PushSub(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+
+
+@router.post("/subscribe")
+async def subscribe_push(req: PushSub, db: Session = Depends(get_db),
+                         current_user: models.User = Depends(get_current_user)):
+    """اشتراک Web Push مرورگر را ذخیره می‌کند (برای پوشِ واقعی روی گوشی)."""
+    existing = db.query(models.PushSubscription).filter(
+        models.PushSubscription.endpoint == req.endpoint).first()
+    if existing:
+        existing.user_id = current_user.id
+        existing.p256dh = req.p256dh
+        existing.auth = req.auth
+    else:
+        db.add(models.PushSubscription(user_id=current_user.id, endpoint=req.endpoint,
+                                       p256dh=req.p256dh, auth=req.auth))
+    db.commit()
+    return {"message": "ثبت شد"}
+
+
 # ───────────────────────── سوپر ادمین: ارسال اعلان به کاربران ─────────────────────────
 
 class BroadcastRequest(BaseModel):
@@ -75,7 +107,15 @@ async def broadcast(req: BroadcastRequest, db: Session = Depends(get_db),
                                    title=req.title, message=req.message, link=req.link))
     db.commit()
 
-    # ۲) پیام تلگرام/بله برای کاربرانِ متصل → اعلان واقعی روی گوشی
+    # ۲) Web Push برای دستگاه‌های ثبت‌شده (اعلانِ واقعی روی گوشی حتی با اپِ بسته)
+    push = 0
+    try:
+        from ..push_web import push_to_users
+        push = push_to_users(db, [u.id for u in users], req.title, req.message, req.link)
+    except Exception:
+        push = 0
+
+    # ۳) پیام تلگرام/بله برای کاربرانِ متصل → اعلان واقعی روی گوشی
     tg = bale = 0
     if req.send_telegram:
         from ..signals.notifier import send_telegram, send_bale
@@ -92,4 +132,4 @@ async def broadcast(req: BroadcastRequest, db: Session = Depends(get_db),
                     bale += 1
 
     return {"message": f"اعلان برای {len(users)} کاربر ارسال شد",
-            "users": len(users), "telegram": tg, "bale": bale}
+            "users": len(users), "telegram": tg, "bale": bale, "push": push}

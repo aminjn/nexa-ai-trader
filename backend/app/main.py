@@ -32,6 +32,10 @@ def ensure_columns():
     if "system_settings" in tables:
         cols = {c["name"] for c in inspector.get_columns("system_settings")}
         with engine.begin() as conn:
+            if "vapid_public_key" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN vapid_public_key TEXT DEFAULT ''"))
+            if "vapid_private_key" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN vapid_private_key TEXT DEFAULT ''"))
             if "gapgpt_api_key" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN gapgpt_api_key VARCHAR DEFAULT ''"))
             if "gapgpt_model" not in cols:
@@ -248,6 +252,16 @@ async def lifespan(app: FastAPI):
         backfill_trade_pnl()
     except Exception as e:
         print(f"⚠️ backfill warning: {e}")
+
+    # ساخت کلیدهای VAPID برای Web Push (یک‌بار)
+    db = SessionLocal()
+    try:
+        from .push_web import ensure_vapid_keys
+        ensure_vapid_keys(db)
+    except Exception as e:
+        print(f"⚠️ vapid warning: {e}")
+    finally:
+        db.close()
 
     # Create super admin if not exists
     db = SessionLocal()

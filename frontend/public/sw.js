@@ -14,6 +14,22 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
+// دریافت Web Push (حتی وقتی اپ بسته است) → نمایش اعلان
+self.addEventListener('push', (e) => {
+  let data = { title: 'NEXA AI', body: '', url: '/notifications' };
+  try { if (e.data) data = Object.assign(data, e.data.json()); } catch (_) {
+    try { data.body = e.data ? e.data.text() : ''; } catch (__) {}
+  }
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'NEXA AI', {
+      body: data.body || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url || '/notifications' },
+    })
+  );
+});
+
 // کلیک روی اعلان دستگاه → باز کردن مسیر مرتبط
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();

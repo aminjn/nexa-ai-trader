@@ -21,13 +21,16 @@ def get_ai_config(db=None) -> Dict[str, str]:
 
 def make_client(api_key: str, timeout: float = 60.0) -> AsyncOpenAI:
     """کلاینت گپ‌جی‌پی‌تی را می‌سازد و در صورت تنظیم بودن، از پروکسی استفاده می‌کند."""
+    # تایم‌اوت تفکیک‌شده: اتصال/handshake نباید بیش از ۱۵ ثانیه طول بکشد تا
+    # اگر پروکسی در مرحله TLS گیر کرد، به‌جای هنگ کردن نامحدود، سریع خطا بدهد.
+    tmo = httpx.Timeout(timeout, connect=15.0, read=timeout, write=15.0, pool=15.0)
     http_client = None
     if settings.GAPGPT_PROXY:
-        http_client = httpx.AsyncClient(proxy=settings.GAPGPT_PROXY, timeout=timeout)
+        http_client = httpx.AsyncClient(proxy=settings.GAPGPT_PROXY, timeout=tmo)
     return AsyncOpenAI(
         api_key=api_key or "placeholder",
         base_url=settings.GAPGPT_BASE_URL,
-        timeout=timeout,
+        timeout=tmo,
         http_client=http_client,
     )
 

@@ -215,6 +215,13 @@ def run_backtest_sync(threshold: float = None, fee_pct: float = 0.25,
     peak = np.maximum.accumulate(equity)
     max_dd = float(((equity - peak) / peak).min() * 100) if len(equity) else 0.0
 
+    # محافظِ سوددهی: انتظارِ سودِ هر معامله را ثبت کن تا بات قبل از ورود چک کند
+    try:
+        from ..trading.guard import set_expectancy
+        set_expectancy(float(arr.mean()) * 100, int(len(arr)))
+    except Exception:
+        pass
+
     return {
         "threshold": round(thr * 100, 1),
         "fee_pct": fee_pct,

@@ -257,6 +257,24 @@ async def backtest_sweep(fee_pct: float = 0.25,
     return result
 
 
+@router.get("/guard")
+async def get_guard_status(db: Session = Depends(get_db),
+                           current_user: models.User = Depends(get_superadmin)):
+    """وضعیتِ محافظِ سوددهی: انتظارِ سودِ آخرین بک‌تست و اینکه بات اجازهٔ معاملهٔ واقعی دارد یا نه."""
+    from ..trading.guard import get_guard
+    return get_guard()
+
+
+@router.post("/guard")
+async def set_guard_override(override: bool = False,
+                             db: Session = Depends(get_db),
+                             current_user: models.User = Depends(get_superadmin)):
+    """سوپر ادمین می‌تواند محافظ را دور بزند (معامله با وجود بک‌تستِ ضرده)."""
+    from ..trading.guard import set_override, get_guard
+    set_override(override)
+    return get_guard()
+
+
 async def auto_retrain_loop(interval_hours: float = 6.0):
     """هر چند ساعت یک‌بار مدل را با داده‌ی به‌روز دوباره آموزش می‌دهد."""
     while True:

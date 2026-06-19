@@ -267,6 +267,16 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             # جهت را ML تعیین می‌کند
             if ml_signal["signal"] != "BUY":
                 continue
+            # ── محافظِ سوددهی: اگر آخرین بک‌تست ضرده بود، معاملهٔ واقعی باز نکن ──
+            from .guard import is_live_trading_allowed, get_guard
+            if not is_live_trading_allowed():
+                g = get_guard()
+                log_bot_event(
+                    f"🛡️ {pair}: محافظ سوددهی فعال — انتظارِ سودِ آخرین بک‌تست "
+                    f"({g['expectancy_pct']}٪) منفی است؛ معاملهٔ واقعی باز نشد. "
+                    f"سوپر ادمین می‌تواند در صفحهٔ مدل override کند.",
+                    level="warn", user_id=user.id)
+                continue
             # سقف معاملهٔ روزانهٔ پلن (مثلاً پلن ۳ روزه: ۵ معامله در روز)
             from .access import can_open_new_trade
             if not can_open_new_trade(db, user):

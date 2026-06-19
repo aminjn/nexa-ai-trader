@@ -93,7 +93,10 @@ async def generate_market_content(db) -> str:
                 "خبرها را خودت خلاصه کن، جمله ناقص نگذار، قول سود تضمینی نده. "
                 "در پایان یک خط «— کانال رسمی NEXA AI» بگذار.\n\n" + ctx
             )
-            resp = await get_ai_response([{"role": "user", "content": prompt}], db=db)
+            resp = await asyncio.wait_for(
+                get_ai_response([{"role": "user", "content": prompt}], db=db),
+                timeout=40,
+            )
             if resp and len(resp.strip()) > 30:
                 return resp.strip()[:3500]
     except Exception:

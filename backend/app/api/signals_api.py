@@ -411,10 +411,20 @@ async def admin_generate_now(db: Session = Depends(get_db), current_user: models
 
 
 @router.post("/admin/publish-now")
-async def admin_publish_now(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def admin_publish_now(current_user: models.User = Depends(get_current_user)):
     _admin(current_user)
+    import asyncio
+    from ..database import SessionLocal
     from ..signals.content import publish_content
-    ok = await publish_content(db)
-    if ok:
-        return {"message": "محتوا در کانال‌ها منتشر شد"}
-    return {"message": "ارسال نشد — توکن ربات و آی‌دی کانال را بررسی کنید"}
+
+    async def _bg():
+        db2 = SessionLocal()
+        try:
+            await publish_content(db2)
+        except Exception as e:
+            print(f"⚠️ publish-now bg: {e}")
+        finally:
+            db2.close()
+
+    asyncio.create_task(_bg())
+    return {"message": "در حال آماده‌سازی و انتشار محتوا... چند لحظه دیگر کانال را بررسی کن"}

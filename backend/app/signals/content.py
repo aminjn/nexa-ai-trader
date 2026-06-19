@@ -20,6 +20,19 @@ def _fmt(n: float) -> str:
         return str(n)
 
 
+def _clean_cut(text: str, limit: int) -> str:
+    """متن را در مرز جمله (نقطه/خط‌جدید) می‌بُرد تا نصفه نماند."""
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    for sep in ("。", ".", "؟", "!", "\n", "،"):
+        idx = cut.rfind(sep)
+        if idx > limit * 0.5:
+            return cut[:idx + 1].strip() + " …"
+    return cut.strip() + " …"
+
+
 async def generate_market_content(db) -> str:
     srow = db.query(models.SystemSettings).first()
     coins_raw = (srow.signal_coins if srow else "") or "BTC,ETH"
@@ -27,8 +40,9 @@ async def generate_market_content(db) -> str:
 
     ex = NobitexExchange("")
     trainer = get_trainer()
-    lines = [f"📈 <b>تحلیل بازار NEXA AI</b> — {datetime.utcnow().strftime('%Y/%m/%d')}", ""]
 
+    # ── جمع‌آوری داده‌ها ──
+    coin_lines = []
     for coin in coins:
         try:
             pair = f"{coin}/RLS"
@@ -45,33 +59,54 @@ async def generate_market_content(db) -> str:
                     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
                     ml = trainer.predict(df)
                     side = {"BUY": "🟢 خرید", "SELL": "🔴 فروش", "WAIT": "⏳ صبر"}.get(ml.get("signal"), "—")
-            lines.append(f"• <b>{coin}</b>: {_fmt(toman)} تومان | سیگنال: {side}")
+            coin_lines.append(f"• <b>{coin}</b>: {_fmt(toman)} تومان | سیگنال: {side}")
         except Exception:
             continue
 
-    # فاندامنتال
+    fund_summary = ""
     try:
         from ..ai.fundamental import get_fundamental
         f = await get_fundamental(db, ex)
-        if f.get("summary"):
-            lines.append("")
-            lines.append("🌍 <b>فاندامنتال:</b> " + f["summary"])
+        fund_summary = f.get("summary", "") or ""
     except Exception:
         pass
 
-    # سرتیتر اخبار اسکرپ‌شده
+    news = ""
     try:
         from ..scraping.scraper import collect_scraped_context
-        news = collect_scraped_context(db, max_chars=600)
-        if news:
-            lines.append("")
-            lines.append("📰 <b>از اخبار:</b>")
-            lines.append(news[:600])
+        news = collect_scraped_context(db, max_chars=1500)
     except Exception:
         pass
 
-    lines.append("")
-    lines.append("— کانال رسمی NEXA AI")
+    # ── اگر کلید هوش مصنوعی هست، یک پست تمیز و کامل بنویس ──
+    try:
+        from ..ai.gapgpt import get_ai_response, get_ai_config
+        if srow and get_ai_config(db).get("api_key"):
+            ctx = "قیمت و سیگنال ارزها:\n" + "\n".join(coin_lines)
+            if fund_summary:
+                ctx += "\n\nتحلیل فاندامنتال: " + fund_summary
+            if news:
+                ctx += "\n\nاخبار خام (خلاصه کن): " + news[:1200]
+            prompt = (
+                "تو تولیدکننده محتوای کانال «NEXA AI» (سیگنال و تحلیل رمزارز) هستی. "
+                "از داده‌های زیر یک پست کوتاه، روان و کامل فارسی برای کانال بنویس (حداکثر ۶ خط). "
+                "خبرها را خودت خلاصه کن، جمله ناقص نگذار، قول سود تضمینی نده. "
+                "در پایان یک خط «— کانال رسمی NEXA AI» بگذار.\n\n" + ctx
+            )
+            resp = await get_ai_response([{"role": "user", "content": prompt}], db=db)
+            if resp and len(resp.strip()) > 30:
+                return resp.strip()[:3500]
+    except Exception:
+        pass
+
+    # ── حالت پشتیبان: متن ساختاریافته با برش تمیز ──
+    lines = [f"📈 <b>تحلیل بازار NEXA AI</b> — {datetime.utcnow().strftime('%Y/%m/%d')}", ""]
+    lines += coin_lines
+    if fund_summary:
+        lines += ["", "🌍 <b>فاندامنتال:</b> " + _clean_cut(fund_summary, 400)]
+    if news:
+        lines += ["", "📰 <b>از اخبار:</b>", _clean_cut(news, 700)]
+    lines += ["", "— کانال رسمی NEXA AI"]
     return "\n".join(lines)
 
 

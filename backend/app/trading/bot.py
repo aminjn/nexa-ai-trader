@@ -152,15 +152,20 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             # ── معامله باز موجود؟ بررسی شرایط خروج ──
             open_trade = find_open(base_code)
             if open_trade:
-                change_pct = (current_price - open_trade.entry_price) / open_trade.entry_price * 100
+                gross_pct = (current_price - open_trade.entry_price) / open_trade.entry_price * 100
+                # کارمزد رفت‌وبرگشت نوبیتکس (خرید + فروش) از سود/زیان کم می‌شود
+                round_trip_fee = 2 * (getattr(user, "fee_pct", 0.2) or 0.0)
+                change_pct = gross_pct - round_trip_fee  # سود/زیان خالص پس از کارمزد
                 reason = None
                 if change_pct >= user.target_profit:
-                    reason = f"هدف سود ({change_pct:+.2f}٪)"
+                    reason = f"هدف سود (خالص {change_pct:+.2f}٪ پس از کارمزد)"
                 elif change_pct <= -user.stop_loss:
-                    reason = f"حد ضرر ({change_pct:+.2f}٪)"
+                    reason = f"حد ضرر (خالص {change_pct:+.2f}٪)"
                 elif (getattr(user, "ml_exit_enabled", False) and ml_signal
-                      and ml_signal["signal"] == "SELL" and ml_conf >= trainer.confidence_threshold):
-                    reason = f"سیگنال فروش ML (اطمینان {ml_conf*100:.0f}٪ | سود/زیان {change_pct:+.2f}٪)"
+                      and ml_signal["signal"] == "SELL" and ml_conf >= trainer.confidence_threshold
+                      and change_pct > 0):
+                    # خروج با سیگنال ML فقط وقتی پس از کارمزد همچنان سودده است
+                    reason = f"سیگنال فروش ML (سود خالص {change_pct:+.2f}٪)"
 
                 if reason:
                     # مقدار قابل‌فروش = کمینه‌ی مقدار ثبت‌شده و موجودی واقعی کیف‌پول.
@@ -182,8 +187,9 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     try:
                         await exchange.create_market_order(pair, "sell", sell_amount)
                         open_trade.exit_price = current_price
+                        # سود/زیان خالص (پس از کسر کارمزد رفت‌وبرگشت)
                         open_trade.pnl_pct = round(change_pct, 3)
-                        open_trade.pnl = round((current_price - open_trade.entry_price) * sell_amount, 2)
+                        open_trade.pnl = round((change_pct / 100.0) * open_trade.entry_price * sell_amount, 2)
                         open_trade.status = "closed"
                         open_trade.closed_at = datetime.utcnow()
                         db.commit()

@@ -21,6 +21,7 @@ class StrategyUpdate(BaseModel):
     ai_trading_enabled: bool = True
     ml_exit_enabled: bool = False
     trading_coins: str = "BTC,ETH"
+    fee_pct: float = 0.2
 
 
 @router.get("/")
@@ -39,6 +40,7 @@ async def get_strategy(
         "ai_trading_enabled": current_user.ai_trading_enabled,
         "ml_exit_enabled": current_user.ml_exit_enabled,
         "trading_coins": current_user.trading_coins,
+        "fee_pct": current_user.fee_pct,
         "bot_active": current_user.bot_active,
     }
 
@@ -60,6 +62,7 @@ async def update_strategy(
     current_user.ml_exit_enabled = data.ml_exit_enabled
     if data.trading_coins is not None:
         current_user.trading_coins = data.trading_coins
+    current_user.fee_pct = data.fee_pct
     db.commit()
     return {"message": "استراتژی با موفقیت ذخیره شد"}
 

@@ -30,6 +30,8 @@ class User(Base):
     ml_exit_enabled = Column(Boolean, default=False)
     # ارزهایی که ربات روی آن‌ها معامله می‌کند (با کاما)
     trading_coins = Column(String, default="BTC,ETH,XRP,ADA,DOGE,LTC,TRX,BCH,BNB,SOL,DOT,AVAX,MATIC,SHIB,LINK,UNI,ATOM,FIL,ETC,XLM")
+    # درصد کارمزد نوبیتکس برای هر طرف معامله (خرید/فروش) — در محاسبه سود/ضرر لحاظ می‌شود
+    fee_pct = Column(Float, default=0.2)
 
     # شناسه‌های پیام‌رسان برای دریافت سیگنال (هر کاربر آی‌دی عددی خودش را وصل می‌کند)
     telegram_chat_id = Column(String, default="")

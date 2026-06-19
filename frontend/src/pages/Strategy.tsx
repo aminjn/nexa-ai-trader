@@ -62,7 +62,6 @@ export default function Strategy() {
         stop_loss: stopLoss,
         ml_exit_enabled: mlExit,
         trading_coins: tradingCoins,
-        fee_pct: feePct,
       })
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
@@ -245,14 +244,13 @@ export default function Strategy() {
                 placeholder="BTC,ETH,XRP,ADA,..."
                 style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: "'JetBrains Mono', monospace" }}
               />
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>کارمزد هر معامله در نوبیتکس (٪)</div>
-                <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.9, marginBottom: 8 }}>
-                  کارمزد <b>تیکرِ بازار تومانی</b> (ربات با سفارش بازار معامله می‌کند). ربات کارمزد رفت‌وبرگشت ({(feePct * 2).toFixed(2)}٪) را در سود/زیان لحاظ می‌کند تا معامله‌ای را که کارمزدش از سودش بیشتر است نبندد.<br/>
-                  <span style={{ color: 'var(--faint)' }}>پله‌های نوبیتکس (تیکر تومانی): پایه <b>۰.۲۵</b> · VIP1 ۰.۲ · VIP2 ۰.۱۹ · VIP3 ۰.۱۷۵ · VIP4 ۰.۱۵۵ · VIP5 ۰.۱۴۵ · VIP6 ۰.۱۳۵ — طبق حجم ۳۰ روزه‌ات انتخاب کن.</span>
+              <div style={{ marginTop: 16, padding: 14, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>💸 کارمزد نوبیتکس (خودکار)</div>
+                <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.9 }}>
+                  کارمزد فعلی: <b style={{ color: 'var(--accent)', fontFamily: "'JetBrains Mono'" }}>{(feePct || 0.25)}٪</b> هر طرف
+                  {' '}(رفت‌وبرگشت {((feePct || 0.25) * 2).toFixed(2)}٪).<br/>
+                  این مقدار **خودکار** از حجم معاملات ۳۰ روزه‌ات در نوبیتکس تشخیص داده و در سود/زیان ربات لحاظ می‌شود. مدیریت و آمار کمیسیون (روزانه/هفتگی/ماهانه) را در <b>داشبورد، کارت «کمیسیون نوبیتکس»</b> ببین.
                 </div>
-                <input type="number" step={0.01} min={0} value={feePct} onChange={e => setFeePct(Number(e.target.value))}
-                  dir="ltr" style={{ width: 160, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: "'JetBrains Mono', monospace" }} />
               </div>
             </div>
 

@@ -62,7 +62,7 @@ async def update_strategy(
     current_user.ml_exit_enabled = data.ml_exit_enabled
     if data.trading_coins is not None:
         current_user.trading_coins = data.trading_coins
-    current_user.fee_pct = data.fee_pct
+    # توجه: fee_pct دستی ذخیره نمی‌شود؛ سیستم هوشمند کمیسیون آن را خودکار از حجم معاملات تنظیم می‌کند
     db.commit()
     return {"message": "استراتژی با موفقیت ذخیره شد"}
 

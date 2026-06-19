@@ -153,8 +153,8 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             open_trade = find_open(base_code)
             if open_trade:
                 gross_pct = (current_price - open_trade.entry_price) / open_trade.entry_price * 100
-                # کارمزد رفت‌وبرگشت نوبیتکس (خرید + فروش) از سود/زیان کم می‌شود
-                round_trip_fee = 2 * (getattr(user, "fee_pct", 0.2) or 0.0)
+                # کارمزد رفت‌وبرگشت نوبیتکس (خرید + فروش) از سود/زیان کم می‌شود (اگر صفر بود، حداقل ۰.۲۵٪ پایه)
+                round_trip_fee = 2 * (getattr(user, "fee_pct", 0.25) or 0.25)
                 change_pct = gross_pct - round_trip_fee  # سود/زیان خالص پس از کارمزد
                 reason = None
                 if change_pct >= user.target_profit:

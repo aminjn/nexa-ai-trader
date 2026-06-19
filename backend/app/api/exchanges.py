@@ -43,6 +43,13 @@ async def add_exchange(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    # دروازه‌بانی: اتصال API شخصی فقط برای پلن‌هایی که اجازه دارند
+    from ..trading.access import can_use_own_api
+    if not can_use_own_api(db, current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="اتصال API شخصی فقط با پلن فعالِ دارای این امکان ممکن است. لطفاً پلن مناسب را تهیه کنید.",
+        )
     # Test connection
     try:
         exch = get_exchange(req.exchange_name, req.api_key, req.api_secret)

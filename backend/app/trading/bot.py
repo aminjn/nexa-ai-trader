@@ -42,6 +42,14 @@ async def run_user_bot(user_id: int):
             if not user or not user.bot_active:
                 break
 
+            # دروازه‌بانی پلن: اگر اشتراک فعال نباشد (یا منقضی شده باشد) ربات خاموش می‌شود
+            from .access import has_access
+            if not has_access(db, user):
+                user.bot_active = False
+                db.commit()
+                log_bot_event("⛔ ربات متوقف شد: اشتراک فعالی وجود ندارد یا منقضی شده است", "error")
+                break
+
             exchanges = db.query(models.ExchangeAPI).filter(
                 models.ExchangeAPI.user_id == user_id,
                 models.ExchangeAPI.is_active == True,
@@ -231,6 +239,11 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
 
             # جهت را ML تعیین می‌کند
             if ml_signal["signal"] != "BUY":
+                continue
+            # سقف معاملهٔ روزانهٔ پلن (مثلاً پلن ۳ روزه: ۵ معامله در روز)
+            from .access import can_open_new_trade
+            if not can_open_new_trade(db, user):
+                log_bot_event(f"🚦 {pair}: به سقف معاملهٔ روزانهٔ پلن رسیده‌اید — معاملهٔ جدید باز نمی‌شود")
                 continue
             # آستانه نهایی روی اطمینان تعدیل‌شده اعمال می‌شود
             if adj_conf < trainer.confidence_threshold:

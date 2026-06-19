@@ -14,6 +14,7 @@ from .api.ai_api import router as ai_router
 from .api.admin import router as admin_router
 from .api.scraper_api import router as scraper_router
 from .api.signals_api import router as signals_router
+from .api.trading_plans import router as trading_plans_router
 from .auth.service import create_user, get_user_by_email
 from .database import SessionLocal
 from .config import settings
@@ -186,6 +187,38 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
+    # ساخت پلن‌های پیش‌فرض ربات معامله‌گر (اگر وجود نداشته باشند)
+    db = SessionLocal()
+    try:
+        if db.query(models.TradingPlan).count() == 0:
+            db.add_all([
+                models.TradingPlan(
+                    name="آزمایشی ۳ روزه", plan_type="self_api", duration_days=3,
+                    price_toman=0, max_trades_per_day=5, allow_own_api=True,
+                    commission_tiers=[], sort=0,
+                    description="۳ روز معامله با ربات روی حساب خودتان (API شخصی)، حداکثر ۵ معامله در روز",
+                    features=["اتصال API شخصی", "حداکثر ۵ معامله در روز", "اعتبار ۳ روزه"]),
+                models.TradingPlan(
+                    name="ماهانه کامل", plan_type="self_api", duration_days=30,
+                    price_toman=10000000, max_trades_per_day=0, allow_own_api=True,
+                    commission_tiers=[], sort=1,
+                    description="یک ماه دسترسی کامل با همهٔ امکانات روی حساب خودتان",
+                    features=["اتصال API شخصی", "معاملهٔ نامحدود", "همهٔ امکانات", "اعتبار ۳۰ روزه"]),
+                models.TradingPlan(
+                    name="مدیریت‌شده (VIP)", plan_type="managed", duration_days=30,
+                    price_toman=0, max_trades_per_day=0, allow_own_api=False,
+                    commission_tiers=[{"min_toman": 100000000, "pct": 10}, {"min_toman": 0, "pct": 20}],
+                    sort=2,
+                    description="واریز به حساب ما و معاملهٔ ما به‌جای شما؛ کارمزد پله‌ای از سود (بالای ۱۰۰م: ۱۰٪، زیر آن: ۲۰٪)",
+                    features=["واریز به حساب ما", "مدیریت کامل توسط NEXA", "کارمزد فقط از سود", "پله‌ای بر اساس واریزی"]),
+            ])
+            db.commit()
+            print("✅ Default trading plans created")
+    except Exception as e:
+        print(f"⚠️ trading plan seed warning: {e}")
+    finally:
+        db.close()
+
     # راه‌اندازی مجدد ربات‌های فعال پس از ری‌استارت سرور
     db = SessionLocal()
     try:
@@ -242,6 +275,7 @@ app.include_router(ai_router)
 app.include_router(admin_router)
 app.include_router(scraper_router)
 app.include_router(signals_router)
+app.include_router(trading_plans_router)
 
 
 @app.get("/")

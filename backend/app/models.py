@@ -202,6 +202,49 @@ class Subscription(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class TradingPlan(Base):
+    """پلن دسترسی به ربات معامله‌گر (جدا از پلن سیگنال).
+
+    دو نوع:
+    - self_api: کاربر کلید API نوبیتکس خودش را وصل می‌کند؛ تعداد معاملهٔ روزانه محدود؛ هزینهٔ ثابت.
+    - managed: کاربر پول را به حساب نوبیتکسِ ما واریز می‌کند؛ ما معامله می‌کنیم؛
+      کارمزد درصدی بر اساس مبلغ واریزی (پله‌ای) از سود گرفته می‌شود.
+    """
+    __tablename__ = "trading_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)                              # نام نمایشی فارسی
+    plan_type = Column(String, default="self_api")     # self_api | managed
+    duration_days = Column(Integer, default=30)        # طول اعتبار پلن
+    price_toman = Column(Integer, default=0)           # هزینهٔ اشتراک (کارت‌به‌کارت به ما)
+    max_trades_per_day = Column(Integer, default=0)    # سقف معاملهٔ روزانه (۰ = نامحدود)
+    allow_own_api = Column(Boolean, default=True)      # کاربر API خودش را وصل کند؟
+    # پله‌های کارمزدِ سود بر اساس مبلغ واریزی (برای managed):
+    # [{"min_toman": 100000000, "pct": 10}, {"min_toman": 0, "pct": 20}]
+    commission_tiers = Column(JSON, default=list)
+    description = Column(Text, default="")
+    features = Column(JSON, default=list)              # لیست امکانات (نمایشی)
+    active = Column(Boolean, default=True)
+    sort = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TradingSubscription(Base):
+    """اشتراک ربات معامله‌گر برای هر کاربر."""
+    __tablename__ = "trading_subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    plan_id = Column(Integer, ForeignKey("trading_plans.id"))
+    status = Column(String, default="pending")          # pending | active | expired | rejected
+    deposit_toman = Column(Integer, default=0)          # مبلغ واریزی کاربر (managed — ادمین ثبت می‌کند)
+    commission_settled_toman = Column(Integer, default=0)  # کارمزد سود تسویه‌شده تا کنون
+    note = Column(String, default="")
+    start_at = Column(DateTime, nullable=True)
+    end_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Signal(Base):
     __tablename__ = "signals"
 

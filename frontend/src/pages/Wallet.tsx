@@ -23,8 +23,13 @@ function fileToDataUri(file: File): Promise<string> {
   return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = rej; r.readAsDataURL(file) })
 }
 
+interface TradeRow { id: number; pair: string; cost_toman: number; proceeds_toman: number; fee_toman: number; net_pnl: number; pnl_pct: number; closed_at: string | null }
+interface TradesData { share_based: boolean; trades: TradeRow[]; totals: { cost: number; proceeds: number; fee: number; net: number } }
+
 export default function Wallet() {
   const [w, setW] = useState<WalletData | null>(null)
+  const [tab, setTab] = useState<'wallet' | 'trades'>('wallet')
+  const [td, setTd] = useState<TradesData | null>(null)
   const [amount, setAmount] = useState('')
   const [reference, setReference] = useState('')
   const [receipt, setReceipt] = useState('')
@@ -34,6 +39,9 @@ export default function Wallet() {
     try { const r = await api.get<WalletData>('/wallet/'); setW(r.data) } catch { /* ignore */ }
   }, [])
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (tab === 'trades' && !td) { api.get<TradesData>('/wallet/trades').then(r => setTd(r.data)).catch(() => {}) }
+  }, [tab, td])
 
   const managed = w?.type === 'managed'
 
@@ -69,9 +77,64 @@ export default function Wallet() {
   }
 
   const pi = w?.payment_info
+  const tabBtn = (key: 'wallet' | 'trades', txt: string): React.CSSProperties => ({
+    padding: '10px 18px', borderRadius: 11, border: '1px solid var(--border)', cursor: 'pointer', fontFamily: 'inherit',
+    fontSize: 14, fontWeight: 700, background: tab === key ? 'var(--accent)' : 'transparent', color: tab === key ? '#05121a' : 'var(--text)',
+  })
   return (
-    <Layout title="کیف پول" subtitle="واریز، برداشت و تاریخچهٔ تراکنش‌ها">
+    <Layout title="کیف پول" subtitle="واریز، برداشت و جزئیات معاملات">
       <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* زیرمنو */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => setTab('wallet')} style={tabBtn('wallet', '')}>کیف پول</button>
+          <button onClick={() => setTab('trades')} style={tabBtn('trades', '')}>جزئیات معاملات و کمیسیون</button>
+        </div>
+
+        {tab === 'trades' ? (
+          <div style={card}>
+            <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>جزئیات هر معامله</div>
+            <div style={{ fontSize: 12, color: 'var(--dim)', marginBottom: 14 }}>
+              برای هر معامله: پولِ خارج‌شده بابت خرید، پولِ واردشده بابت فروش، کمیسیون و سود/زیان خالص.
+              {td?.share_based && ' (سهمِ شخصیِ شما از معاملات استخر)'}
+            </div>
+            {td && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px,1fr))', gap: 12, marginBottom: 16 }}>
+                {[
+                  { l: 'مجموع خرید', v: fmt(td.totals.cost), c: 'var(--text)' },
+                  { l: 'مجموع فروش', v: fmt(td.totals.proceeds), c: 'var(--text)' },
+                  { l: 'مجموع کمیسیون', v: fmt(td.totals.fee), c: 'var(--amber)' },
+                  { l: 'سود/زیان خالص', v: fmt(td.totals.net), c: td.totals.net >= 0 ? 'var(--green)' : 'var(--red)' },
+                ].map((x, i) => (
+                  <div key={i} style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14, textAlign: 'center' }}>
+                    <div style={{ fontSize: 12, color: 'var(--dim)' }}>{x.l}</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, marginTop: 6, color: x.c, fontFamily: 'JetBrains Mono' }}>{x.v} ت</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead><tr style={{ color: 'var(--dim)', textAlign: 'right' }}>
+                  {['ارز', 'خرید (خروج)', 'فروش (ورود)', 'کمیسیون', 'سود/زیان خالص', 'تاریخ'].map(c => <th key={c} style={{ padding: '8px 10px', fontWeight: 600 }}>{c}</th>)}
+                </tr></thead>
+                <tbody>
+                  {(td?.trades || []).map(t => (
+                    <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px', fontWeight: 700 }}>{t.pair}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', color: 'var(--red)' }}>−{fmt(t.cost_toman)}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', color: 'var(--green)' }}>+{fmt(t.proceeds_toman)}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', color: 'var(--amber)' }}>{fmt(t.fee_toman)}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', fontWeight: 700, color: t.net_pnl >= 0 ? 'var(--green)' : 'var(--red)' }}>{t.net_pnl >= 0 ? '+' : ''}{fmt(t.net_pnl)} <span style={{ color: 'var(--faint)', fontSize: 11 }}>({t.pnl_pct}٪)</span></td>
+                      <td style={{ padding: '10px', fontSize: 12 }}>{t.closed_at ? new Date(t.closed_at).toLocaleDateString('fa-IR') : '—'}</td>
+                    </tr>
+                  ))}
+                  {td && td.trades.length === 0 && <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--faint)' }}>معاملهٔ بسته‌شده‌ای نیست.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (<>
 
         {/* موجودی */}
         <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -152,6 +215,7 @@ export default function Wallet() {
             </table>
           </div>
         </div>
+        </>)}
       </div>
     </Layout>
   )

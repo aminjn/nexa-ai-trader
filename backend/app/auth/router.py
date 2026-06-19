@@ -108,8 +108,13 @@ async def register(req: RegisterRequest, db: Session = Depends(get_db)):
 @router.post("/send-otp")
 async def send_otp(req: PhoneRequest, db: Session = Depends(get_db)):
     code = service.create_otp(db, req.phone)
-    # In production send via SMS; for now return in response for dev
-    return {"message": "کد OTP ارسال شد", "dev_code": code}
+    from ..sms.ippanel import send_otp_sms
+    sent, info = await send_otp_sms(req.phone, code, db)
+    if sent:
+        return {"message": "کد تأیید پیامک شد", "sent": True}
+    # اگر پیامک تنظیم/ارسال نشد، کد را در پاسخ برمی‌گردانیم تا ورود (در حالت
+    # راه‌اندازی/توسعه) ممکن بماند. پس از تنظیم درست IPPanel، sent=True می‌شود.
+    return {"message": "کد ساخته شد (پیامک ارسال نشد)", "sent": False, "dev_code": code, "error": info}
 
 
 @router.post("/verify-otp", response_model=TokenResponse)

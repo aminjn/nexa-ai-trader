@@ -72,6 +72,16 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN account_number VARCHAR DEFAULT ''"))
             if "support_contact" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN support_contact VARCHAR DEFAULT ''"))
+            if "ippanel_token" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN ippanel_token VARCHAR DEFAULT ''"))
+            if "ippanel_pattern_code" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN ippanel_pattern_code VARCHAR DEFAULT ''"))
+            if "ippanel_from_number" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN ippanel_from_number VARCHAR DEFAULT ''"))
+            if "ippanel_param_name" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN ippanel_param_name VARCHAR DEFAULT 'code'"))
+            if "sms_login_enabled" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN sms_login_enabled BOOLEAN DEFAULT 0"))
     # users: شناسه‌های پیام‌رسان
     if "users" in tables:
         cols = {c["name"] for c in inspector.get_columns("users")}

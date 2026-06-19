@@ -158,6 +158,12 @@ class SystemSettings(Base):
     card_holder = Column(String, default="")
     account_number = Column(String, default="")   # شماره حساب / شبا
     support_contact = Column(String, default="")  # آی‌دی ادمین برای ارسال رسید (@admin)
+    # ورود با پیامک (IPPanel — Edge API)
+    ippanel_token = Column(String, default="")          # توکن/کلید Authorization
+    ippanel_pattern_code = Column(String, default="")   # کد الگوی پیامک کد تأیید
+    ippanel_from_number = Column(String, default="")    # شمارهٔ فرستنده (مثلاً +983000505)
+    ippanel_param_name = Column(String, default="code") # نام متغیر کد در الگو
+    sms_login_enabled = Column(Boolean, default=False)  # ارسال واقعی پیامک فعال است؟
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

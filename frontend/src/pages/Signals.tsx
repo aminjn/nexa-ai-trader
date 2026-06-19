@@ -365,6 +365,21 @@ export default function Signals() {
                   <input type="checkbox" id="aisup" checked={!!adminSettings.ai_support_enabled} onChange={e => setAdminSettings({ ...adminSettings, ai_support_enabled: e.target.checked })} />
                   <label htmlFor="aisup" style={{ fontSize: 13, cursor: 'pointer' }}>پاسخ‌گویی هوش مصنوعی در ربات فعال باشد</label>
                 </div>
+
+                {/* ── ورود با پیامک (IPPanel) ── */}
+                <div style={{ gridColumn: '1 / -1', marginTop: 8, paddingTop: 14, borderTop: '1px dashed var(--border)', fontSize: 14, fontWeight: 700, color: 'var(--accent)' }}>📱 ورود با پیامک (آی‌پی‌پنل)</div>
+                <div><div style={label}>توکن آی‌پی‌پنل (Authorization)</div>
+                  <input style={inputStyle} value={adminSettings.ippanel_token || ''} onChange={e => setAdminSettings({ ...adminSettings, ippanel_token: e.target.value })} dir="ltr" placeholder="توکن از پنل ippanel" /></div>
+                <div><div style={label}>کد الگوی پیامک (Pattern Code)</div>
+                  <input style={inputStyle} value={adminSettings.ippanel_pattern_code || ''} onChange={e => setAdminSettings({ ...adminSettings, ippanel_pattern_code: e.target.value })} dir="ltr" placeholder="مثلاً xxxxxxxxxxxxxxx" /></div>
+                <div><div style={label}>شمارهٔ فرستنده</div>
+                  <input style={inputStyle} value={adminSettings.ippanel_from_number || ''} onChange={e => setAdminSettings({ ...adminSettings, ippanel_from_number: e.target.value })} dir="ltr" placeholder="+983000505" /></div>
+                <div><div style={label}>نام متغیر کد در الگو</div>
+                  <input style={inputStyle} value={adminSettings.ippanel_param_name || ''} onChange={e => setAdminSettings({ ...adminSettings, ippanel_param_name: e.target.value })} dir="ltr" placeholder="code" /></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 22 }}>
+                  <input type="checkbox" id="smslogin" checked={!!adminSettings.sms_login_enabled} onChange={e => setAdminSettings({ ...adminSettings, sms_login_enabled: e.target.checked })} />
+                  <label htmlFor="smslogin" style={{ fontSize: 13, cursor: 'pointer' }}>ارسال واقعی پیامک کد تأیید فعال باشد</label>
+                </div>
               </div>
               <button onClick={saveAdminSettings} style={{ marginTop: 14, padding: '10px 22px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>ذخیره تنظیمات</button>
             </div>

@@ -362,6 +362,12 @@ class SignalSettingsRequest(BaseModel):
     card_holder: Optional[str] = None
     account_number: Optional[str] = None
     support_contact: Optional[str] = None
+    # ورود با پیامک (IPPanel)
+    ippanel_token: Optional[str] = None
+    ippanel_pattern_code: Optional[str] = None
+    ippanel_from_number: Optional[str] = None
+    ippanel_param_name: Optional[str] = None
+    sms_login_enabled: Optional[bool] = None
 
 
 # ارزهای رایج نوبیتکس برای انتخاب در لیست
@@ -408,6 +414,11 @@ async def admin_get_settings(db: Session = Depends(get_db), current_user: models
         "card_holder": s.card_holder or "",
         "account_number": s.account_number or "",
         "support_contact": s.support_contact or "",
+        "ippanel_token": s.ippanel_token or "",
+        "ippanel_pattern_code": s.ippanel_pattern_code or "",
+        "ippanel_from_number": s.ippanel_from_number or "",
+        "ippanel_param_name": s.ippanel_param_name or "code",
+        "sms_login_enabled": bool(s.ippanel_token and s.sms_login_enabled),
     }
 
 

@@ -427,3 +427,99 @@ async def get_btc_price():
             return {"price": price}
     except Exception:
         return {"price": 0}
+
+
+def _fee_tier(volume_toman: float):
+    """پله‌ی کارمزد نوبیتکس (تیکر بازار تومانی) بر اساس حجم ۳۰ روزه."""
+    M = 1_000_000
+    B = 1000 * M
+    if volume_toman < 100 * M:
+        return ("پایه", 0.25)
+    if volume_toman < 300 * M:
+        return ("VIP1", 0.2)
+    if volume_toman < 1 * B:
+        return ("VIP2", 0.19)
+    if volume_toman < 5 * B:
+        return ("VIP3", 0.175)
+    if volume_toman < 20 * B:
+        return ("VIP4", 0.155)
+    if volume_toman < 80 * B:
+        return ("VIP5", 0.145)
+    return ("VIP6", 0.135)
+
+
+@router.get("/commission")
+async def get_commission(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """سیستم هوشمند کمیسیون: حجم ۳۰روزه، پله و کارمزد را خودکار از نوبیتکس تشخیص می‌دهد
+    و کمیسیون پرداختی را روزانه/هفتگی/ماهانه نشان می‌دهد."""
+    from datetime import timezone
+    empty = {"volume_30d": 0, "tier": "پایه", "fee_pct": current_user.fee_pct or 0.25,
+             "fee_today": 0, "fee_week": 0, "fee_month": 0, "orders_count": 0, "connected": False}
+    exch_rec = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).first()
+    if not exch_rec:
+        return empty
+    ex = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret)
+    try:
+        orders = await ex.get_recent_orders(only_buy=False)
+    except Exception:
+        orders = []
+
+    now = datetime.utcnow()
+
+    def parse_ts(o):
+        s = o.get("created_at") or o.get("createdAt") or ""
+        try:
+            dt = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+            if dt.tzinfo:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt
+        except Exception:
+            return None
+
+    def val_toman(o):
+        try:
+            price = float(o.get("price") or o.get("averagePrice") or 0)
+            amt = float(o.get("matchedAmount") or o.get("amount") or 0)
+            dst = (o.get("dstCurrency") or "").lower()
+            if dst in ("rls", "irt", "irr"):
+                return price * amt / 10.0  # ریال → تومان
+            return 0.0
+        except Exception:
+            return 0.0
+
+    rows = []
+    vol30 = 0.0
+    for o in orders:
+        ts = parse_ts(o)
+        v = val_toman(o)
+        if ts is None or v <= 0:
+            continue
+        rows.append((ts, v))
+        if (now - ts).total_seconds() <= 30 * 86400:
+            vol30 += v
+
+    tier, fee = _fee_tier(vol30)
+    # کارمزد تشخیص‌داده‌شده را خودکار روی حساب کاربر تنظیم کن
+    current_user.fee_pct = fee
+    db.commit()
+
+    def fees_since(seconds):
+        cutoff = now - timedelta(seconds=seconds)
+        return sum(v * fee / 100.0 for ts, v in rows if ts >= cutoff)
+
+    start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    fee_today = sum(v * fee / 100.0 for ts, v in rows if ts >= start_today)
+
+    return {
+        "volume_30d": round(vol30),
+        "tier": tier,
+        "fee_pct": fee,
+        "fee_today": round(fee_today),
+        "fee_week": round(fees_since(7 * 86400)),
+        "fee_month": round(fees_since(30 * 86400)),
+        "orders_count": len(rows),
+        "connected": True,
+    }

@@ -44,6 +44,7 @@ export default function Dashboard() {
   const [prices, setPrices] = useState<Price[]>([])
   const [fundamental, setFundamental] = useState<Fundamental|null>(null)
   const [analysis, setAnalysis] = useState<Analysis|null>(null)
+  const [commission, setCommission] = useState<any>(null)
 
   useEffect(() => {
     const loadAnalysis = async () => {
@@ -68,6 +69,7 @@ export default function Dashboard() {
           api.get('/dashboard/prices'),
           api.get('/dashboard/fundamental'),
         ])
+        api.get('/dashboard/commission').then(r => setCommission(r.data)).catch(() => {})
         setStats(s.data)
         setEquity(eq.data.data || [])
         setTrades(tr.data || [])
@@ -150,6 +152,35 @@ export default function Dashboard() {
           <StatCard label="نقد قابل‌معامله" value={`${Math.round(stats?.free_cash_toman||0).toLocaleString('fa-IR')} ت`} sub="موجودی ریالی آزاد" subColor="var(--accent)" />
           <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub={`${stats?.total_trades_24h||0} معامله امروز`} subColor="var(--green)" />
         </div>
+
+        {/* سیستم هوشمند کمیسیون نوبیتکس */}
+        {commission && commission.connected && (
+          <div style={{ background:'var(--panel)', border:'1px solid var(--border)', borderRadius:18, padding:20 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10, marginBottom:14 }}>
+              <div style={{ fontWeight:700, fontSize:15 }}>💸 کمیسیون نوبیتکس (هوشمند)</div>
+              <div style={{ fontSize:12, color:'var(--dim)' }}>
+                حجم ۳۰ روزه: <b style={{ color:'var(--text)' }}>{Math.round(commission.volume_30d).toLocaleString('fa-IR')} ت</b>
+                {' · '}پله: <b style={{ color:'var(--accent)' }}>{commission.tier}</b>
+                {' · '}کارمزد هر طرف: <b style={{ color:'var(--accent)' }}>{commission.fee_pct}٪</b>
+              </div>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+              {[
+                { l:'کمیسیون امروز', v:commission.fee_today },
+                { l:'کمیسیون این هفته', v:commission.fee_week },
+                { l:'کمیسیون این ماه', v:commission.fee_month },
+              ].map((x,i)=>(
+                <div key={i} style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>
+                  <div style={{ fontSize:12, color:'var(--faint)', marginBottom:6 }}>{x.l}</div>
+                  <div style={{ fontSize:18, fontWeight:800, color:'#ef4444' }}>{Math.round(x.v).toLocaleString('fa-IR')} <span style={{ fontSize:12, fontWeight:500 }}>تومان</span></div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize:11, color:'var(--faint)', marginTop:10 }}>
+              پله و کارمزد خودکار از حجم معاملات شما در نوبیتکس تشخیص داده می‌شود و در محاسبه سود/زیان ربات اعمال می‌گردد.
+            </div>
+          </div>
+        )}
 
         {/* تحلیل فاندامنتال + تکنیکال + نتیجه‌گیری */}
         {(() => {

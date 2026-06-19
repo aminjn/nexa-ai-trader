@@ -5,8 +5,7 @@ ML جهت معامله را تصمیم می‌گیرد؛ این ماژول یک 
 داده‌های واقعی (روند دلار/تتر در ایران و بیت‌کوین) به هوش مصنوعی داده می‌شود.
 """
 import time
-import json
-import re
+import asyncio
 from typing import Optional
 from .gapgpt import get_ai_response, get_ai_config
 
@@ -85,24 +84,24 @@ async def get_fundamental(db, exchange, force: bool = False) -> dict:
             scraped = ""
 
         if get_ai_config(db)["api_key"]:
-            news_section = f"\n\nاخبار و داده‌های اسکرپ‌شده از منابع:\n{scraped}\n" if scraped else ""
+            news_section = f"\n\nمهم‌ترین اخبار اخیر (از منابع):\n{scraped[:2500]}\n" if scraped else ""
             prompt = (
-                "تو یک تحلیلگر فاندامنتال بازار رمزارز هستی. این داده‌های واقعی را تحلیل کن:\n"
-                f"- تغییر قیمت دلار (تتر به تومان) در ۷ روز اخیر: {data['usd_trend_7d']}%\n"
-                f"- تغییر قیمت بیت‌کوین در ۷ روز اخیر: {data['btc_trend_7d']}%\n"
-                f"- تغییر قیمت بیت‌کوین در ۳۰ روز اخیر: {data['btc_trend_30d']}%"
-                f"{news_section}\n"
-                "با توجه به این داده‌ها، اخبار بالا، شرایط کلی اقتصادی ایران (روند دلار)، و دانش فاندامنتال‌ات "
-                "از بازار کریپتو، یک «امتیاز احساسات بازار» بین -۱ (بسیار نزولی) تا +۱ (بسیار صعودی) بده.\n"
-                "فقط به این صورت JSON پاسخ بده (بدون هیچ متن اضافه):\n"
-                '{"score": 0.3, "summary": "خلاصه تحلیل فارسی در یک یا دو جمله"}'
+                "تو تحلیلگر فاندامنتال بازار رمزارز هستی. بر اساس داده‌ها و اخبار زیر، یک تحلیل "
+                "کوتاه و روانِ فارسی در ۳ تا ۵ جمله بنویس که هم روند قیمت‌ها و هم مهم‌ترین خبرها را پوشش دهد "
+                "و در پایان یک جمع‌بندی (صعودی/نزولی/خنثی) بدهد. اخبار انگلیسی را به فارسی بیاور. "
+                "فقط متن تحلیل را بنویس، بدون مقدمه و بدون JSON.\n\n"
+                f"- روند دلار (تتر به تومان) ۷روزه: {data['usd_trend_7d']}٪\n"
+                f"- روند بیت‌کوین ۷روزه: {data['btc_trend_7d']}٪ | ۳۰روزه: {data['btc_trend_30d']}٪"
+                f"{news_section}"
             )
-            resp = await get_ai_response([{"role": "user", "content": prompt}], db=db)
-            m = re.search(r"\{.*\}", resp or "", re.DOTALL)
-            if m:
-                parsed = json.loads(m.group())
-                data["score"] = max(-1.0, min(1.0, float(parsed.get("score", 0))))
-                data["summary"] = str(parsed.get("summary", ""))[:500]
+            try:
+                resp = await asyncio.wait_for(
+                    get_ai_response([{"role": "user", "content": prompt}], db=db), timeout=45)
+                if resp and len(resp.strip()) > 40:
+                    # امتیاز عددی از قاعده‌محور می‌ماند (برای ربات)، ولی متن تحلیل از هوش مصنوعی
+                    data["summary"] = resp.strip()[:1200]
+            except Exception:
+                pass  # در صورت خطا/تایم‌اوت، خلاصه‌ی قاعده‌محور باقی می‌ماند
     except Exception:
         pass
 

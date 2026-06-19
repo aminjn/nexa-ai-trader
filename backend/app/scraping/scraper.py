@@ -9,7 +9,32 @@ _HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/120.0 Safari/537.36",
     "Accept-Language": "fa,en;q=0.9",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
 }
+
+
+def _is_feed(url: str, html: str) -> bool:
+    head = (html or "")[:600].lower()
+    return ("<rss" in head or "<feed" in head or "<?xml" in head) or url.rstrip("/").endswith(("feed", "rss", ".xml"))
+
+
+def _parse_feed(html: str, max_items: int):
+    """خوراک RSS/Atom را پارس می‌کند و آیتم‌های تازه را برمی‌گرداند (عنوان + خلاصه + لینک)."""
+    soup = BeautifulSoup(html, "html.parser")
+    nodes = soup.find_all("item") or soup.find_all("entry")
+    out = []
+    for n in nodes[:max_items]:
+        title = n.find("title")
+        title = title.get_text(" ", strip=True) if title else ""
+        desc = n.find("description") or n.find("summary") or n.find("content")
+        desc = BeautifulSoup(desc.get_text(" ", strip=True), "html.parser").get_text(" ", strip=True) if desc else ""
+        link = n.find("link")
+        href = (link.get("href") or link.get_text(strip=True)) if link else ""
+        text = title if not desc else f"{title} — {desc[:300]}"
+        if text.strip():
+            out.append({"url": href or title, "text": text.strip()})
+    return out
 
 
 async def scrape_url(url: str, selector: str = "", use_proxy: bool = False, max_chars: int = 1200) -> str:
@@ -65,6 +90,23 @@ async def scrape_source(source, persist: bool = False) -> str:
     item_timeout = 15.0
 
     html = await _fetch_html(source.url, source.use_proxy)
+
+    # ── خوراک RSS/Atom (تازه‌ترین اخبار، بدون نیاز به جاوااسکریپت) ──
+    if _is_feed(source.url, html):
+        feed_items = _parse_feed(html, max_items if persist else 5)
+        seen = set(getattr(source, "seen_urls", None) or []) if persist else set()
+        new_items = [it for it in feed_items if it["url"] not in seen]
+        if persist:
+            items = (getattr(source, "items", None) or []) + new_items
+            items = items[-50:]
+            source.items = items
+            source.seen_urls = (list(seen) + [it["url"] for it in new_items])[-300:]
+            # تازه‌ترین آیتم‌ها بالای متن باشند
+            shown = list(reversed(items[-15:]))
+            source.last_value = "\n".join(i["text"] for i in shown)[:3000]
+            return f"{len(new_items)} مطلب جدید"
+        return "\n".join(i["text"] for i in feed_items)[:3000] or "(آیتمی در خوراک یافت نشد)"
+
     soup = BeautifulSoup(html, "html.parser")
 
     # ── اسکرپ دوسطحی ──

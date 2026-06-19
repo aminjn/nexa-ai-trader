@@ -142,7 +142,7 @@ export default function Scraper() {
   const addSource = async () => {
     if (!name.trim() || !url.trim()) { toast.error('نام و آدرس الزامی است'); return }
     const fields = capturedFields.map(f => ({ name: f.name, selector: f.selector }))
-    if (fields.length === 0 && !selector.trim()) { toast.error('حداقل یک فیلد انتخاب کن'); return }
+    // برای فید RSS و سایت‌های خبری نیازی به انتخاب فیلد نیست؛ خودکار محتوا گرفته می‌شود
     setAdding(true)
     try {
       await api.post('/scraper/sources', { name: name.trim(), url: url.trim(), selector: selector.trim(), link_selector: linkSelector, fields, use_proxy: useProxy, max_items: maxItems, interval_minutes: intervalMin })

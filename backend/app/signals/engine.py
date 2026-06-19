@@ -165,8 +165,22 @@ async def distribute_signal(db, sig: models.Signal, settings_row: models.SystemS
 
 
 async def signals_loop():
-    """حلقه‌ی زمان‌بندی تولید سیگنال طبق بازه‌ی تنظیم‌شده."""
+    """حلقه‌ی زمان‌بندی تولید سیگنال.
+
+    هر ۳۰ ثانیه بررسی می‌کند؛ اگر از آخرین تولید به‌اندازه‌ی بازه‌ی تنظیم‌شده
+    گذشته باشد، سیگنال تولید و در کانال/برای مشترکان ارسال می‌کند. تغییر بازه
+    در پنل بدون نیاز به ری‌استارت اعمال می‌شود. هر اجرا در لاگ فعالیت ثبت می‌شود.
+    """
     import asyncio
+    import time
+    try:
+        from ..trading.bot import log_bot_event
+    except Exception:
+        def log_bot_event(*a, **k):
+            pass
+
+    await asyncio.sleep(20)  # کمی صبر تا برنامه کامل بالا بیاید
+    last_run = 0.0
     while True:
         db = SessionLocal()
         try:
@@ -177,12 +191,21 @@ async def signals_loop():
         finally:
             db.close()
 
-        await asyncio.sleep(max(1, interval) * 60)
+        now = time.time()
+        if now - last_run >= interval * 60:
+            last_run = now
+            db = SessionLocal()
+            try:
+                n = await generate_signals(db, push=True)
+                if n:
+                    log_bot_event(f"📡 {n} سیگنال خودکار تولید و ارسال شد (هر {interval} دقیقه)")
+                else:
+                    log_bot_event("📡 تولید خودکار سیگنال اجرا شد ولی قیمتی از نوبیتکس دریافت نشد", "error")
+            except Exception as e:
+                log_bot_event(f"📡 خطا در تولید خودکار سیگنال: {str(e)[:100]}", "error")
+                print(f"⚠️ signals loop warning: {e}")
+            finally:
+                db.close()
 
-        db = SessionLocal()
-        try:
-            await generate_signals(db, push=True)
-        except Exception as e:
-            print(f"⚠️ signals loop warning: {e}")
-        finally:
-            db.close()
+        await asyncio.sleep(30)
+

@@ -467,7 +467,27 @@ async def get_commission(db: Session = Depends(get_db), current_user: models.Use
     except Exception:
         orders = []
 
+    # قیمت تتر به تومان برای تبدیل حجم/کارمزدِ بازارهای تتری
+    usdt_toman = 0.0
+    try:
+        t = await ex.get_ticker("USDT/RLS")
+        usdt_toman = (t.get("last", 0) or 0) / 10.0
+    except Exception:
+        usdt_toman = 0.0
+
     now = datetime.utcnow()
+
+    def _f(x):
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _is_rial(o) -> bool:
+        market = (o.get("market") or "").upper()
+        dst = (o.get("dstCurrency") or "")
+        return (dst in ("﷼", "rls", "irt", "irr", "RLS", "IRT", "IRR")
+                or market.endswith(("-RLS", "-IRT", "-IRR")))
 
     def parse_ts(o):
         s = o.get("created_at") or o.get("createdAt") or ""
@@ -480,38 +500,57 @@ async def get_commission(db: Session = Depends(get_db), current_user: models.Use
             return None
 
     def val_toman(o):
-        try:
-            price = float(o.get("price") or o.get("averagePrice") or 0)
-            amt = float(o.get("matchedAmount") or o.get("amount") or 0)
-            dst = (o.get("dstCurrency") or "").lower()
-            if dst in ("rls", "irt", "irr"):
-                return price * amt / 10.0  # ریال → تومان
+        """ارزش معاملهٔ انجام‌شده به تومان (از totalPrice که مقدار واقعی تطبیق‌یافته است)."""
+        total = _f(o.get("totalPrice"))
+        if total <= 0:
+            total = _f(o.get("matchedAmount") or o.get("amount")) * _f(o.get("averagePrice"))
+        if total <= 0:
             return 0.0
-        except Exception:
-            return 0.0
+        if _is_rial(o):
+            return total / 10.0  # ریال → تومان
+        # بازار تتری: totalPrice به تتر است → تبدیل به تومان
+        return total * usdt_toman if usdt_toman else 0.0
 
-    rows = []
+    def fee_toman(o):
+        """کارمزد واقعی پرداخت‌شده به تومان (نوبیتکس مقدار دقیق را در فیلد fee می‌دهد).
+
+        کارمزد در ارز دریافتی گرفته می‌شود: در فروش = ریال؛ در خرید = ارز خریداری‌شده.
+        """
+        fee = _f(o.get("fee"))
+        if fee <= 0:
+            return 0.0
+        typ = (o.get("type") or "").lower()
+        if _is_rial(o):
+            if typ == "sell":
+                return fee / 10.0  # کارمزد به ریال
+            # خرید: کارمزد به ارز خریداری‌شده → با قیمت میانگین به تومان
+            return fee * _f(o.get("averagePrice")) / 10.0
+        # بازار تتری: کارمزد معمولاً به تتر یا ارز خریداری‌شده؛ تخمین با درصد
+        v = val_toman(o)
+        return v * (current_user.fee_pct or 0.25) / 100.0
+
+    rows = []  # (ts, value_toman, fee_toman)
     vol30 = 0.0
     for o in orders:
         ts = parse_ts(o)
         v = val_toman(o)
         if ts is None or v <= 0:
             continue
-        rows.append((ts, v))
+        rows.append((ts, v, fee_toman(o)))
         if (now - ts).total_seconds() <= 30 * 86400:
             vol30 += v
 
     tier, fee = _fee_tier(vol30)
-    # کارمزد تشخیص‌داده‌شده را خودکار روی حساب کاربر تنظیم کن
+    # کارمزد تشخیص‌داده‌شده را خودکار روی حساب کاربر تنظیم کن (برای ربات)
     current_user.fee_pct = fee
     db.commit()
 
     def fees_since(seconds):
         cutoff = now - timedelta(seconds=seconds)
-        return sum(v * fee / 100.0 for ts, v in rows if ts >= cutoff)
+        return sum(ft for ts, v, ft in rows if ts >= cutoff)
 
     start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    fee_today = sum(v * fee / 100.0 for ts, v in rows if ts >= start_today)
+    fee_today = sum(ft for ts, v, ft in rows if ts >= start_today)
 
     return {
         "volume_30d": round(vol30),

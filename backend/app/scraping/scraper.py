@@ -108,6 +108,18 @@ async def _fetch_html(url: str, use_proxy: bool = False, timeout: float = 25) ->
         return resp.text
 
 
+async def _fetch_smart(url: str, prefer_proxy: bool, timeout: float = 25) -> str:
+    """ابتدا با مسیر دلخواه تلاش می‌کند؛ اگر خطا/۵۰۳ گرفت، مسیر دیگر (پروکسی↔مستقیم) را امتحان می‌کند.
+    این باعث می‌شود هم سایت‌های ایرانی (مستقیم) و هم خارجی (پروکسی) کار کنند."""
+    last = None
+    for up in (prefer_proxy, not prefer_proxy):
+        try:
+            return await _fetch_html(url, up, timeout=timeout)
+        except Exception as e:
+            last = e
+    raise last if last else Exception("fetch failed")
+
+
 async def scrape_source(source, persist: bool = False) -> str:
     """منبع را اسکرپ می‌کند. دوسطحی + عدم تکرار + محدودیت تعداد + جمع‌آوری تجمعی."""
     from urllib.parse import urljoin
@@ -119,7 +131,7 @@ async def scrape_source(source, persist: bool = False) -> str:
         max_items = min(max_items, 3)
     item_timeout = 15.0
 
-    html = await _fetch_html(source.url, source.use_proxy)
+    html = await _fetch_smart(source.url, source.use_proxy)
 
     # ── خوراک RSS/Atom (تازه‌ترین اخبار، بدون نیاز به جاوااسکریپت) ──
     if _is_feed(source.url, html):
@@ -131,7 +143,7 @@ async def scrape_source(source, persist: bool = False) -> str:
         feed_url = _discover_feed(html, source.url)
         if feed_url:
             try:
-                fh = await _fetch_html(feed_url, source.use_proxy, timeout=item_timeout)
+                fh = await _fetch_smart(feed_url, source.use_proxy, timeout=item_timeout)
                 if _is_feed(feed_url, fh):
                     return _feed_result(fh, source, persist, max_items)
             except Exception:

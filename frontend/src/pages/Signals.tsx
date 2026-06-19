@@ -45,6 +45,7 @@ export default function Signals() {
   const [adminSettings, setAdminSettings] = useState<any>(null)
   const [adminSubs, setAdminSubs] = useState<AdminSub[]>([])
   const [generating, setGenerating] = useState(false)
+  const [testResult, setTestResult] = useState<any>(null)
 
   const load = useCallback(async () => {
     try {
@@ -113,6 +114,11 @@ export default function Signals() {
     try { const r = await api.post('/signals/admin/generate-now'); toast.success(r.data.message); load() }
     catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
     finally { setGenerating(false) }
+  }
+  const testChannel = async () => {
+    setTestResult({ loading: true })
+    try { const r = await api.post('/signals/admin/test-channel'); setTestResult(r.data) }
+    catch (e: any) { setTestResult({ error: e.response?.data?.detail || 'خطا' }) }
   }
   const activate = async (id: number) => { try { await api.post(`/signals/admin/subscriptions/${id}/activate`); toast.success('فعال شد'); loadAdmin() } catch { toast.error('خطا') } }
   const reject = async (id: number) => { try { await api.post(`/signals/admin/subscriptions/${id}/reject`); loadAdmin() } catch { toast.error('خطا') } }
@@ -232,8 +238,21 @@ export default function Signals() {
                   <button onClick={publishNow} disabled={publishing} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                     <Megaphone size={14} style={{ animation: publishing ? 'spin 1s linear infinite' : 'none' }} /> انتشار فوری محتوا در کانال
                   </button>
+                  <button onClick={testChannel} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    🧪 تست ارسال به کانال
+                  </button>
                 </div>
               </div>
+              {testResult && (
+                <div style={{ marginBottom: 14, padding: 12, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12, lineHeight: 1.9 }}>
+                  {testResult.loading ? 'در حال تست...' : testResult.error ? <span style={{ color: '#ef4444' }}>{testResult.error}</span> : (
+                    <>
+                      <div>تلگرام: {testResult.telegram?.ok ? <b style={{ color: 'var(--green)' }}>✓ موفق</b> : <span style={{ color: '#ef4444' }}>✗ ناموفق</span>} <span style={{ color: 'var(--faint)', direction: 'ltr', display: 'inline-block' }}>{testResult.telegram?.detail}</span></div>
+                      <div>بله: {testResult.bale?.ok ? <b style={{ color: 'var(--green)' }}>✓ موفق</b> : <span style={{ color: '#ef4444' }}>✗ ناموفق</span>} <span style={{ color: 'var(--faint)', direction: 'ltr', display: 'inline-block' }}>{testResult.bale?.detail}</span></div>
+                    </>
+                  )}
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div><div style={label}>توکن ربات تلگرام</div>
                   <input style={inputStyle} value={adminSettings.telegram_bot_token} onChange={e => setAdminSettings({ ...adminSettings, telegram_bot_token: e.target.value })} dir="ltr" /></div>
@@ -252,7 +271,7 @@ export default function Signals() {
                 <div><div style={label}>ارزهای تولید سیگنال (با کاما)</div>
                   <input style={inputStyle} value={adminSettings.signal_coins} onChange={e => setAdminSettings({ ...adminSettings, signal_coins: e.target.value })} dir="ltr" placeholder="BTC,ETH,XRP" /></div>
                 <div><div style={label}>هر چند دقیقه سیگنال تولید شود</div>
-                  <input type="number" min={5} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>
+                  <input type="number" min={1} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>
                 <div><div style={label}>هر چند ساعت محتوا منتشر شود</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.content_interval_hours} onChange={e => setAdminSettings({ ...adminSettings, content_interval_hours: Number(e.target.value) })} /></div>
                 <div><div style={label}>شماره کارت (پرداخت کارت‌به‌کارت)</div>

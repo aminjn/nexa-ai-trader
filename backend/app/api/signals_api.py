@@ -402,6 +402,44 @@ async def admin_save_settings(req: SignalSettingsRequest, db: Session = Depends(
     return {"message": "تنظیمات ذخیره شد"}
 
 
+@router.post("/admin/test-channel")
+async def admin_test_channel(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """به کانال‌های تلگرام و بله پیام تست می‌فرستد و پاسخ خام API را برمی‌گرداند."""
+    _admin(current_user)
+    import httpx
+    from ..config import settings as cfg
+    s = db.query(models.SystemSettings).first()
+    out = {}
+    text = "✅ پیام تست NEXA AI — اتصال کانال برقرار است."
+
+    async def _try(name, url, chat_id, use_proxy):
+        if not chat_id:
+            return {"ok": False, "detail": "آی‌دی کانال خالی است"}
+        proxy = cfg.GAPGPT_PROXY if use_proxy else None
+        try:
+            async with httpx.AsyncClient(timeout=15, proxy=proxy, trust_env=False) as c:
+                r = await c.post(url, json={"chat_id": chat_id, "text": text})
+                return {"ok": r.json().get("ok", False), "detail": str(r.json())[:400]}
+        except Exception as e:
+            return {"ok": False, "detail": str(e)[:300]}
+
+    if s and s.telegram_bot_token:
+        out["telegram"] = await _try("telegram",
+            f"https://api.telegram.org/bot{s.telegram_bot_token}/sendMessage",
+            s.telegram_channel_id, use_proxy=True)
+    else:
+        out["telegram"] = {"ok": False, "detail": "توکن تلگرام تنظیم نشده"}
+
+    if s and s.bale_bot_token:
+        out["bale"] = await _try("bale",
+            f"https://tapi.bale.ai/bot{s.bale_bot_token}/sendMessage",
+            s.bale_channel_id, use_proxy=False)
+    else:
+        out["bale"] = {"ok": False, "detail": "توکن بله تنظیم نشده"}
+
+    return out
+
+
 @router.post("/admin/generate-now")
 async def admin_generate_now(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     _admin(current_user)

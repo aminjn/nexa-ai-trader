@@ -133,6 +133,10 @@ export default function Signals() {
     catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
     finally { setPublishing(false) }
   }
+  const publishAd = async () => {
+    try { const r = await api.post('/signals/admin/publish-ad'); toast.success(r.data.message) }
+    catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
+  }
 
   const subscribe = async (plan: Plan) => {
     try {
@@ -285,6 +289,9 @@ export default function Signals() {
                   <button onClick={publishNow} disabled={publishing} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                     <Megaphone size={14} style={{ animation: publishing ? 'spin 1s linear infinite' : 'none' }} /> انتشار فوری محتوا در کانال
                   </button>
+                  <button onClick={publishAd} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--text)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    📣 انتشار فوری تبلیغ
+                  </button>
                   <button onClick={testChannel} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', borderRadius: 11, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                     🧪 تست ارسال به کانال
                   </button>
@@ -338,6 +345,8 @@ export default function Signals() {
                   <input type="number" min={1} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>
                 <div><div style={label}>محتوای تحلیلی هر چند ساعت (تلگرام + بله)</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.content_interval_hours} onChange={e => setAdminSettings({ ...adminSettings, content_interval_hours: Number(e.target.value) })} /></div>
+                <div><div style={label}>تبلیغ هوش مصنوعی هر چند ساعت</div>
+                  <input type="number" min={1} style={inputStyle} value={adminSettings.ad_interval_hours} onChange={e => setAdminSettings({ ...adminSettings, ad_interval_hours: Number(e.target.value) })} /></div>
                 <div><div style={label}>شماره کارت (پرداخت کارت‌به‌کارت)</div>
                   <input style={inputStyle} value={adminSettings.card_number} onChange={e => setAdminSettings({ ...adminSettings, card_number: e.target.value })} dir="ltr" placeholder="6037-XXXX-XXXX-XXXX" /></div>
                 <div><div style={label}>نام صاحب کارت</div>

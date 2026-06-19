@@ -146,3 +146,77 @@ async def content_loop():
             print(f"⚠️ content loop warning: {e}")
         finally:
             db.close()
+
+
+# ─────────────────────────── تبلیغ (Ad) ───────────────────────────
+
+async def generate_ad(db) -> str:
+    """هوش مصنوعی یک تبلیغ جذاب برای جذب مشترک می‌سازد (بر اساس پلن‌ها و اطلاعات تماس)."""
+    srow = db.query(models.SystemSettings).first()
+    plans = db.query(models.Plan).filter(models.Plan.active == True).order_by(models.Plan.level).all()
+    plans_txt = "؛ ".join(
+        f"{p.name}: {('%d تومان/%d روز' % (p.price_toman, p.duration_days)) if p.price_toman>0 else 'رایگان'}"
+        for p in plans
+    )
+    support = (srow.support_contact if srow else "") or ""
+    bot = (srow.telegram_bot_username if srow else "") or ""
+    try:
+        from ..ai.gapgpt import get_ai_response, get_ai_config
+        if srow and get_ai_config(db).get("api_key"):
+            prompt = (
+                "یک تبلیغ کوتاه، جذاب و حرفه‌ای فارسی برای کانال «NEXA AI» بنویس تا کاربران را به خرید "
+                "اشتراک سیگنال رمزارز ترغیب کند. لحن پرانرژی ولی صادقانه؛ هیچ قول سود تضمینی نده. "
+                f"پلن‌ها: {plans_txt}. "
+                + (f"برای مشاوره و خرید به {support} پیام بدهند. " if support else "")
+                + (f"ربات: {bot}. " if bot else "")
+                + "حداکثر ۶ خط، با چند ایموجی مناسب و یک دعوت به اقدام در پایان."
+            )
+            resp = await asyncio.wait_for(
+                get_ai_response([{"role": "user", "content": prompt}], db=db), timeout=40)
+            if resp and len(resp.strip()) > 30:
+                return resp.strip()[:3000]
+    except Exception:
+        pass
+    # پشتیبان (بدون هوش مصنوعی)
+    lines = ["🚀 NEXA AI — سیگنال و تحلیل هوشمند رمزارز", "",
+             "با مدل یادگیری ماشین + تحلیل فاندامنتال و تکنیکال، سیگنال‌های به‌موقع دریافت کن.",
+             f"پلن‌ها: {plans_txt}"]
+    if support:
+        lines.append(f"برای خرید و مشاوره: {support}")
+    lines.append("همین حالا عضو شو! 📈")
+    return "\n".join(lines)
+
+
+async def publish_ad(db) -> bool:
+    srow = db.query(models.SystemSettings).first()
+    if not srow:
+        return False
+    text = await generate_ad(db)
+    ok = False
+    if srow.telegram_channel_id and srow.telegram_bot_token:
+        ok = await send_telegram(srow.telegram_bot_token, srow.telegram_channel_id, text) or ok
+    if srow.bale_channel_id and srow.bale_bot_token:
+        ok = await send_bale(srow.bale_bot_token, srow.bale_channel_id, text) or ok
+    return ok
+
+
+async def ad_loop():
+    while True:
+        db = SessionLocal()
+        try:
+            srow = db.query(models.SystemSettings).first()
+            hours = (srow.ad_interval_hours if srow else 12) or 12
+        except Exception:
+            hours = 12
+        finally:
+            db.close()
+
+        await asyncio.sleep(max(1, hours) * 3600)
+
+        db = SessionLocal()
+        try:
+            await publish_ad(db)
+        except Exception as e:
+            print(f"⚠️ ad loop warning: {e}")
+        finally:
+            db.close()

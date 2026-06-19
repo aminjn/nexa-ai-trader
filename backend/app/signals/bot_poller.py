@@ -141,8 +141,12 @@ async def _poll_loop(platform: str, base_fn, token_field: str, use_proxy: bool):
                 msg = u.get("message") or u.get("edited_message") or {}
                 chat = msg.get("chat") or {}
                 chat_id = chat.get("id")
+                chat_type = chat.get("type")
                 text = (msg.get("text") or "").strip()
                 if not chat_id or not text:
+                    continue
+                # فقط به چت خصوصی پاسخ بده؛ پست‌های کانال/گروه (مثل سیگنال‌های خودِ ربات) را نادیده بگیر
+                if chat_type and chat_type != "private":
                     continue
                 # هر پیام را در یک تسک جدا پردازش کن تا تأخیر هوش مصنوعی، دریافت را بلاک نکند
                 asyncio.create_task(_handle_message(platform, base, use_proxy, chat_id, text))
@@ -171,8 +175,10 @@ async def _handle_message(platform, base, use_proxy, chat_id, text):
             reply = await _ai_reply(text)
             if not reply:
                 reply = _payment_text()
+        from .notifier import _strip_html
         try:
-            await _api(base, "sendMessage", use_proxy, chat_id=chat_id, text=reply)
+            # تگ‌های HTML را حذف می‌کنیم چون نه بله و نه این مسیر تلگرام HTML را رندر نمی‌کنند
+            await _api(base, "sendMessage", use_proxy, chat_id=chat_id, text=_strip_html(reply))
         except Exception:
             pass
     except Exception:

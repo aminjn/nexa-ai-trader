@@ -355,6 +355,7 @@ class SignalSettingsRequest(BaseModel):
     telegram_bot_username: Optional[str] = None
     bale_bot_username: Optional[str] = None
     content_interval_hours: Optional[int] = None
+    ad_interval_hours: Optional[int] = None
     ai_support_enabled: Optional[bool] = None
     card_number: Optional[str] = None
     card_holder: Optional[str] = None
@@ -399,6 +400,7 @@ async def admin_get_settings(db: Session = Depends(get_db), current_user: models
         "telegram_bot_username": s.telegram_bot_username or "",
         "bale_bot_username": s.bale_bot_username or "",
         "content_interval_hours": s.content_interval_hours or 6,
+        "ad_interval_hours": s.ad_interval_hours or 12,
         "ai_support_enabled": bool(s.ai_support_enabled),
         "card_number": s.card_number or "",
         "card_holder": s.card_holder or "",
@@ -485,3 +487,23 @@ async def admin_publish_now(current_user: models.User = Depends(get_current_user
 
     asyncio.create_task(_bg())
     return {"message": "در حال آماده‌سازی و انتشار محتوا... چند لحظه دیگر کانال را بررسی کن"}
+
+
+@router.post("/admin/publish-ad")
+async def admin_publish_ad(current_user: models.User = Depends(get_current_user)):
+    _admin(current_user)
+    import asyncio
+    from ..database import SessionLocal
+    from ..signals.content import publish_ad
+
+    async def _bg():
+        db2 = SessionLocal()
+        try:
+            await publish_ad(db2)
+        except Exception as e:
+            print(f"⚠️ publish-ad bg: {e}")
+        finally:
+            db2.close()
+
+    asyncio.create_task(_bg())
+    return {"message": "در حال ساخت و انتشار تبلیغ... چند لحظه دیگر کانال را بررسی کن"}

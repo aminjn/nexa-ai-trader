@@ -59,7 +59,6 @@ async def get_ai_response(messages: List[Dict[str, str]], stream: bool = False, 
     response = await client.chat.completions.create(
         model=cfg["model"],
         messages=full_messages,
-        temperature=0.7,
         max_tokens=1000,
     )
     return response.choices[0].message.content
@@ -73,7 +72,6 @@ async def stream_ai_response(messages: List[Dict[str, str]], db=None) -> AsyncGe
     stream = await client.chat.completions.create(
         model=cfg["model"],
         messages=full_messages,
-        temperature=0.7,
         max_tokens=1000,
         stream=True,
     )

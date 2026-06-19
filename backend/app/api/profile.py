@@ -60,8 +60,10 @@ async def update_profile(req: ProfileUpdate, db: Session = Depends(get_db),
 
 
 class KycSubmit(BaseModel):
-    card_image: str       # data-uri base64 (کارت ملی)
-    selfie_image: str     # data-uri base64 (سلفی یا فریم ویدئو)
+    card_image: str               # data-uri base64 (کارت ملی)
+    video: str = ""               # data-uri base64 ویدئوی احراز هویت (الزامی)
+    frames: list = []             # فریم‌های استخراج‌شده از ویدئو (data-uri)
+    challenge: str = ""           # عبارتی که کاربر باید گفته باشد
     national_id: Optional[str] = ""
     birth_date: Optional[str] = ""
 
@@ -69,22 +71,26 @@ class KycSubmit(BaseModel):
 @router.post("/kyc")
 async def submit_kyc(req: KycSubmit, db: Session = Depends(get_db),
                      current_user: models.User = Depends(get_current_user)):
-    """ارسال مدارک احراز هویت؛ هوش مصنوعی تطابق چهره را می‌سنجد."""
+    """ارسال مدارک احراز هویت ویدئویی؛ هوش مصنوعی تطابق چهره و زنده‌بودن را می‌سنجد."""
     if current_user.kyc_status == "verified":
         raise HTTPException(status_code=400, detail="هویت شما قبلاً تأیید شده است")
-    if not req.card_image or not req.selfie_image:
-        raise HTTPException(status_code=400, detail="تصویر کارت ملی و سلفی الزامی است")
+    if not req.card_image:
+        raise HTTPException(status_code=400, detail="تصویر کارت ملی الزامی است")
+    if not req.video or not req.frames:
+        raise HTTPException(status_code=400, detail="ویدئوی احراز هویت الزامی است (عکس پذیرفته نمی‌شود)")
 
     current_user.kyc_card_image = req.card_image
-    current_user.kyc_selfie_image = req.selfie_image
+    current_user.kyc_video = req.video
+    current_user.kyc_selfie_image = (req.frames[0] if req.frames else "")  # فریم نماینده
+    current_user.kyc_challenge = req.challenge
     current_user.kyc_submitted_at = datetime.utcnow()
     if req.national_id:
         current_user.national_id = req.national_id.strip()
     if req.birth_date:
         current_user.birth_date = req.birth_date.strip()
 
-    # تحلیل با هوش مصنوعی (مدل‌های گپ)
-    result = await verify_identity(req.card_image, req.selfie_image, db=db)
+    # تحلیل با هوش مصنوعی (مدل‌های گپ) روی فریم‌های ویدئو
+    result = await verify_identity(req.card_image, req.frames, db=db)
     current_user.kyc_match_score = result.get("confidence", 0)
     reason = result.get("reason", "")
 
@@ -135,7 +141,8 @@ async def admin_kyc_images(user_id: int, db: Session = Depends(get_db),
     u = db.query(models.User).filter(models.User.id == user_id).first()
     if not u:
         raise HTTPException(status_code=404, detail="کاربر یافت نشد")
-    return {"card_image": u.kyc_card_image or "", "selfie_image": u.kyc_selfie_image or ""}
+    return {"card_image": u.kyc_card_image or "", "selfie_image": u.kyc_selfie_image or "",
+            "video": u.kyc_video or "", "challenge": u.kyc_challenge or ""}
 
 
 class KycDecision(BaseModel):

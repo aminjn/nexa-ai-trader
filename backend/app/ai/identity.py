@@ -8,34 +8,40 @@ import re
 from .gapgpt import make_client, get_ai_config
 
 _PROMPT = (
-    "تو سامانهٔ احراز هویت هستی. دو تصویر دریافت می‌کنی: تصویر اول «کارت ملی» و تصویر دوم «سلفی/عکس زندهٔ کاربر». "
-    "وظایف:\n"
-    "1) بررسی کن آیا چهرهٔ روی کارت ملی با چهرهٔ سلفی متعلق به یک شخص است.\n"
-    "2) بررسی کن تصویر اول واقعاً یک کارت ملی/مدرک شناسایی معتبر به نظر می‌رسد و سلفی یک چهرهٔ انسانی واقعی است (نه عکسِ عکس).\n"
-    "فقط و فقط یک JSON معتبر برگردان، بدون هیچ متن اضافه، با این کلیدها:\n"
+    "تو سامانهٔ احراز هویت هستی. تصویر اول «کارت ملی» است و بقیهٔ تصاویر «فریم‌هایی از ویدئوی زندهٔ کاربر» "
+    "هستند که هنگام گفتن یک عبارت گرفته شده‌اند. وظایف:\n"
+    "1) آیا چهرهٔ روی کارت ملی با چهرهٔ فریم‌های ویدئو متعلق به یک شخص است؟\n"
+    "2) آیا تصویر اول یک کارت ملی/مدرک شناسایی معتبر به نظر می‌رسد؟\n"
+    "3) آیا فریم‌ها یک انسانِ واقعی و زنده را نشان می‌دهند (نه عکسِ عکس یا تصویر ثابت)؟ "
+    "به تفاوت‌های جزئیِ حالت چهره بین فریم‌ها توجه کن.\n"
+    "فقط و فقط یک JSON معتبر برگردان، بدون هیچ متن اضافه:\n"
     '{"match": true/false, "confidence": عددی بین 0 تا 100, "is_id_card": true/false, '
     '"is_real_selfie": true/false, "reason": "توضیح کوتاه فارسی"}'
 )
 
 
-async def verify_identity(card_image: str, selfie_image: str, db=None) -> dict:
-    """مقایسهٔ چهرهٔ کارت ملی با سلفی. card_image/selfie_image به‌صورت data-uri base64.
+async def verify_identity(card_image: str, frames, db=None) -> dict:
+    """مقایسهٔ چهرهٔ کارت ملی با فریم‌های ویدئوی زنده.
 
+    frames: یک رشتهٔ data-uri یا فهرستی از data-uriها (فریم‌های استخراج‌شده از ویدئو).
     در صورت خطا، نتیجهٔ خنثی برمی‌گرداند تا جریان قطع نشود (ادمین دستی بررسی کند).
     """
+    if isinstance(frames, str):
+        frames = [frames]
+    frames = [f for f in (frames or []) if f][:4]  # حداکثر ۴ فریم
+    if not frames:
+        return {"match": False, "confidence": 0, "is_id_card": False, "is_real_selfie": False,
+                "reason": "فریمی از ویدئو دریافت نشد", "error": True}
     cfg = get_ai_config(db)
-    client = make_client(cfg["api_key"], timeout=90.0)
+    client = make_client(cfg["api_key"], timeout=120.0)
+    content = [{"type": "text", "text": _PROMPT},
+               {"type": "image_url", "image_url": {"url": card_image}}]
+    for fr in frames:
+        content.append({"type": "image_url", "image_url": {"url": fr}})
     try:
         resp = await client.chat.completions.create(
             model=cfg["model"],
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": _PROMPT},
-                    {"type": "image_url", "image_url": {"url": card_image}},
-                    {"type": "image_url", "image_url": {"url": selfie_image}},
-                ],
-            }],
+            messages=[{"role": "user", "content": content}],
             temperature=0,
             max_tokens=400,
         )

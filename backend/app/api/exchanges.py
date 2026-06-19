@@ -43,8 +43,10 @@ async def add_exchange(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    # دروازه‌بانی: اتصال API شخصی فقط برای پلن‌هایی که اجازه دارند
-    from ..trading.access import can_use_own_api
+    # دروازه‌بانی: ابتدا احراز هویت، سپس اتصال API شخصی فقط برای پلن‌های دارای این امکان
+    from ..trading.access import can_use_own_api, is_verified
+    if not is_verified(current_user):
+        raise HTTPException(status_code=403, detail="برای اتصال صرافی ابتدا باید احراز هویت کنید")
     if not can_use_own_api(db, current_user):
         raise HTTPException(
             status_code=403,

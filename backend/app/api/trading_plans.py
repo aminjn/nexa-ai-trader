@@ -49,6 +49,7 @@ async def my_access(db: Session = Depends(get_db), current_user: models.User = D
     """وضعیت دسترسی کاربر: اشتراک فعال، پلن، کارمزد، اجازهٔ API شخصی."""
     if current_user.is_superadmin:
         return {"has_access": True, "is_superadmin": True, "can_use_own_api": True,
+                "kyc_status": "verified",
                 "subscription": None, "commission": access.commission_summary(db, current_user),
                 "features": {"ai_chat_daily_limit": 0, "signals_level": 99,
                              "signals_include_analysis": True}}
@@ -84,6 +85,7 @@ async def my_access(db: Session = Depends(get_db), current_user: models.User = D
         "has_access": sub is not None,
         "is_superadmin": False,
         "can_use_own_api": access.can_use_own_api(db, current_user),
+        "kyc_status": current_user.kyc_status or "none",
         "subscription": sub_out,
         "pending": bool(pending),
         "commission": commission,
@@ -111,6 +113,8 @@ class SubscribeRequest(BaseModel):
 async def subscribe(req: SubscribeRequest, db: Session = Depends(get_db),
                     current_user: models.User = Depends(get_current_user)):
     """درخواست یک پلن (در انتظار تأیید/پرداخت ادمین)."""
+    if not access.is_verified(current_user):
+        raise HTTPException(status_code=403, detail="ابتدا باید احراز هویت کنید")
     plan = access.get_plan(db, req.plan_id)
     if not plan or not plan.active:
         raise HTTPException(status_code=404, detail="پلن یافت نشد")

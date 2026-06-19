@@ -44,7 +44,9 @@ class User(Base):
     avatar = Column(Text, default="")                   # تصویر پروفایل (base64 data-uri)
     kyc_status = Column(String, default="none")         # none | pending | verified | rejected
     kyc_card_image = Column(Text, default="")           # تصویر کارت ملی (base64)
-    kyc_selfie_image = Column(Text, default="")         # سلفی/فریم ویدئو (base64)
+    kyc_selfie_image = Column(Text, default="")         # فریم نمایندهٔ ویدئو (base64)
+    kyc_video = Column(Text, default="")                # ویدئوی احراز هویت (base64) — شامل گفتنِ چالش
+    kyc_challenge = Column(String, default="")          # عبارت/اعدادی که کاربر باید بگوید (liveness)
     kyc_match_score = Column(Float, default=0.0)        # درصد تطابق چهره (هوش مصنوعی)
     kyc_note = Column(Text, default="")                 # توضیح نتیجهٔ احراز هویت
     kyc_submitted_at = Column(DateTime, nullable=True)

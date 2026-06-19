@@ -36,10 +36,20 @@ def get_plan(db, plan_id: int):
 
 
 def has_access(db, user) -> bool:
-    """آیا کاربر اجازهٔ استفاده از پنل/ربات را دارد؟ (سوپر ادمین همیشه دارد)"""
+    """آیا کاربر اجازهٔ استفاده از پنل/ربات را دارد؟
+
+    شرط: احراز هویت شده باشد و اشتراک فعال داشته باشد (سوپر ادمین همیشه دارد).
+    """
     if getattr(user, "is_superadmin", False):
         return True
+    if not is_verified(user):
+        return False
     return get_active_subscription(db, user.id) is not None
+
+
+def is_verified(user) -> bool:
+    """آیا حساب کاربر احراز هویت شده (یا سوپر ادمین) است؟"""
+    return bool(getattr(user, "is_superadmin", False)) or (getattr(user, "kyc_status", "none") == "verified")
 
 
 def active_plan(db, user):

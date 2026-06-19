@@ -110,6 +110,8 @@ def ensure_columns():
                 ("kyc_status", "VARCHAR DEFAULT 'none'"),
                 ("kyc_card_image", "TEXT DEFAULT ''"),
                 ("kyc_selfie_image", "TEXT DEFAULT ''"),
+                ("kyc_video", "TEXT DEFAULT ''"),
+                ("kyc_challenge", "VARCHAR DEFAULT ''"),
                 ("kyc_match_score", "FLOAT DEFAULT 0.0"),
                 ("kyc_note", "TEXT DEFAULT ''"),
                 ("kyc_submitted_at", "DATETIME"),

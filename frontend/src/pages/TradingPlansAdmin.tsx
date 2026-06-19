@@ -22,7 +22,7 @@ const label: React.CSSProperties = { fontSize: 12, color: 'var(--dim)', marginBo
 const fmt = (n: number) => Math.round(n || 0).toLocaleString('en-US')
 
 interface WD {
-  id: number; user_name: string; user_phone: string; amount_toman: number; current_value: number | null;
+  id: number; user_name: string; user_phone: string; amount_toman: number; gross_toman: number; current_value: number | null;
   payout_toman: number; commission_toman: number; units_redeemed: number; status: string; created_at: string | null
 }
 interface PoolEx { id: number; name: string; user_id: number; is_pool: boolean }
@@ -150,14 +150,15 @@ export default function TradingPlansAdmin() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead><tr style={{ color: 'var(--dim)', textAlign: 'right' }}>
-                  {['کاربر', 'درخواست', 'موجودی فعلی', 'پرداختی', 'کارمزد', 'وضعیت', 'عملیات'].map(c => <th key={c} style={{ padding: '8px 10px', fontWeight: 600 }}>{c}</th>)}
+                  {['کاربر', 'درخواست', 'ارزش قفل‌شده', 'ارزش زنده', 'پرداختی', 'کارمزد', 'وضعیت', 'عملیات'].map(c => <th key={c} style={{ padding: '8px 10px', fontWeight: 600 }}>{c}</th>)}
                 </tr></thead>
                 <tbody>
                   {withdrawals.map(w => (
                     <tr key={w.id} style={{ borderTop: '1px solid var(--border)' }}>
                       <td style={{ padding: '10px' }}>{w.user_name}</td>
                       <td style={{ padding: '10px', fontFamily: 'JetBrains Mono' }}>{w.amount_toman ? fmt(w.amount_toman) : 'کل موجودی'}</td>
-                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono' }}>{w.current_value != null ? fmt(w.current_value) : '—'}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', fontWeight: 700 }}>{w.gross_toman ? fmt(w.gross_toman) : '—'}</td>
+                      <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', color: 'var(--dim)' }}>{w.current_value != null ? fmt(w.current_value) : '—'}</td>
                       <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', color: 'var(--green)' }}>{w.payout_toman ? fmt(w.payout_toman) : '—'}</td>
                       <td style={{ padding: '10px', fontFamily: 'JetBrains Mono', color: 'var(--amber)' }}>{w.commission_toman ? fmt(w.commission_toman) : '—'}</td>
                       <td style={{ padding: '10px', fontWeight: 700, color: w.status === 'approved' ? 'var(--green)' : w.status === 'rejected' ? 'var(--red)' : 'var(--amber)' }}>

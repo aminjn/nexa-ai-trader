@@ -135,11 +135,22 @@ async def request_withdraw(req: WithdrawRequest, db: Session = Depends(get_db),
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="یک درخواست برداشت در انتظار تأیید دارید")
-    w = models.PoolWithdrawal(user_id=current_user.id, subscription_id=sub.id,
-                              amount_toman=max(0, req.amount_toman), status="pending")
+    # محاسبهٔ لحظه‌ای و قفلِ مبلغ در همین لحظهٔ درخواست
+    f = await pool.compute_redemption(db, sub, plan, float(req.amount_toman))
+    w = models.PoolWithdrawal(
+        user_id=current_user.id, subscription_id=sub.id,
+        amount_toman=max(0, req.amount_toman), status="pending",
+        unit_price=f["unit_price"], units_redeemed=f["units_redeemed"],
+        gross_toman=f["gross"], deposit_removed_toman=f["deposit_removed"],
+        commission_toman=f["commission"], payout_toman=f["payout"],
+    )
     db.add(w)
     db.commit()
-    return {"message": "درخواست برداشت ثبت شد و پس از تأیید ادمین پرداخت می‌شود."}
+    return {
+        "message": f"درخواست برداشت ثبت شد. مبلغ قطعی‌شدهٔ این لحظه: {f['payout']:,} تومان "
+                   f"(کارمزد سود: {f['commission']:,}). پس از تأیید ادمین پرداخت می‌شود.",
+        "gross": f["gross"], "commission": f["commission"], "payout": f["payout"],
+    }
 
 
 @router.get("/my-withdrawals")
@@ -347,7 +358,9 @@ async def admin_list_withdrawals(db: Session = Depends(get_db),
         out.append({
             "id": w.id, "user_name": u.full_name if u else "—",
             "user_phone": (u.phone or u.email) if u else "—",
-            "amount_toman": w.amount_toman, "current_value": cur_value,
+            "amount_toman": w.amount_toman,
+            "gross_toman": w.gross_toman,            # ارزش قفل‌شدهٔ لحظهٔ درخواست
+            "current_value": cur_value,              # ارزش زندهٔ فعلی (برای مقایسه)
             "payout_toman": w.payout_toman, "commission_toman": w.commission_toman,
             "units_redeemed": w.units_redeemed, "status": w.status,
             "created_at": w.created_at.isoformat() if w.created_at else None,
@@ -366,20 +379,23 @@ async def admin_approve_withdrawal(wid: int, db: Session = Depends(get_db),
     if not w or w.status != "pending":
         raise HTTPException(status_code=404, detail="درخواست یافت نشد یا قبلاً پردازش شده")
     sub = db.query(models.TradingSubscription).filter(models.TradingSubscription.id == w.subscription_id).first()
-    plan = access.get_plan(db, sub.plan_id) if sub else None
-    if not sub or not plan:
+    if not sub:
         raise HTTPException(status_code=400, detail="اشتراک مرتبط یافت نشد")
-    res = await pool.redeem_units(db, sub, plan, float(w.amount_toman))
+    # اعمال مقادیرِ قفل‌شده در لحظهٔ درخواست (بدون محاسبهٔ مجدد با قیمت روز)
+    frozen = {
+        "units_redeemed": w.units_redeemed or 0.0,
+        "deposit_removed": w.deposit_removed_toman or 0,
+        "commission": w.commission_toman or 0,
+    }
+    pool.apply_redemption(db, sub, frozen)
     w.status = "approved"
-    w.units_redeemed = res["units_redeemed"]
-    w.payout_toman = res["payout"]
-    w.commission_toman = res["commission"]
     w.processed_at = datetime.utcnow()
     db.commit()
     if sub.status == "expired":
         stop_user_bot(sub.user_id)
-    return {"message": f"تأیید شد. مبلغ پرداختی به کاربر: {res['payout']:,} تومان (کارمزد کسرشده: {res['commission']:,})",
-            **res}
+    return {"message": f"تأیید شد. مبلغ پرداختی به کاربر: {(w.payout_toman or 0):,} تومان "
+                       f"(کارمزد کسرشده: {(w.commission_toman or 0):,}) — مطابق لحظهٔ درخواست",
+            "payout": w.payout_toman, "commission": w.commission_toman}
 
 
 @router.post("/admin/withdrawals/{wid}/reject")

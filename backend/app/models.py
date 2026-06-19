@@ -238,9 +238,13 @@ class PoolWithdrawal(Base):
     user_id = Column(Integer, ForeignKey("users.id"), index=True)
     subscription_id = Column(Integer, ForeignKey("trading_subscriptions.id"))
     amount_toman = Column(Integer, default=0)        # مبلغ درخواستی (۰ = کل موجودی)
-    units_redeemed = Column(Float, default=0.0)      # واحد بازخریدشده (هنگام تأیید)
-    payout_toman = Column(Integer, default=0)        # مبلغ پرداختی نهایی (هنگام تأیید)
-    commission_toman = Column(Integer, default=0)    # کارمزد سودِ کسرشده (هنگام تأیید)
+    # مقادیر «قفل‌شده در لحظهٔ درخواست» (با قیمت زندهٔ همان لحظه):
+    unit_price = Column(Float, default=0.0)          # قیمت هر واحد در لحظهٔ درخواست
+    gross_toman = Column(Integer, default=0)         # ارزش ناخالص برداشت در لحظهٔ درخواست
+    deposit_removed_toman = Column(Integer, default=0)  # سهم اصلِ کسرشده
+    units_redeemed = Column(Float, default=0.0)      # واحد بازخریدشده (قفل‌شده در لحظهٔ درخواست)
+    payout_toman = Column(Integer, default=0)        # مبلغ پرداختی نهایی (ناخالص − کارمزد)
+    commission_toman = Column(Integer, default=0)    # کارمزد سودِ کسرشده
     status = Column(String, default="pending")       # pending | approved | rejected
     note = Column(String, default="")
     created_at = Column(DateTime, default=datetime.utcnow)

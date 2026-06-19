@@ -99,11 +99,10 @@ async def managed_commission(db, sub, plan) -> dict:
     }
 
 
-async def redeem_units(db, sub, plan, amount_toman: float) -> dict:
-    """بازخرید واحد به ازای مبلغ درخواستی (۰ = کل موجودی).
+async def compute_redemption(db, sub, plan, amount_toman: float) -> dict:
+    """محاسبهٔ بازخرید با **قیمت زندهٔ همین لحظه** — بدون تغییر دیتابیس.
 
-    سهم اصل و سود به نسبت واحدهای بازخریدشده جدا می‌شود؛ کارمزد سودِ همان بخش
-    کسر و ثبت می‌شود (چون در زمان برداشت محقق شده است).
+    در لحظهٔ درخواستِ کاربر صدا زده می‌شود تا مبلغ همان‌جا قطعی (قفل) شود.
     """
     from . import access
     price = await unit_price(db)
@@ -118,21 +117,28 @@ async def redeem_units(db, sub, plan, amount_toman: float) -> dict:
     rate = access.commission_rate_for(plan, sub.deposit_toman or 0)
     commission = max(0.0, profit_realized) * rate / 100.0
     payout = amount - commission
-
-    # به‌روزرسانی اشتراک
-    sub.units = max(0.0, (sub.units or 0.0) - units_to_redeem)
-    sub.deposit_toman = max(0, int((sub.deposit_toman or 0) - deposit_removed))
-    sub.commission_settled_toman = (sub.commission_settled_toman or 0) + int(commission)
-    if sub.units <= 1e-6:
-        sub.status = "expired"
-    db.commit()
     return {
+        "unit_price": round(price, 6),
         "units_redeemed": round(units_to_redeem, 6),
-        "amount": round(amount),
+        "gross": round(amount),
+        "deposit_removed": round(deposit_removed),
         "commission": round(commission),
         "payout": round(payout),
         "profit_realized": round(profit_realized),
     }
+
+
+def apply_redemption(db, sub, frozen: dict):
+    """اعمال بازخریدِ قفل‌شده (مقادیر لحظهٔ درخواست) روی اشتراک — هنگام تأیید ادمین.
+
+    دوباره با قیمت روز حساب نمی‌شود؛ دقیقاً همان مقادیر لحظهٔ درخواست اعمال می‌گردد.
+    """
+    sub.units = max(0.0, (sub.units or 0.0) - (frozen.get("units_redeemed") or 0.0))
+    sub.deposit_toman = max(0, int((sub.deposit_toman or 0) - (frozen.get("deposit_removed") or 0)))
+    sub.commission_settled_toman = (sub.commission_settled_toman or 0) + int(frozen.get("commission") or 0)
+    if sub.units <= 1e-6:
+        sub.status = "expired"
+    db.commit()
 
 
 async def managed_share(db, user):

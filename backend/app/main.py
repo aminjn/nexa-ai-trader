@@ -111,6 +111,16 @@ def ensure_columns():
         with engine.begin() as conn:
             if "units" not in cols:
                 conn.execute(text("ALTER TABLE trading_subscriptions ADD COLUMN units FLOAT DEFAULT 0.0"))
+    # pool_withdrawals: مقادیر قفل‌شده در لحظهٔ درخواست
+    if "pool_withdrawals" in tables:
+        cols = {c["name"] for c in inspector.get_columns("pool_withdrawals")}
+        with engine.begin() as conn:
+            if "unit_price" not in cols:
+                conn.execute(text("ALTER TABLE pool_withdrawals ADD COLUMN unit_price FLOAT DEFAULT 0.0"))
+            if "gross_toman" not in cols:
+                conn.execute(text("ALTER TABLE pool_withdrawals ADD COLUMN gross_toman INTEGER DEFAULT 0"))
+            if "deposit_removed_toman" not in cols:
+                conn.execute(text("ALTER TABLE pool_withdrawals ADD COLUMN deposit_removed_toman INTEGER DEFAULT 0"))
     # ml_models: ستون‌های جزئیات آموزش
     if "ml_models" in tables:
         cols = {c["name"] for c in inspector.get_columns("ml_models")}

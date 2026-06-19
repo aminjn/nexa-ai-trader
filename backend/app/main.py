@@ -143,6 +143,13 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE trading_plans ADD COLUMN signals_delay_minutes INTEGER DEFAULT 0"))
             if "signals_include_analysis" not in cols:
                 conn.execute(text("ALTER TABLE trading_plans ADD COLUMN signals_include_analysis BOOLEAN DEFAULT 0"))
+    # trades: فیلدهای حساب‌داری پولی (کارمزد/هزینه/عایدی)
+    if "trades" in tables:
+        cols = {c["name"] for c in inspector.get_columns("trades")}
+        with engine.begin() as conn:
+            for col in ("cost_toman", "proceeds_toman", "fee_toman"):
+                if col not in cols:
+                    conn.execute(text(f"ALTER TABLE trades ADD COLUMN {col} FLOAT DEFAULT 0.0"))
     # pool_withdrawals: مقادیر قفل‌شده در لحظهٔ درخواست
     if "pool_withdrawals" in tables:
         cols = {c["name"] for c in inspector.get_columns("pool_withdrawals")}

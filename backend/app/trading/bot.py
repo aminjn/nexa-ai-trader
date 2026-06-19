@@ -174,8 +174,11 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             if open_trade:
                 gross_pct = (current_price - open_trade.entry_price) / open_trade.entry_price * 100
                 # کارمزد رفت‌وبرگشت نوبیتکس (خرید + فروش) از سود/زیان کم می‌شود (اگر صفر بود، حداقل ۰.۲۵٪ پایه)
-                round_trip_fee = 2 * (getattr(user, "fee_pct", 0.25) or 0.25)
+                fee_pct = (getattr(user, "fee_pct", 0.25) or 0.25)
+                round_trip_fee = 2 * fee_pct
                 change_pct = gross_pct - round_trip_fee  # سود/زیان خالص پس از کارمزد
+                # حداقل سود خالصِ لازم برای خروجِ سوددهانه (پوشش لغزش بازارِ سفارش market)
+                min_exit = max(0.5, round_trip_fee + 0.3)
                 reason = None
                 if change_pct >= user.target_profit:
                     reason = f"هدف سود (خالص {change_pct:+.2f}٪ پس از کارمزد)"
@@ -183,8 +186,8 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     reason = f"حد ضرر (خالص {change_pct:+.2f}٪)"
                 elif (getattr(user, "ml_exit_enabled", False) and ml_signal
                       and ml_signal["signal"] == "SELL" and ml_conf >= trainer.confidence_threshold
-                      and change_pct > 0):
-                    # خروج با سیگنال ML فقط وقتی پس از کارمزد همچنان سودده است
+                      and change_pct >= min_exit):
+                    # خروج با سیگنال ML فقط وقتی سود خالص از حداقلِ پوشش‌دهندهٔ کارمزد+لغزش بیشتر باشد
                     reason = f"سیگنال فروش ML (سود خالص {change_pct:+.2f}٪)"
 
                 if reason:
@@ -207,13 +210,24 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     try:
                         await exchange.create_market_order(pair, "sell", sell_amount)
                         open_trade.exit_price = current_price
-                        # سود/زیان خالص (پس از کسر کارمزد رفت‌وبرگشت)
-                        open_trade.pnl_pct = round(change_pct, 3)
-                        open_trade.pnl = round((change_pct / 100.0) * open_trade.entry_price * sell_amount, 2)
+                        # ── حساب‌داری پولیِ دقیق (قیمت‌ها ریال؛ به تومان تبدیل می‌شود) ──
+                        rial_to_toman = 10.0 if quote == "RLS" else 1.0  # بازار RLS ریال است
+                        cost_toman = (open_trade.entry_price * sell_amount) / rial_to_toman
+                        proceeds_toman = (current_price * sell_amount) / rial_to_toman
+                        fee_toman = (cost_toman + proceeds_toman) * fee_pct / 100.0
+                        net_pnl = proceeds_toman - cost_toman - fee_toman   # سود/زیان خالصِ پولی (تومان)
+                        open_trade.cost_toman = round(cost_toman, 2)
+                        open_trade.proceeds_toman = round(proceeds_toman, 2)
+                        open_trade.fee_toman = round(fee_toman, 2)
+                        open_trade.pnl = round(net_pnl, 2)
+                        open_trade.pnl_pct = round((net_pnl / cost_toman * 100.0) if cost_toman else change_pct, 3)
                         open_trade.status = "closed"
                         open_trade.closed_at = datetime.utcnow()
                         db.commit()
-                        log_bot_event(f"🔴 فروش {pair} | مقدار {sell_amount} | دلیل: {reason}")
+                        log_bot_event(
+                            f"🔴 فروش {pair} | مقدار {sell_amount} | دلیل: {reason} | "
+                            f"خالص {net_pnl:+,.0f} ت (کارمزد {fee_toman:,.0f} ت)"
+                        )
                     except Exception as e:
                         log_bot_event(f"خطا در فروش {pair} (مقدار {sell_amount}): {str(e)[:120]}", "error")
                 else:
@@ -283,6 +297,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 continue
             try:
                 order = await exchange.create_market_order(pair, "buy", amount)
+                rial_to_toman = 10.0 if quote == "RLS" else 1.0
                 trade = models.Trade(
                     user_id=user.id,
                     exchange=exch.exchange_name,
@@ -290,6 +305,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     side="buy",
                     entry_price=current_price,
                     amount=amount,
+                    cost_toman=round((current_price * amount) / rial_to_toman, 2),
                     status="open",
                     trade_type=user.market_type,
                     ai_assisted=user.ai_trading_enabled,

@@ -65,6 +65,73 @@ async def verify_identity(card_image: str, frames, db=None) -> dict:
     }
 
 
+FA_NUM_WORDS = ['صفر', 'یک', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'هفت', 'هشت', 'نه']
+
+
+async def transcribe_audio(video_data_uri: str, db=None) -> str:
+    """رونویسی صدای ویدئوی KYC با whisper (مدل‌های گپ). در خطا رشتهٔ خالی برمی‌گرداند."""
+    if not video_data_uri or "," not in video_data_uri:
+        return ""
+    import base64
+    try:
+        header, b64 = video_data_uri.split(",", 1)
+        raw = base64.b64decode(b64)
+    except Exception:
+        return ""
+    ext = "webm"
+    if "mp4" in header:
+        ext = "mp4"
+    cfg = get_ai_config(db)
+    client = make_client(cfg["api_key"], timeout=120.0)
+    try:
+        resp = await client.audio.transcriptions.create(
+            model="whisper-1",
+            file=(f"kyc.{ext}", raw),
+            language="fa",
+        )
+        return (getattr(resp, "text", "") or "").strip()
+    except Exception:
+        return ""
+
+
+def _normalize_fa(s: str) -> str:
+    """نرمال‌سازی متن فارسی + تبدیل ارقام فارسی/عربی به انگلیسی."""
+    fa = "۰۱۲۳۴۵۶۷۸۹"; ar = "٠١٢٣٤٥٦٧٨٩"
+    out = []
+    for ch in s:
+        if ch in fa:
+            out.append(str(fa.index(ch)))
+        elif ch in ar:
+            out.append(str(ar.index(ch)))
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def check_spoken(transcript: str, challenge_text: str) -> dict:
+    """بررسی این‌که اعداد چالش در گفتار کاربر آمده‌اند.
+
+    challenge_text مثل: «۳ (سه) - ۷ (هفت) - ...». انتظار: همان رقم‌ها (به‌صورت عدد یا واژهٔ فارسی).
+    """
+    import re
+    if not transcript:
+        return {"ok": False, "matched": 0, "expected": 0, "transcript": ""}
+    # رقم‌های موردانتظار را از متن چالش دربیاور
+    norm_ch = _normalize_fa(challenge_text)
+    expected_digits = re.findall(r"\d", norm_ch)
+    if not expected_digits:
+        return {"ok": False, "matched": 0, "expected": 0, "transcript": transcript}
+    norm_tr = _normalize_fa(transcript)
+    matched = 0
+    for d in expected_digits:
+        word = FA_NUM_WORDS[int(d)]
+        if d in norm_tr or word in transcript:
+            matched += 1
+    expected = len(expected_digits)
+    return {"ok": matched >= max(2, expected - 1), "matched": matched,
+            "expected": expected, "transcript": transcript[:200]}
+
+
 def _parse_json(text: str):
     text = text.strip()
     # حذف ```json ... ```

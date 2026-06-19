@@ -71,6 +71,46 @@ async def get_wallet(db: Session = Depends(get_db), current_user: models.User = 
     }
 
 
+@router.get("/trades")
+async def wallet_trades(limit: int = 100, db: Session = Depends(get_db),
+                        current_user: models.User = Depends(get_current_user)):
+    """دفترچهٔ معاملات: برای هر معامله، پولِ خارج‌شده (خرید)، پولِ واردشده (فروش)،
+    کارمزد و سود/زیان خالص. کاربرِ managed سهمِ خودش را می‌بیند."""
+    ms = await pool.managed_share(db, current_user)
+    if ms:
+        oid = ms["pool_owner_id"] or current_user.id
+        frac = ms["fraction"]
+    else:
+        oid = current_user.id
+        frac = 1.0
+
+    trades = db.query(models.Trade).filter(
+        models.Trade.user_id == oid,
+        models.Trade.status == "closed",
+    ).order_by(models.Trade.closed_at.desc().nullslast(), models.Trade.id.desc()).limit(limit).all()
+
+    rows = []
+    tot_cost = tot_proceeds = tot_fee = tot_net = 0.0
+    for t in trades:
+        cost = (t.cost_toman or 0) * frac
+        proceeds = (t.proceeds_toman or 0) * frac
+        fee = (t.fee_toman or 0) * frac
+        net = (t.pnl or 0) * frac
+        tot_cost += cost; tot_proceeds += proceeds; tot_fee += fee; tot_net += net
+        rows.append({
+            "id": t.id, "pair": t.pair,
+            "cost_toman": round(cost), "proceeds_toman": round(proceeds),
+            "fee_toman": round(fee), "net_pnl": round(net), "pnl_pct": t.pnl_pct,
+            "closed_at": t.closed_at.isoformat() if t.closed_at else None,
+        })
+    return {
+        "share_based": frac != 1.0,
+        "trades": rows,
+        "totals": {"cost": round(tot_cost), "proceeds": round(tot_proceeds),
+                   "fee": round(tot_fee), "net": round(tot_net)},
+    }
+
+
 class DepositRequest(BaseModel):
     amount_toman: int
     reference: str = ""

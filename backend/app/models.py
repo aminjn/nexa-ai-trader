@@ -88,8 +88,12 @@ class Trade(Base):
     entry_price = Column(Float)
     exit_price = Column(Float, nullable=True)
     amount = Column(Float)
-    pnl = Column(Float, nullable=True)
-    pnl_pct = Column(Float, nullable=True)
+    pnl = Column(Float, nullable=True)         # سود/زیان خالص (تومان) — پس از کسر کارمزد
+    pnl_pct = Column(Float, nullable=True)     # سود/زیان خالص بر حسب درصد
+    # حساب‌داری پولیِ هر معامله (تومان) — برای دفترچهٔ کیف پول
+    cost_toman = Column(Float, default=0.0)        # پول خارج‌شده بابت خرید
+    proceeds_toman = Column(Float, default=0.0)    # پول واردشده بابت فروش
+    fee_toman = Column(Float, default=0.0)         # کارمزد کل (خرید + فروش)
     status = Column(String, default="open")  # open/closed
     trade_type = Column(String, default="spot")  # spot/futures
     leverage = Column(Integer, default=1)

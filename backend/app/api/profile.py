@@ -7,7 +7,7 @@ from datetime import datetime
 from .. import models
 from ..database import get_db
 from ..auth.router import get_current_user, get_superadmin
-from ..ai.identity import verify_identity, AUTO_VERIFY_THRESHOLD
+from ..ai.identity import verify_identity, transcribe_audio, check_spoken, AUTO_VERIFY_THRESHOLD
 from ..notifications import notify_admin, notify_user
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -89,32 +89,48 @@ async def submit_kyc(req: KycSubmit, db: Session = Depends(get_db),
     if req.birth_date:
         current_user.birth_date = req.birth_date.strip()
 
-    # تحلیل با هوش مصنوعی (مدل‌های گپ) روی فریم‌های ویدئو
+    # ۱) تطابق چهره روی فریم‌های ویدئو (مدل vision گپ)
     result = await verify_identity(req.card_image, req.frames, db=db)
     current_user.kyc_match_score = result.get("confidence", 0)
     reason = result.get("reason", "")
+    conf = result.get("confidence", 0) or 0
+    face_ok = bool(result.get("match") and result.get("is_id_card")
+                   and result.get("is_real_selfie") and conf >= AUTO_VERIFY_THRESHOLD)
 
-    ok = (result.get("match") and result.get("is_id_card") and result.get("is_real_selfie")
-          and result.get("confidence", 0) >= AUTO_VERIFY_THRESHOLD)
-    if ok:
+    # ۲) بررسی گفتارِ چالش با whisper (مدل‌های گپ) — تشخیص خودکار زنده‌بودن
+    transcript = await transcribe_audio(req.video, db=db)
+    speech = check_spoken(transcript, req.challenge or current_user.kyc_challenge or "")
+    speech_ok = bool(speech.get("ok"))
+    speech_txt = (f"گفتار: «{speech.get('transcript', '')}» "
+                  f"({speech.get('matched', 0)}/{speech.get('expected', 0)} عدد درست)") if transcript else "گفتار قابل‌تشخیص نبود"
+
+    # ۳) تصمیم خودکار: سریع تأیید یا رد
+    clearly_fake = (not result.get("match")) and conf < 40 and not result.get("error")
+    if face_ok and speech_ok:
         current_user.kyc_status = "verified"
-        current_user.kyc_note = f"تأیید خودکار هوش مصنوعی (اطمینان {result.get('confidence')}٪). {reason}"
+        current_user.kyc_note = f"تأیید خودکار AI (تطابق چهره {conf}٪؛ {speech_txt})."
         db.commit()
-        notify_admin(db, "kyc", "احراز هویت تأیید شد",
-                     f"{current_user.full_name} با تأیید خودکار هوش مصنوعی احراز هویت شد.",
-                     ref_user_id=current_user.id, link="/admin")
-        notify_user(db, current_user.id, "kyc", "احراز هویت تأیید شد",
-                    "هویت شما با موفقیت تأیید شد ✅")
+        notify_admin(db, "kyc", "احراز هویت تأیید شد (خودکار)",
+                     f"{current_user.full_name} با هوش مصنوعی احراز هویت شد.",
+                     ref_user_id=current_user.id, link="/admin/wallet")
+        notify_user(db, current_user.id, "kyc", "احراز هویت تأیید شد", "هویت شما با موفقیت تأیید شد ✅")
+    elif clearly_fake:
+        current_user.kyc_status = "rejected"
+        current_user.kyc_note = f"رد خودکار: چهره با کارت ملی مطابقت ندارد (اطمینان {conf}٪). {reason}"
+        db.commit()
+        notify_user(db, current_user.id, "kyc", "احراز هویت رد شد",
+                    "چهرهٔ ویدئو با کارت ملی مطابقت نداشت. لطفاً دوباره و با نور کافی تلاش کنید.")
     else:
-        # نیاز به بررسی دستی سوپر ادمین
+        # مرز خاکستری → بررسی دستی سوپر ادمین
         current_user.kyc_status = "pending"
-        current_user.kyc_note = f"در انتظار بررسی دستی (اطمینان هوش مصنوعی {result.get('confidence')}٪). {reason}"
+        current_user.kyc_note = f"در انتظار بررسی دستی (تطابق چهره {conf}٪؛ {speech_txt}). {reason}"
         db.commit()
-        notify_admin(db, "kyc", "درخواست احراز هویت جدید",
-                     f"{current_user.full_name} مدارک احراز هویت ارسال کرد (اطمینان AI: {result.get('confidence')}٪).",
-                     ref_user_id=current_user.id, link="/admin")
+        notify_admin(db, "kyc", "درخواست احراز هویت (نیازمند بررسی)",
+                     f"{current_user.full_name}: تطابق چهره {conf}٪، {speech_txt}.",
+                     ref_user_id=current_user.id, link="/admin/wallet")
     return {"kyc_status": current_user.kyc_status, "match_score": current_user.kyc_match_score,
-            "note": current_user.kyc_note, "auto": ok}
+            "note": current_user.kyc_note, "auto": current_user.kyc_status != "pending",
+            "speech_ok": speech_ok}
 
 
 # ───────────────────────── سوپر ادمین ─────────────────────────

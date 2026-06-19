@@ -246,6 +246,17 @@ async def backtest(threshold: float = 0, fee_pct: float = 0.25,
     return result
 
 
+@router.get("/backtest-sweep")
+async def backtest_sweep(fee_pct: float = 0.25,
+                         db: Session = Depends(get_db),
+                         current_user: models.User = Depends(get_superadmin)):
+    """جاروبِ پارامتر: چند ترکیبِ آستانه × هدف/حدضرر را بک‌تست می‌کند تا بهترین
+    (و سوددهترین) ترکیب پس از کمیسیون مشخص شود."""
+    from ..ml.backtest import run_backtest_sweep_sync
+    result = await asyncio.to_thread(run_backtest_sweep_sync, fee_pct)
+    return result
+
+
 async def auto_retrain_loop(interval_hours: float = 6.0):
     """هر چند ساعت یک‌بار مدل را با داده‌ی به‌روز دوباره آموزش می‌دهد."""
     while True:

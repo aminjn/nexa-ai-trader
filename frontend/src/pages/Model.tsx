@@ -50,6 +50,8 @@ export default function Model() {
   const [training, setTraining] = useState(false)
   const [bt, setBt] = useState<any>(null)
   const [btLoading, setBtLoading] = useState(false)
+  const [sweep, setSweep] = useState<any>(null)
+  const [sweepLoading, setSweepLoading] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval>>()
 
   const runBacktest = async () => {
@@ -57,6 +59,13 @@ export default function Model() {
     try { const r = await api.get('/model/backtest'); setBt(r.data) }
     catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در بک‌تست') }
     finally { setBtLoading(false) }
+  }
+
+  const runSweep = async () => {
+    setSweepLoading(true); setSweep(null)
+    try { const r = await api.get('/model/backtest-sweep'); setSweep(r.data) }
+    catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در جاروب پارامتر') }
+    finally { setSweepLoading(false) }
   }
 
   const load = async () => {
@@ -292,6 +301,66 @@ export default function Model() {
                 <div style={{ fontSize:12, color:'var(--faint)', marginTop:12 }}>
                   پارامترها: آستانهٔ {bt.threshold}٪ · کارمزد {bt.fee_pct}٪ هر طرف · هدف +{bt.tp_pct}٪ / حد ضرر −{bt.sl_pct}٪ در {bt.horizon_h} ساعت
                   {bt.profit_factor!=null && (bt.profit_factor>=1 ? ' — ✅ پس از کمیسیون سودده است' : ' — ⚠️ پس از کمیسیون ضرر می‌دهد')}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* جاروب پارامتر: یافتن بهترین ترکیب آستانه × هدف/حدضرر */}
+        {isSuperAdmin && (
+          <div style={{ background:'var(--panel)', border:'1px solid var(--border)', borderRadius:18, padding:24 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:14 }}>
+              <div>
+                <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>🔍 یافتن بهترین پارامترها</div>
+                <div style={{ fontSize:12, color:'var(--dim)', marginTop:4 }}>چند ترکیبِ آستانه × هدف/حدضرر را بک‌تست می‌کند تا سوددهترین ترکیب پس از کمیسیون پیدا شود</div>
+              </div>
+              <button onClick={runSweep} disabled={sweepLoading} style={{ padding:'11px 22px', border:'none', borderRadius:11, background:'var(--accent)', color:'#05121a', fontWeight:700, fontSize:14, cursor:'pointer', opacity:sweepLoading?.7:1 }}>
+                {sweepLoading ? 'در حال جاروب… (چند دقیقه)' : 'یافتن بهترین پارامترها'}
+              </button>
+            </div>
+            {sweep && sweep.error && <div style={{ color:'var(--amber)', fontSize:13 }}>{sweep.error}</div>}
+            {sweep && !sweep.error && (
+              <>
+                <div style={{ padding:'12px 14px', borderRadius:12, marginBottom:14, fontSize:13, fontWeight:700,
+                  background: sweep.any_profitable ? 'rgba(16,185,129,.12)' : 'rgba(245,158,11,.12)',
+                  color: sweep.any_profitable ? 'var(--green)' : 'var(--amber)' }}>
+                  {sweep.any_profitable
+                    ? `✅ حداقل یک ترکیبِ سودده پس از کمیسیون پیدا شد — بهترین: آستانهٔ ${sweep.best.threshold}٪ · هدف +${sweep.best.tp_pct}٪ / حد ضرر −${sweep.best.sl_pct}٪ در ${sweep.best.horizon_h} ساعت (PF ${sweep.best.profit_factor})`
+                    : '⚠️ هیچ ترکیبی پس از کمیسیون سودده نبود — استراتژی فعلی با این کارمزد برتری ندارد.'}
+                </div>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, fontFamily:"'JetBrains Mono'" }}>
+                    <thead>
+                      <tr style={{ color:'var(--dim)', textAlign:'center' }}>
+                        {['آستانه','هدف٪','حدضرر٪','افق(h)','معامله','نرخ برد','میانگین خالص','مرکب کل','PF','حداکثر افت'].map((h,i)=>(
+                          <th key={i} style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(sweep.combos||[]).map((c:any,i:number)=>{
+                        const good = (c.profit_factor||0)>=1 && c.avg_net_pct>0
+                        return (
+                          <tr key={i} style={{ textAlign:'center', background: i===0 ? 'rgba(45,212,191,.08)' : 'transparent' }}>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>{c.threshold}٪</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>+{c.tp_pct}</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>−{c.sl_pct}</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>{c.horizon_h}</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>{c.trades}</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', color:c.win_rate>=50?'var(--green)':'var(--amber)' }}>{c.win_rate}٪</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', color:c.avg_net_pct>=0?'var(--green)':'var(--red)' }}>{c.avg_net_pct}٪</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', color:c.total_compound_pct>=0?'var(--green)':'var(--red)' }}>{c.total_compound_pct}٪</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', fontWeight:700, color:good?'var(--green)':'var(--red)' }}>{c.profit_factor ?? '—'}</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', color:'var(--red)' }}>{c.max_drawdown_pct}٪</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ fontSize:12, color:'var(--faint)', marginTop:12 }}>
+                  ردیفِ سبز = سوددهترین ترکیب. کارمزد {sweep.fee_pct}٪ هر طرف. مرتب‌شده بر اساس ضریب سود (PF).
                 </div>
               </>
             )}

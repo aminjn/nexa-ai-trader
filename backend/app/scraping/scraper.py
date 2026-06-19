@@ -70,18 +70,23 @@ def _discover_feed(html: str, base_url: str):
 
 def _feed_result(html: str, source, persist: bool, max_items: int) -> str:
     """منطق مشترک پردازش فید (تست/ذخیره)."""
-    feed_items = _parse_feed(html, max_items if persist else 5)
+    feed_items = _parse_feed(html, max_items if persist else max_items)
     seen = set(getattr(source, "seen_urls", None) or []) if persist else set()
     new_items = [it for it in feed_items if it["url"] not in seen]
+
+    # برای نمایش/تحلیل: عنوان + خلاصه‌ی کوتاهِ هر مطلب تا همه‌ی مطالب دیده شوند
+    def _short(it):
+        return (it.get("text") or "")[:260].strip()
+
     if persist:
         items = (getattr(source, "items", None) or []) + new_items
         items = items[-50:]
         source.items = items
         source.seen_urls = (list(seen) + [it["url"] for it in new_items])[-300:]
-        shown = list(reversed(items[-15:]))  # تازه‌ترین‌ها بالا
-        source.last_value = "\n".join(i["text"] for i in shown)[:3000]
-        return f"{len(new_items)} مطلب جدید"
-    return "\n".join(i["text"] for i in feed_items)[:3000] or "(آیتمی در خوراک یافت نشد)"
+        shown = list(reversed(items))[:max(max_items, 15)]  # تازه‌ترین‌ها بالا
+        source.last_value = "\n\n".join(_short(i) for i in shown)[:6000]
+        return f"{len(new_items)} مطلب جدید (مجموع {len(items)})"
+    return "\n\n".join(_short(i) for i in feed_items)[:6000] or "(آیتمی در خوراک یافت نشد)"
 
 
 async def scrape_url(url: str, selector: str = "", use_proxy: bool = False, max_chars: int = 1200) -> str:

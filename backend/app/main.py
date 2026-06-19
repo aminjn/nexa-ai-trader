@@ -87,7 +87,7 @@ def ensure_columns():
             if "trading_coins" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN trading_coins VARCHAR DEFAULT 'BTC,ETH,XRP,ADA,DOGE,LTC,TRX,BCH,BNB,SOL,DOT,AVAX,MATIC,SHIB,LINK,UNI,ATOM,FIL,ETC,XLM'"))
             if "fee_pct" not in cols:
-                conn.execute(text("ALTER TABLE users ADD COLUMN fee_pct FLOAT DEFAULT 0.2"))
+                conn.execute(text("ALTER TABLE users ADD COLUMN fee_pct FLOAT DEFAULT 0.25"))
     # ml_models: ستون‌های جزئیات آموزش
     if "ml_models" in tables:
         cols = {c["name"] for c in inspector.get_columns("ml_models")}

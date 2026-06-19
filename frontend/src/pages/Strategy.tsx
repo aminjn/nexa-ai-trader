@@ -16,7 +16,7 @@ export default function Strategy() {
   const [capitalPct, setCapitalPct] = useState(50)
   const [stopLoss, setStopLoss] = useState(2)
   const [mlExit, setMlExit] = useState(false)
-  const [feePct, setFeePct] = useState(0.2)
+  const [feePct, setFeePct] = useState(0.25)
   const [tradingCoins, setTradingCoins] = useState('BTC,ETH')
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -247,8 +247,9 @@ export default function Strategy() {
               />
               <div style={{ marginTop: 16 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>کارمزد هر معامله در نوبیتکس (٪)</div>
-                <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.8, marginBottom: 8 }}>
-                  کارمزد یک طرف (خرید یا فروش). ربات کارمزد رفت‌وبرگشت ({(feePct * 2).toFixed(2)}٪) را در سود/زیان لحاظ می‌کند تا معامله‌ای را که کارمزدش از سودش بیشتر است نبندد.
+                <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.9, marginBottom: 8 }}>
+                  کارمزد <b>تیکرِ بازار تومانی</b> (ربات با سفارش بازار معامله می‌کند). ربات کارمزد رفت‌وبرگشت ({(feePct * 2).toFixed(2)}٪) را در سود/زیان لحاظ می‌کند تا معامله‌ای را که کارمزدش از سودش بیشتر است نبندد.<br/>
+                  <span style={{ color: 'var(--faint)' }}>پله‌های نوبیتکس (تیکر تومانی): پایه <b>۰.۲۵</b> · VIP1 ۰.۲ · VIP2 ۰.۱۹ · VIP3 ۰.۱۷۵ · VIP4 ۰.۱۵۵ · VIP5 ۰.۱۴۵ · VIP6 ۰.۱۳۵ — طبق حجم ۳۰ روزه‌ات انتخاب کن.</span>
                 </div>
                 <input type="number" step={0.01} min={0} value={feePct} onChange={e => setFeePct(Number(e.target.value))}
                   dir="ltr" style={{ width: 160, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: "'JetBrains Mono', monospace" }} />

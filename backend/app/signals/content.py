@@ -103,7 +103,8 @@ async def generate_market_content(db) -> str:
         pass
 
     # ── حالت پشتیبان: متن ساختاریافته با برش تمیز ──
-    lines = [f"📈 <b>تحلیل بازار NEXA AI</b> — {datetime.utcnow().strftime('%Y/%m/%d')}", ""]
+    from .engine import tehran_now
+    lines = [f"📈 <b>تحلیل بازار NEXA AI</b> — {tehran_now().strftime('%Y/%m/%d %H:%M')}", ""]
     lines += coin_lines
     if fund_summary:
         lines += ["", "🌍 <b>فاندامنتال:</b> " + _clean_cut(fund_summary, 400)]

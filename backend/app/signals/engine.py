@@ -7,6 +7,15 @@
 from datetime import datetime, timedelta
 import pandas as pd
 
+
+def tehran_now() -> datetime:
+    """زمان فعلی به وقت تهران (ایران UTC+3:30، بدون ساعت تابستانی)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("Asia/Tehran"))
+    except Exception:
+        return datetime.utcnow() + timedelta(hours=3, minutes=30)
+
 from .. import models
 from ..database import SessionLocal
 from ..exchanges.nobitex import NobitexExchange
@@ -176,8 +185,7 @@ def _batch_messages(signals, header: str, include_analysis: bool = False, limit:
 
 async def post_batch_to_channel(created, settings_row):
     """همه‌ی سیگنال‌های یک دور را در یک پیام به کانال تلگرام/بله می‌فرستد."""
-    from datetime import datetime as _dt
-    header = f"📡 <b>سیگنال‌های NEXA AI</b> — {_dt.utcnow().strftime('%H:%M')}"
+    header = f"📡 <b>سیگنال‌های NEXA AI</b> — {tehran_now().strftime('%H:%M')}"
     for msg in _batch_messages(created, header):
         if settings_row.telegram_channel_id and settings_row.telegram_bot_token:
             await send_telegram(settings_row.telegram_bot_token, settings_row.telegram_channel_id, msg)

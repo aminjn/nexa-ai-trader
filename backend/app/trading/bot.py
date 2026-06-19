@@ -1,5 +1,6 @@
 import asyncio
-from collections import deque
+from collections import deque, defaultdict
+from contextvars import ContextVar
 from datetime import datetime
 from typing import Dict, Optional, List
 from sqlalchemy.orm import Session
@@ -15,26 +16,36 @@ logger = logging.getLogger(__name__)
 # Active bot tasks per user
 _active_bots: Dict[int, asyncio.Task] = {}
 
-# لاگ فعالیت برای نمایش داخل پنل (آخرین ۱۵۰ رویداد)
-_activity_log: deque = deque(maxlen=150)
+# لاگ فعالیت به تفکیک کاربر (آخرین ۱۵۰ رویداد هر کاربر). کلید ۰ = رویدادهای سیستمی/سراسری
+_activity_logs: Dict[int, deque] = defaultdict(lambda: deque(maxlen=150))
+
+# شناسهٔ کاربرِ جاری در تسک ربات (برای آن‌که log_bot_event بداند رویداد برای کیست)
+_ctx_user_id: ContextVar[int] = ContextVar("bot_user_id", default=0)
 
 
-def log_bot_event(message: str, level: str = "info"):
-    """ثبت یک رویداد در لاگ فعالیت قابل‌مشاهده در پنل."""
-    _activity_log.appendleft({
+def log_bot_event(message: str, level: str = "info", user_id: Optional[int] = None):
+    """ثبت یک رویداد در لاگ فعالیتِ همان کاربر (per-user)."""
+    uid = user_id if user_id is not None else _ctx_user_id.get()
+    _activity_logs[uid].appendleft({
         "time": datetime.utcnow().isoformat() + "Z",  # UTC با علامت Z برای تبدیل صحیح به زمان تهران
         "message": message,
         "level": level,
     })
-    logger.info(message)
+    logger.info(f"[user {uid}] {message}")
 
 
-def get_activity_log(limit: int = 50) -> List[dict]:
-    return list(_activity_log)[:limit]
+def get_activity_log(user_id: int, limit: int = 50, include_global: bool = False) -> List[dict]:
+    """لاگ فعالیتِ یک کاربر. اگر include_global باشد، رویدادهای سیستمی (کلید ۰) هم ادغام می‌شود."""
+    events = list(_activity_logs.get(user_id, []))
+    if include_global and user_id != 0:
+        events = events + list(_activity_logs.get(0, []))
+        events.sort(key=lambda e: e["time"], reverse=True)
+    return events[:limit]
 
 
 async def run_user_bot(user_id: int):
     """Main trading bot loop for a single user."""
+    _ctx_user_id.set(user_id)  # همهٔ رویدادهای این تسک به لاگ همین کاربر می‌رود
     while True:
         db = SessionLocal()
         try:
@@ -103,6 +114,7 @@ def _pairs_and_quote(user, balances: dict):
 
 async def run_trading_cycle(db: Session, user: models.User, exch: models.ExchangeAPI):
     """یک چرخه معاملاتی: بستن معاملات باز در سود/ضرر/سیگنال فروش، و باز کردن معامله جدید."""
+    _ctx_user_id.set(user.id)  # رویدادهای این چرخه به لاگ همین کاربر می‌رود
     try:
         from ..exchanges.nobitex import NobitexExchange
         import pandas as pd

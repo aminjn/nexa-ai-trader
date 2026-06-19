@@ -59,6 +59,16 @@ def get_superadmin(current_user: models.User = Depends(get_current_user)) -> mod
     return current_user
 
 
+def require_active_plan(current_user: models.User = Depends(get_current_user),
+                        db: Session = Depends(get_db)) -> models.User:
+    """دسترسی فقط برای کاربرِ دارای پلن فعال (یا سوپر ادمین)."""
+    from ..trading.access import has_access
+    if not has_access(db, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="برای مشاهدهٔ این بخش باید پلن فعال داشته باشید")
+    return current_user
+
+
 @router.post("/token")
 async def login_form(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = service.authenticate_user(db, form_data.username, form_data.password)

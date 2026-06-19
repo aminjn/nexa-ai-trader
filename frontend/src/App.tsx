@@ -70,7 +70,7 @@ export default function App() {
           <Route path="/plans" element={<ProtectedRoute><Plans /></ProtectedRoute>} />
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><PlanGate><Dashboard /></PlanGate></ProtectedRoute>} />
-          <Route path="/model" element={<ProtectedRoute><PlanGate><Model /></PlanGate></ProtectedRoute>} />
+          <Route path="/model" element={<AdminRoute><Model /></AdminRoute>} />
           <Route path="/strategy" element={<ProtectedRoute><PlanGate><Strategy /></PlanGate></ProtectedRoute>} />
           <Route path="/short" element={<ProtectedRoute><PlanGate><Short /></PlanGate></ProtectedRoute>} />
           <Route path="/exchanges" element={<ProtectedRoute><PlanGate><Exchanges /></PlanGate></ProtectedRoute>} />

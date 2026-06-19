@@ -4,7 +4,8 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 from .. import models
 from ..database import get_db
-from ..auth.router import get_current_user
+from ..auth.router import get_current_user, require_active_plan
+from ..trading.access import trade_owner_id
 from ..exchanges.nobitex import get_exchange
 import httpx
 
@@ -71,9 +72,10 @@ def _compute_technical(df):
 
 @router.get("/stats")
 async def get_stats(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    total_trades = db.query(models.Trade).filter(models.Trade.user_id == current_user.id).count()
+    oid = trade_owner_id(db, current_user)  # managed → معاملات حساب استخر
+    total_trades = db.query(models.Trade).filter(models.Trade.user_id == oid).count()
     closed_trades = db.query(models.Trade).filter(
-        models.Trade.user_id == current_user.id,
+        models.Trade.user_id == oid,
         models.Trade.status == "closed"
     ).all()
 
@@ -83,7 +85,7 @@ async def get_stats(db: Session = Depends(get_db), current_user: models.User = D
 
     today = datetime.utcnow().replace(hour=0, minute=0, second=0)
     today_trades = db.query(models.Trade).filter(
-        models.Trade.user_id == current_user.id,
+        models.Trade.user_id == oid,
         models.Trade.opened_at >= today
     ).count()
 
@@ -91,6 +93,26 @@ async def get_stats(db: Session = Depends(get_db), current_user: models.User = D
         t.pnl or 0 for t in closed_trades
         if t.closed_at and t.closed_at >= today
     )
+
+    # برای کاربر managed: ارزش = سهم واحدهای او از استخر (نه موجودی حساب شخصی)
+    from ..trading.access import get_active_subscription, get_plan
+    sub = get_active_subscription(db, current_user.id) if not current_user.is_superadmin else None
+    plan = get_plan(db, sub.plan_id) if sub else None
+    if plan and plan.plan_type == "managed":
+        from ..trading import pool
+        my_value = await pool.user_value_toman(db, sub)
+        return {
+            "total_equity": round(my_value, 2),
+            "free_cash_toman": 0,
+            "today_pnl": round(today_pnl, 4),
+            "today_pnl_pct": round(today_pnl / max(my_value, 1) * 100, 2),
+            "total_trades_24h": today_trades,
+            "win_rate": round(win_rate, 1),
+            "total_pnl": round(total_pnl, 4),
+            "total_trades": total_trades,
+            "bot_active": current_user.bot_active,
+            "managed": True,
+        }
 
     # موجودی زنده از صرافی (و به‌روزرسانی مقدار ذخیره‌شده)
     total_balance = 0
@@ -134,8 +156,9 @@ async def get_equity_curve(
     current_user: models.User = Depends(get_current_user)
 ):
     start = datetime.utcnow() - timedelta(days=days)
+    oid = trade_owner_id(db, current_user)
     trades = db.query(models.Trade).filter(
-        models.Trade.user_id == current_user.id,
+        models.Trade.user_id == oid,
         models.Trade.status == "closed",
         models.Trade.closed_at >= start,
     ).order_by(models.Trade.closed_at).all()
@@ -158,8 +181,9 @@ async def get_recent_trades(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    oid = trade_owner_id(db, current_user)
     trades = db.query(models.Trade).filter(
-        models.Trade.user_id == current_user.id
+        models.Trade.user_id == oid
     ).order_by(models.Trade.opened_at.desc()).limit(limit).all()
 
     return [{
@@ -175,6 +199,79 @@ async def get_recent_trades(
         "exchange": t.exchange,
         "ai_assisted": t.ai_assisted,
     } for t in trades]
+
+
+@router.get("/daily-pnl")
+async def daily_pnl(
+    days: int = 30,
+    start: str = "",
+    end: str = "",
+    user_id: int = 0,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    """گزارش سود/زیان دقیق روزانه (به وقت تهران) برای بازهٔ دلخواه.
+
+    - days: تعداد روز اخیر (پیش‌فرض ۳۰) — اگر start/end داده شود نادیده گرفته می‌شود.
+    - start/end: تاریخ میلادی YYYY-MM-DD برای بازهٔ مشخص.
+    - user_id: فقط سوپر ادمین می‌تواند گزارش یک کاربر خاص را بگیرد.
+    """
+    TEHRAN = timedelta(hours=3, minutes=30)
+    # تعیین صاحب معاملات
+    if user_id and current_user.is_superadmin:
+        oid = user_id
+    else:
+        oid = trade_owner_id(db, current_user)
+
+    # بازهٔ زمانی (به UTC) — ورودی‌ها بر اساس روز تهران تفسیر می‌شوند
+    def parse_day(s):
+        try:
+            return datetime.strptime(s, "%Y-%m-%d")
+        except Exception:
+            return None
+    if start and end:
+        s_teh = parse_day(start); e_teh = parse_day(end)
+        if not s_teh or not e_teh:
+            return {"days": [], "total_pnl": 0, "error": "تاریخ نامعتبر است"}
+        start_utc = s_teh - TEHRAN
+        end_utc = (e_teh + timedelta(days=1)) - TEHRAN
+    else:
+        days = max(1, min(days, 365))
+        now_teh = datetime.utcnow() + TEHRAN
+        e_teh = now_teh.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+        s_teh = e_teh - timedelta(days=days)
+        start_utc = s_teh - TEHRAN
+        end_utc = e_teh - TEHRAN
+
+    trades = db.query(models.Trade).filter(
+        models.Trade.user_id == oid,
+        models.Trade.status == "closed",
+        models.Trade.closed_at >= start_utc,
+        models.Trade.closed_at < end_utc,
+    ).all()
+
+    buckets: dict = {}
+    for t in trades:
+        if not t.closed_at:
+            continue
+        day = (t.closed_at + TEHRAN).strftime("%Y-%m-%d")  # روز تهران
+        b = buckets.setdefault(day, {"date": day, "pnl": 0.0, "trades": 0, "wins": 0, "losses": 0})
+        pnl = t.pnl or 0
+        b["pnl"] += pnl
+        b["trades"] += 1
+        if pnl > 0:
+            b["wins"] += 1
+        elif pnl < 0:
+            b["losses"] += 1
+
+    rows = sorted(buckets.values(), key=lambda x: x["date"], reverse=True)
+    for r in rows:
+        r["pnl"] = round(r["pnl"], 2)
+    return {
+        "days": rows,
+        "total_pnl": round(sum(r["pnl"] for r in rows), 2),
+        "total_trades": sum(r["trades"] for r in rows),
+    }
 
 
 @router.get("/holdings")
@@ -199,8 +296,9 @@ async def get_holdings(db: Session = Depends(get_db), current_user: models.User 
 @router.get("/positions")
 async def get_positions(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """معاملات باز با قیمت فروش هدف و حد ضرر."""
+    oid = trade_owner_id(db, current_user)
     open_trades = db.query(models.Trade).filter(
-        models.Trade.user_id == current_user.id,
+        models.Trade.user_id == oid,
         models.Trade.status == "open",
     ).all()
     if not open_trades:
@@ -259,7 +357,7 @@ async def get_positions(db: Session = Depends(get_db), current_user: models.User
 
 
 @router.get("/signals")
-async def get_signals(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def get_signals(db: Session = Depends(get_db), current_user: models.User = Depends(require_active_plan)):
     """سیگنال واقعی فعلی مدل برای جفت‌ارزهای اصلی."""
     from ..ml.trainer import get_trainer
     import pandas as pd
@@ -297,7 +395,7 @@ async def get_signals(db: Session = Depends(get_db), current_user: models.User =
 
 
 @router.get("/analysis")
-async def full_analysis(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def full_analysis(db: Session = Depends(get_db), current_user: models.User = Depends(require_active_plan)):
     """تحلیل فاندامنتال + تکنیکال + نتیجه‌گیری نهایی (متنی)."""
     import pandas as pd
     from ..ml.trainer import get_trainer
@@ -369,7 +467,7 @@ async def full_analysis(db: Session = Depends(get_db), current_user: models.User
 
 
 @router.get("/fundamental")
-async def get_fundamental_analysis(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def get_fundamental_analysis(db: Session = Depends(get_db), current_user: models.User = Depends(require_active_plan)):
     """تحلیل فاندامنتال هوش مصنوعی (روند دلار، بیت‌کوین، احساسات بازار)."""
     exch_rec = db.query(models.ExchangeAPI).filter(
         models.ExchangeAPI.user_id == current_user.id,

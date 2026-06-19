@@ -108,6 +108,25 @@ def trades_today(db, user_id: int) -> int:
     ).count()
 
 
+def trade_owner_id(db, user) -> int:
+    """شناسهٔ کاربری که معاملاتِ نمایش‌دادنی به این کاربر تعلق دارد.
+
+    کاربر managed معاملاتِ حساب استخر را می‌بیند (معامله روی همان حساب انجام می‌شود)؛
+    بقیه معاملات خودشان را.
+    """
+    if getattr(user, "is_superadmin", False):
+        return user.id
+    sub = get_active_subscription(db, user.id)
+    if sub:
+        plan = get_plan(db, sub.plan_id)
+        if plan and plan.plan_type == "managed":
+            from .pool import get_pool_exchange
+            pool_ex = get_pool_exchange(db)
+            if pool_ex:
+                return pool_ex.user_id
+    return user.id
+
+
 def can_open_new_trade(db, user) -> bool:
     """آیا با توجه به سقف معاملهٔ روزانهٔ پلن، اجازهٔ باز کردن معاملهٔ جدید هست؟"""
     sub = get_active_subscription(db, user.id)

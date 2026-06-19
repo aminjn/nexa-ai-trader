@@ -4,6 +4,7 @@ import { ArrowLeft, Pause, Play, Key } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAppStore } from '../stores/appStore';
 import Layout from '../components/Layout';
+import DailyReport from '../components/DailyReport';
 import api from '../lib/api';
 
 interface UserData {
@@ -112,6 +113,9 @@ export default function UserDetail() {
           </div>
         ))}
       </div>
+
+      {/* گزارش سود/زیان روزانهٔ این کاربر */}
+      <DailyReport userId={Number(id)} />
 
       {/* Equity Curve */}
       <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 24 }}>

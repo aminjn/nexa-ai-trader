@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts'
 import Layout from '../components/Layout'
+import DailyReport from '../components/DailyReport'
 import { useAppStore } from '../stores/appStore'
 import api from '../lib/api'
 import { Sparkles, TrendingUp, Activity, RefreshCw } from 'lucide-react'
@@ -152,6 +153,9 @@ export default function Dashboard() {
           <StatCard label="نقد قابل‌معامله" value={`${Math.round(stats?.free_cash_toman||0).toLocaleString('fa-IR')} ت`} sub="موجودی ریالی آزاد" subColor="var(--accent)" />
           <StatCard label={t.winRate} value={`${stats?.win_rate||0}%`} sub={`${stats?.total_trades_24h||0} معامله امروز`} subColor="var(--green)" />
         </div>
+
+        {/* گزارش سود/زیان دقیق روزانه */}
+        <DailyReport />
 
         {/* سیستم هوشمند کمیسیون نوبیتکس */}
         {commission && commission.connected && (

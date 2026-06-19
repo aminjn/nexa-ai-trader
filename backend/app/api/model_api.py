@@ -6,7 +6,7 @@ import asyncio
 import io
 from .. import models
 from ..database import get_db
-from ..auth.router import get_current_user
+from ..auth.router import get_current_user, get_superadmin
 from ..ml.trainer import get_trainer, FEATURE_NAMES, accum_merge_save, accum_count
 from ..trading.bot import log_bot_event
 
@@ -17,7 +17,7 @@ _training_progress: dict = {"status": "idle", "progress": 0, "message": "", "acc
 
 
 @router.get("/status")
-async def get_model_status(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+async def get_model_status(db: Session = Depends(get_db), current_user: models.User = Depends(get_superadmin)):
     trainer = get_trainer()
     ml_model = db.query(models.MLModel).first()
     if not ml_model:
@@ -52,7 +52,7 @@ async def get_model_status(db: Session = Depends(get_db), current_user: models.U
 @router.post("/upload-data")
 async def upload_data(
     file: UploadFile = File(...),
-    current_user: models.User = Depends(get_current_user),
+    current_user: models.User = Depends(get_superadmin),
 ):
     """آپلود داده OHLCV (CSV) برای افزودن به مجموعه آموزش.
 
@@ -212,7 +212,7 @@ async def _ai_tune_threshold(result: dict):
 async def start_training(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_superadmin)
 ):
     if not current_user.is_superadmin:
         from fastapi import HTTPException
@@ -237,7 +237,7 @@ async def auto_retrain_loop(interval_hours: float = 6.0):
 @router.get("/predict")
 async def get_prediction(
     symbol: str = "BTC/USDT",
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_superadmin)
 ):
     trainer = get_trainer()
     if not trainer.is_trained:

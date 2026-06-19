@@ -83,10 +83,26 @@ async def toggle_bot(
 
 @router.get("/activity")
 async def get_activity(
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """لاگ فعالیت ربات برای نمایش در پنل."""
-    return {"events": get_activity_log(50)}
+    """لاگ فعالیت ربات برای نمایش در پنل (به تفکیک کاربر).
+
+    کاربرِ پلن «واریز به حساب ما» (managed) فعالیتِ حساب استخر را می‌بیند،
+    چون معاملات او روی همان حساب انجام می‌شود.
+    """
+    from ..trading.access import get_active_subscription, get_plan
+    from ..trading.pool import get_pool_exchange
+    target_id = current_user.id
+    include_global = bool(current_user.is_superadmin)
+    if not current_user.is_superadmin:
+        sub = get_active_subscription(db, current_user.id)
+        plan = get_plan(db, sub.plan_id) if sub else None
+        if plan and plan.plan_type == "managed":
+            pool_ex = get_pool_exchange(db)
+            if pool_ex:
+                target_id = pool_ex.user_id
+    return {"events": get_activity_log(target_id, 50, include_global=include_global)}
 
 
 @router.post("/bot/run-now")

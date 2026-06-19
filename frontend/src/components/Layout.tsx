@@ -19,7 +19,6 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
 
   const navItems = [
     { path: '/dashboard', label: t.navDashboard, icon: LayoutDashboard },
-    { path: '/model', label: t.navModel, icon: Brain },
     { path: '/strategy', label: t.navStrategy, icon: TrendingUp },
     { path: '/short', label: t.navShort, icon: TrendingDown },
     { path: '/exchanges', label: t.navExchanges, icon: Building2 },
@@ -28,6 +27,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
     { path: '/signals', label: 'سیگنال‌ها', icon: Radio },
     { path: '/plans', label: 'پلن‌ها', icon: CreditCard },
     ...(isSuperAdmin ? [
+      { path: '/model', label: t.navModel, icon: Brain },
       { path: '/admin/trading-plans', label: 'پلن‌های ربات', icon: CreditCard },
       { path: '/scraper', label: 'اسکرپر', icon: Globe },
       { path: '/admin', label: t.navAdmin, icon: Shield },

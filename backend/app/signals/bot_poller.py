@@ -119,15 +119,14 @@ async def _poll_loop(platform: str, base_fn, token_field: str, use_proxy: bool):
             continue
         base = base_fn(token)
         try:
-            # نخستین بار: وب‌هوک را پاک و فقط offset را همگام کن (پیام‌های قدیمی را پردازش نکن)
+            # نخستین بار فقط وب‌هوک را پاک کن؛ پیام‌های در انتظار را نگه دار تا /startهای
+            # ارسال‌شده قبل از بالا آمدن ربات هم پردازش شوند (تلگرام بعد از تأیید offset
+            # آن‌ها را تکرار نمی‌کند، پس با ری‌استارت دوباره پردازش نمی‌شوند).
             if not initialized:
                 try:
                     await _api(base, "deleteWebhook", use_proxy)
                 except Exception:
                     pass
-                data = await _api(base, "getUpdates", use_proxy, timeout=0)
-                for u in data.get("result", []):
-                    offset = max(offset, u.get("update_id", 0) + 1)
                 initialized = True
 
             data = await _api(base, "getUpdates", use_proxy, offset=offset, timeout=30)

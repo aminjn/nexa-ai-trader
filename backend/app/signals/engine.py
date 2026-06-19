@@ -103,8 +103,21 @@ async def generate_signals(db, push: bool = True) -> int:
             try:
                 await distribute_signal(db, sig, settings_row)
             except Exception:
-                continue
+                pass
+            try:
+                await post_to_channel(sig, settings_row)
+            except Exception:
+                pass
     return len(created)
+
+
+async def post_to_channel(sig: "models.Signal", settings_row):
+    """هر سیگنال را در کانال عمومی تلگرام/بله منتشر می‌کند (اگر تنظیم شده باشد)."""
+    text = _signal_text(sig, include_analysis=False)
+    if settings_row.telegram_channel_id and settings_row.telegram_bot_token:
+        await send_telegram(settings_row.telegram_bot_token, settings_row.telegram_channel_id, text)
+    if settings_row.bale_channel_id and settings_row.bale_bot_token:
+        await send_bale(settings_row.bale_bot_token, settings_row.bale_channel_id, text)
 
 
 def _signal_text(sig: models.Signal, include_analysis: bool) -> str:

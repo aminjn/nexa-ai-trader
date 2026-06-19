@@ -8,8 +8,23 @@ from ..database import get_db
 from ..auth.router import get_current_user, get_superadmin
 from ..auth.service import create_user, get_password_hash
 from ..trading.bot import start_user_bot, stop_user_bot, get_active_bot_count
+from ..exchanges.nobitex import get_exchange
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+async def _live_balance_toman(exchanges) -> float:
+    """مجموع موجودی واقعی کیف‌پول‌های کاربر را به تومان از صرافی می‌گیرد."""
+    total = 0.0
+    for e in exchanges:
+        if not e.is_active:
+            continue
+        try:
+            ex = get_exchange(e.exchange_name, e.api_key, e.api_secret)
+            total += await ex.get_portfolio_value_toman()
+        except Exception:
+            total += (e.balance or 0)
+    return total
 
 
 class CreateUserRequest(BaseModel):
@@ -46,14 +61,15 @@ async def get_admin_stats(
     closed_trades = db.query(models.Trade).filter(models.Trade.status == "closed").all()
     total_pnl = sum(t.pnl or 0 for t in closed_trades)
 
-    total_balance = db.query(models.ExchangeAPI.balance).all()
-    platform_balance = sum(b[0] or 0 for b in total_balance)
+    # موجودی کل پلتفرم = مجموع موجودی واقعی همهٔ صرافی‌های فعال (تومان)
+    exchanges = db.query(models.ExchangeAPI).filter(models.ExchangeAPI.is_active == True).all()
+    platform_balance = await _live_balance_toman(exchanges)
 
     return {
         "total_users": total_users,
         "active_bots": active_bots,
         "total_trades": total_trades,
-        "platform_pnl": round(total_pnl, 4),
+        "platform_pnl": round(total_pnl, 2),
         "platform_balance": round(platform_balance, 2),
     }
 
@@ -80,8 +96,7 @@ async def list_users(
         exchanges = db.query(models.ExchangeAPI).filter(
             models.ExchangeAPI.user_id == u.id
         ).all()
-        balance = sum(e.balance or 0 for e in exchanges)
-        exchange_names = [e.exchange_name for e in exchanges]
+        balance = await _live_balance_toman(exchanges)
 
         result.append({
             "id": u.id,
@@ -91,7 +106,7 @@ async def list_users(
             "is_active": u.is_active,
             "bot_active": u.bot_active,
             "balance": round(balance, 2),
-            "pnl": round(pnl, 4),
+            "pnl": round(pnl, 2),
             "exchanges_count": len(exchanges),
             "created_at": u.created_at,
         })
@@ -124,7 +139,7 @@ async def get_user_detail(
     exchanges = db.query(models.ExchangeAPI).filter(
         models.ExchangeAPI.user_id == user_id
     ).all()
-    balance = sum(e.balance or 0 for e in exchanges)
+    balance = await _live_balance_toman(exchanges)
 
     recent_trades = db.query(models.Trade).filter(
         models.Trade.user_id == user_id

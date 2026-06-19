@@ -56,7 +56,7 @@ export default function UserDetail() {
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const maskKey = (key: string) => key.slice(0, 4) + '••••••••' + key.slice(-4);
-  const fmtMoney = (n: number) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2 });
+  const fmtMoney = (n: number) => Math.round(n || 0).toLocaleString('en-US') + ' ت';
   const fmtDate = (d: string) => new Date(d).toLocaleDateString();
 
   if (loading) return (
@@ -126,8 +126,8 @@ export default function UserDetail() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="date" stroke="var(--faint)" tick={{ fontSize: 11 }} />
-            <YAxis stroke="var(--faint)" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter={v => '$' + v.toLocaleString()} />
-            <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)' }} formatter={(v: number) => ['$' + v.toLocaleString(), 'دارایی']} />
+            <YAxis stroke="var(--faint)" tick={{ fontSize: 11, fontFamily: 'JetBrains Mono' }} tickFormatter={v => v.toLocaleString() + ' ت'} />
+            <Tooltip contentStyle={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--text)' }} formatter={(v: number) => [v.toLocaleString() + ' ت', 'دارایی']} />
             <Area type="monotone" dataKey="value" stroke="var(--accent)" strokeWidth={2} fill="url(#userEquityGrad)" />
           </AreaChart>
         </ResponsiveContainer>

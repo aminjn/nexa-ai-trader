@@ -43,57 +43,81 @@ async def fetch_binance_5y(pairs: List[str]) -> pd.DataFrame:
     return result[["timestamp", "symbol", "open", "high", "low", "close", "volume"]]
 
 
-async def fetch_nobitex_5y(symbols: List[str]) -> pd.DataFrame:
-    """داده روزانه از نوبیتکس (مستقیم، بدون پروکسی). symbols مثل BTCUSDT یا BTCIRT."""
+async def fetch_nobitex_history(symbols: List[str], resolution: str = "60",
+                                days: int = 1095) -> pd.DataFrame:
+    """داده تاریخی از نوبیتکس (مستقیم). resolution: "60"=ساعتی، "D"=روزانه.
+
+    برای جلوگیری از سقفِ تعداد کندل در هر درخواست، در پنجره‌های زمانی صفحه‌بندی می‌شود.
+    """
     base = settings.NOBITEX_BASE_URL
     to_t = int(time.time())
-    from_t = to_t - 1825 * 86400  # ۵ سال
+    from_t = to_t - days * 86400
+    # طول هر پنجره (ثانیه): برای ساعتی ~۶۰ روز (≈۱۴۴۰ کندل)، برای روزانه کل بازه
+    window = 60 * 86400 if resolution not in ("D", "1D") else days * 86400
     all_frames = []
     for symbol in symbols:
-        url = f"{base}/market/udf/history"
-        params = {"symbol": symbol, "resolution": "D", "from": from_t, "to": to_t}
-        try:
-            async with httpx.AsyncClient(timeout=30, trust_env=False) as client:
-                resp = await client.get(url, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-            if data.get("s") != "ok" or not data.get("t"):
-                continue
-            df = pd.DataFrame({
-                "timestamp": pd.to_datetime(data["t"], unit="s"),
-                "open": [float(x) for x in data["o"]],
-                "high": [float(x) for x in data["h"]],
-                "low": [float(x) for x in data["l"]],
-                "close": [float(x) for x in data["c"]],
-                "volume": [float(x) for x in data["v"]],
-            })
-            df["symbol"] = symbol
-            all_frames.append(df)
-        except Exception:
-            continue
+        frames = []
+        start = from_t
+        while start < to_t:
+            end = min(start + window, to_t)
+            url = f"{base}/market/udf/history"
+            params = {"symbol": symbol, "resolution": resolution, "from": start, "to": end}
+            try:
+                async with httpx.AsyncClient(timeout=30, trust_env=False) as client:
+                    resp = await client.get(url, params=params)
+                    resp.raise_for_status()
+                    data = resp.json()
+                if data.get("s") == "ok" and data.get("t"):
+                    frames.append(pd.DataFrame({
+                        "timestamp": pd.to_datetime(data["t"], unit="s"),
+                        "open": [float(x) for x in data["o"]],
+                        "high": [float(x) for x in data["h"]],
+                        "low": [float(x) for x in data["l"]],
+                        "close": [float(x) for x in data["c"]],
+                        "volume": [float(x) for x in data["v"]],
+                    }))
+            except Exception:
+                pass
+            start = end
+        if frames:
+            g = pd.concat(frames).drop_duplicates("timestamp").sort_values("timestamp")
+            g["symbol"] = symbol
+            all_frames.append(g)
     if not all_frames:
         return pd.DataFrame()
     return pd.concat(all_frames, ignore_index=True)
 
 
-# بازارهای ریالی نوبیتکس برای آموزش (همان بازارهایی که ربات معامله می‌کند)
-NOBITEX_TRAIN_SYMBOLS = ["BTCIRT", "ETHIRT", "USDTIRT", "LTCIRT", "XRPIRT", "ADAIRT", "DOGEIRT", "BNBIRT"]
+# بازارهای ریالی نوبیتکس برای آموزش (هم‌راستا با ارزهایی که ربات معامله می‌کند)
+NOBITEX_TRAIN_SYMBOLS = [
+    "BTCIRT", "ETHIRT", "USDTIRT", "LTCIRT", "XRPIRT", "ADAIRT", "DOGEIRT", "BNBIRT",
+    "SOLIRT", "TRXIRT", "BCHIRT", "DOTIRT", "AVAXIRT", "MATICIRT", "LINKIRT",
+    "UNIIRT", "ATOMIRT", "FILIRT", "ETCIRT", "XLMIRT", "SHIBIRT", "AAVEIRT",
+]
 
 
-async def fetch_5year_data(pairs: List[str] = None):
-    """داده ۵ ساله را برمی‌گرداند. اولویت با نوبیتکس (مستقیم) است.
+async def fetch_5year_data(pairs: List[str] = None, resolution: str = "60"):
+    """داده تاریخی را برمی‌گرداند. اولویت با نوبیتکسِ ساعتی (هم‌تایم‌فریمِ ربات).
 
     خروجی: (DataFrame, نام منبع)
     """
-    # تلاش اول: نوبیتکس مستقیم (داده‌ی همان بازاری که معامله می‌شود)
+    # تلاش اول: نوبیتکس ساعتی (بیشترین داده + هماهنگ با تایم‌فریم ۱ساعتهٔ معامله)
     try:
-        df = await fetch_nobitex_5y(NOBITEX_TRAIN_SYMBOLS)
+        df = await fetch_nobitex_history(NOBITEX_TRAIN_SYMBOLS, resolution=resolution)
         if not df.empty and len(df) > 300:
             return df, "نوبیتکس"
     except Exception:
         pass
 
-    # تلاش دوم: بایننس از طریق پروکسی
+    # تلاش دوم: نوبیتکس روزانه (اگر ساعتی در دسترس نبود)
+    try:
+        df = await fetch_nobitex_history(NOBITEX_TRAIN_SYMBOLS, resolution="D")
+        if not df.empty and len(df) > 300:
+            return df, "نوبیتکس"
+    except Exception:
+        pass
+
+    # تلاش سوم: بایننس از طریق پروکسی
     try:
         df = await fetch_binance_5y(["BTCUSDT", "ETHUSDT"])
         if not df.empty and len(df) > 300:

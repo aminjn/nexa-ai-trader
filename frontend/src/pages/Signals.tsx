@@ -185,22 +185,9 @@ export default function Signals() {
     <Layout title="سیگنال‌ها و اشتراک" subtitle="دریافت سیگنال بر اساس پلن شما — در پنل، تلگرام و بله">
       <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-        {/* پلن فعلی + اتصال پیام‌رسان */}
+        {/* اتصال پیام‌رسان */}
         <div style={card}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              {planIcon(sub?.plan.level ?? 0)}
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>پلن فعلی: {sub?.plan.name || 'رایگان'}</div>
-                <div style={{ fontSize: 12, color: 'var(--dim)' }}>
-                  وضعیت: {sub?.status === 'active' ? 'فعال' : 'رایگان'}
-                  {sub?.end_at ? ` · تا ${new Date(sub.end_at).toLocaleDateString('fa-IR')}` : ''}
-                  {sub?.pending ? ` · در انتظار تأیید: ${sub.pending.name}` : ''}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div style={{ marginTop: 18, padding: 16, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
+          <div style={{ padding: 16, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>🔗 اتصال خودکار پیام‌رسان</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
               <span style={{ fontSize: 13 }}>تلگرام: {link?.telegram_connected ? <b style={{ color: 'var(--green)' }}>✓ متصل</b> : <span style={{ color: 'var(--dim)' }}>متصل نیست</span>}</span>
@@ -218,37 +205,6 @@ export default function Signals() {
             </div>
           </div>
         </div>
-
-        {/* پلن‌های قدیمیِ سیگنال — فقط برای سوپر ادمین (دسترسی کاربران از طریق پلن معامله‌گری کنترل می‌شود) */}
-        {isSuperAdmin && (
-        <div style={card}>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>پلن‌های اشتراک</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-            {plans.map(p => (
-              <div key={p.id} style={{ padding: 18, borderRadius: 14, background: 'var(--bg2)', border: `1px solid ${sub?.plan.id === p.id ? 'var(--accent)' : 'var(--border)'}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 15 }}>{planIcon(p.level)} {p.name}</div>
-                <div style={{ fontSize: 20, fontWeight: 800, margin: '10px 0', color: 'var(--accent)' }}>
-                  {p.price_toman > 0 ? `${fmt(p.price_toman)} تومان` : 'رایگان'}
-                  {p.price_toman > 0 && <span style={{ fontSize: 11, color: 'var(--faint)', fontWeight: 400 }}> / {p.duration_days} روز</span>}
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.7, minHeight: 54 }}>{p.description}</div>
-                <ul style={{ fontSize: 11, color: 'var(--faint)', paddingInlineStart: 16, margin: '8px 0', lineHeight: 1.9 }}>
-                  <li>{p.delay_minutes > 0 ? `با ${p.delay_minutes} دقیقه تأخیر` : 'سیگنال آنی'}</li>
-                  <li>{p.include_analysis ? 'شامل تحلیل کامل' : 'بدون تحلیل کامل'}</li>
-                  <li>کانال‌ها: {(p.channels || []).map(c => c === 'telegram' ? 'تلگرام' : c === 'bale' ? 'بله' : 'پنل').join('، ')}</li>
-                </ul>
-                {sub?.plan.id === p.id ? (
-                  <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--green)', fontWeight: 700, padding: 8 }}>✓ پلن فعلی شما</div>
-                ) : (
-                  <button onClick={() => subscribe(p)} style={{ width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {p.price_toman > 0 ? 'خرید / ارتقا' : 'فعال‌سازی رایگان'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-        )}
 
         {/* اگر پلن کاربر سیگنال ندارد — قفل و دعوت به ارتقا */}
         {!isSuperAdmin && !signalsEnabled && (

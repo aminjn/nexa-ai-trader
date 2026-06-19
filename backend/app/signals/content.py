@@ -158,11 +158,15 @@ async def generate_ad(db) -> str:
     srow = db.query(models.SystemSettings).first()
     if srow and (srow.ad_text or "").strip():
         return srow.ad_text.strip()
-    plans = db.query(models.Plan).filter(models.Plan.active == True).order_by(models.Plan.level).all()
-    plans_txt = "؛ ".join(
-        f"{p.name}: {('%d تومان/%d روز' % (p.price_toman, p.duration_days)) if p.price_toman>0 else 'رایگان'}"
-        for p in plans
-    )
+    # از پلن‌های جدیدِ ربات معامله‌گر استفاده می‌کنیم (نه پلن‌های قدیمی سیگنال)
+    plans = db.query(models.TradingPlan).filter(models.TradingPlan.active == True).order_by(
+        models.TradingPlan.sort, models.TradingPlan.id).all()
+
+    def _price(p):
+        if p.plan_type == "managed":
+            return "کارمزد از سود"
+        return ('%s تومان/%d روز' % (f"{p.price_toman:,}", p.duration_days)) if p.price_toman > 0 else 'رایگان'
+    plans_txt = "؛ ".join(f"{p.name}: {_price(p)}" for p in plans)
     support = (srow.support_contact if srow else "") or ""
     bot = (srow.telegram_bot_username if srow else "") or ""
     try:

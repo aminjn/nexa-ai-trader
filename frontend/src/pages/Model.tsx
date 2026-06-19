@@ -78,7 +78,8 @@ export default function Model() {
     e.target.value = ''
   }
 
-  const acc = status?.accuracy ? status.accuracy * 100 : 0
+  // دقت: اگر مقدار زندهٔ status.accuracy صفر بود، از metrics.accuracy (درصد) استفاده کن
+  const acc = (status?.accuracy ? status.accuracy * 100 : 0) || (status?.metrics?.accuracy ?? 0)
   const learningData = generateLearningData(acc || 85)
   const isTraining = status?.status === 'training'
   const m = status?.metrics

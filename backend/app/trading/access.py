@@ -147,6 +147,8 @@ def trade_owner_id(db, user) -> int:
 
 def can_open_new_trade(db, user) -> bool:
     """آیا با توجه به سقف معاملهٔ روزانهٔ پلن، اجازهٔ باز کردن معاملهٔ جدید هست؟"""
+    if getattr(user, "is_superadmin", False):
+        return True  # سوپر ادمین هیچ محدودیتی ندارد
     sub = get_active_subscription(db, user.id)
     if not sub:
         return False

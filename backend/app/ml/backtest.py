@@ -8,13 +8,16 @@ import pandas as pd
 from .trainer import get_trainer, add_features, get_feature_columns, accum_load, TB_TP, TB_SL, TB_H
 
 
-def _simulate(hi, lo, cl, proba, thr, tp, sl, horizon, fee):
-    """شبیه‌سازی روی یک سری: فهرستِ سود/زیانِ خالصِ هر معامله را برمی‌گرداند."""
+def _simulate(hi, lo, cl, proba, thr, tp, sl, horizon, fee, adx=None, adx_min=0):
+    """شبیه‌سازی روی یک سری: فهرستِ سود/زیانِ خالصِ هر معامله را برمی‌گرداند.
+
+    اگر adx_min>0 باشد، فقط وقتی قدرتِ روند (ADX) بالاتر از حد است وارد می‌شود.
+    """
     n = len(cl)
     rets = []
     i = 0
     while i < n - 1:
-        if proba[i] < thr:
+        if proba[i] < thr or (adx_min > 0 and adx is not None and adx[i] < adx_min):
             i += 1
             continue
         entry = cl[i]
@@ -42,7 +45,7 @@ def _simulate(hi, lo, cl, proba, thr, tp, sl, horizon, fee):
 
 
 def _prep_symbol_arrays(test_only=True):
-    """برای هر نماد: high/low/close و احتمالِ مدل را یک‌بار محاسبه و کش می‌کند."""
+    """برای هر نماد: high/low/close، ADX و احتمالِ مدل را یک‌بار محاسبه و کش می‌کند."""
     trainer = get_trainer()
     raw = accum_load()
     feature_cols = get_feature_columns()
@@ -64,7 +67,8 @@ def _prep_symbol_arrays(test_only=True):
             proba = trainer.model.predict_proba(trainer.scaler.transform(f[feature_cols].values))[:, 1]
         except Exception:
             continue
-        out.append((sym, f["high"].values, f["low"].values, f["close"].values, proba))
+        adx = f["adx"].values if "adx" in f.columns else np.zeros(len(f))
+        out.append((sym, f["high"].values, f["low"].values, f["close"].values, proba, adx))
     return out, trainer
 
 
@@ -96,19 +100,22 @@ def run_backtest_sweep_sync(fee_pct: float = 0.25, test_only: bool = True) -> di
     if not data:
         return {"error": "داده/مدل برای بک‌تست آماده نیست."}
 
-    # آستانه‌ها × (هدف٪، حدضرر٪، افق ساعت)
-    thresholds = [0.62, 0.70, 0.78, 0.85]
+    # آستانه‌ها × (هدف٪، حدضرر٪، افق ساعت) × فیلترِ رژیمِ روند (ADX)
+    thresholds = [0.62, 0.70, 0.78]
     barriers = [(2, 1.5, 48), (3, 2, 72), (5, 3, 120), (8, 5, 168)]
+    adx_levels = [0, 20, 25, 30]   # 0 = بدون فیلترِ روند
     combos = []
     for thr in thresholds:
         for tp, sl, hz in barriers:
-            rets = []
-            for (_sym, hi, lo, cl, proba) in data:
-                rets.extend(_simulate(hi, lo, cl, proba, thr, tp / 100.0, sl / 100.0, hz, fee))
-            a = _agg(rets)
-            if a and a["trades"] >= 10:
-                combos.append({"threshold": round(thr * 100), "tp_pct": tp, "sl_pct": sl,
-                               "horizon_h": hz, **a})
+            for adx_min in adx_levels:
+                rets = []
+                for (_sym, hi, lo, cl, proba, adx) in data:
+                    rets.extend(_simulate(hi, lo, cl, proba, thr, tp / 100.0, sl / 100.0,
+                                          hz, fee, adx=adx, adx_min=adx_min))
+                a = _agg(rets)
+                if a and a["trades"] >= 10:
+                    combos.append({"threshold": round(thr * 100), "tp_pct": tp, "sl_pct": sl,
+                                   "horizon_h": hz, "adx_min": adx_min, **a})
     # مرتب بر اساس ضریب سود (سوددهی)
     combos.sort(key=lambda x: (x["profit_factor"] or 0, x["avg_net_pct"]), reverse=True)
     profitable = [c for c in combos if (c["profit_factor"] or 0) >= 1.0 and c["avg_net_pct"] > 0]

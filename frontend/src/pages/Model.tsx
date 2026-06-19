@@ -326,14 +326,14 @@ export default function Model() {
                   background: sweep.any_profitable ? 'rgba(16,185,129,.12)' : 'rgba(245,158,11,.12)',
                   color: sweep.any_profitable ? 'var(--green)' : 'var(--amber)' }}>
                   {sweep.any_profitable
-                    ? `✅ حداقل یک ترکیبِ سودده پس از کمیسیون پیدا شد — بهترین: آستانهٔ ${sweep.best.threshold}٪ · هدف +${sweep.best.tp_pct}٪ / حد ضرر −${sweep.best.sl_pct}٪ در ${sweep.best.horizon_h} ساعت (PF ${sweep.best.profit_factor})`
-                    : '⚠️ هیچ ترکیبی پس از کمیسیون سودده نبود — استراتژی فعلی با این کارمزد برتری ندارد.'}
+                    ? `✅ حداقل یک ترکیبِ سودده پس از کمیسیون پیدا شد — بهترین: آستانهٔ ${sweep.best.threshold}٪ · هدف +${sweep.best.tp_pct}٪ / حد ضرر −${sweep.best.sl_pct}٪ در ${sweep.best.horizon_h} ساعت · فیلتر روند ADX≥${sweep.best.adx_min||'خاموش'} (PF ${sweep.best.profit_factor})`
+                    : '⚠️ هیچ ترکیبی پس از کمیسیون سودده نبود — حتی با فیلترِ رژیمِ بازار (ADX) هم استراتژی برتری ندارد.'}
                 </div>
                 <div style={{ overflowX:'auto' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, fontFamily:"'JetBrains Mono'" }}>
                     <thead>
                       <tr style={{ color:'var(--dim)', textAlign:'center' }}>
-                        {['آستانه','هدف٪','حدضرر٪','افق(h)','معامله','نرخ برد','میانگین خالص','مرکب کل','PF','حداکثر افت'].map((h,i)=>(
+                        {['آستانه','هدف٪','حدضرر٪','افق(h)','ADX≥','معامله','نرخ برد','میانگین خالص','مرکب کل','PF','حداکثر افت'].map((h,i)=>(
                           <th key={i} style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', fontWeight:600, whiteSpace:'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -347,6 +347,7 @@ export default function Model() {
                             <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>+{c.tp_pct}</td>
                             <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>−{c.sl_pct}</td>
                             <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>{c.horizon_h}</td>
+                            <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>{c.adx_min ? c.adx_min : '—'}</td>
                             <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)' }}>{c.trades}</td>
                             <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', color:c.win_rate>=50?'var(--green)':'var(--amber)' }}>{c.win_rate}٪</td>
                             <td style={{ padding:'8px 6px', borderBottom:'1px solid var(--border)', color:c.avg_net_pct>=0?'var(--green)':'var(--red)' }}>{c.avg_net_pct}٪</td>

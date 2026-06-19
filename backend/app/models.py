@@ -220,6 +220,12 @@ class TradingPlan(Base):
     price_toman = Column(Integer, default=0)           # هزینهٔ اشتراک (کارت‌به‌کارت به ما)
     max_trades_per_day = Column(Integer, default=0)    # سقف معاملهٔ روزانه (۰ = نامحدود)
     allow_own_api = Column(Boolean, default=True)      # کاربر API خودش را وصل کند؟
+    # سقف پیام چت‌بات هوش مصنوعی در روز (۰ = نامحدود، -۱ = غیرفعال)
+    ai_chat_daily_limit = Column(Integer, default=0)
+    # دسترسی سیگنال: ۰ = بدون سیگنال، ۱/۲ = سطح بالاتر
+    signals_level = Column(Integer, default=0)
+    signals_delay_minutes = Column(Integer, default=0)   # تأخیر نمایش سیگنال (دقیقه)
+    signals_include_analysis = Column(Boolean, default=False)  # شامل تحلیل کامل سیگنال؟
     # پله‌های کارمزدِ سود بر اساس مبلغ واریزی (برای managed):
     # [{"min_toman": 100000000, "pct": 10}, {"min_toman": 0, "pct": 20}]
     commission_tiers = Column(JSON, default=list)

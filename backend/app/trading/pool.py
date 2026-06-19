@@ -182,6 +182,21 @@ async def pool_summary(db) -> dict:
     price = await unit_price(db)
     subs = _active_managed_subs(db)
     deposits = sum((s.deposit_toman or 0) for s in subs)
+    from . import access
+    # درآمد سوپر ادمین (کارمزد): جمعِ کارمزدِ تسویه‌شده (همهٔ اشتراک‌ها) + کارمزدِ معوقِ اعضای فعلی
+    all_subs = db.query(models.TradingSubscription).all()
+    collected = 0
+    for s in all_subs:
+        p = access.get_plan(db, s.plan_id)
+        if p and p.plan_type == "managed":
+            collected += (s.commission_settled_toman or 0)
+    outstanding = 0
+    for s in subs:
+        p = access.get_plan(db, s.plan_id)
+        rate = access.commission_rate_for(p, s.deposit_toman or 0)
+        s_val = (s.units or 0.0) * price
+        owed = max(0.0, s_val - (s.deposit_toman or 0)) * rate / 100.0
+        outstanding += max(0.0, owed - (s.commission_settled_toman or 0))
     return {
         "connected": ex_rec is not None,
         "exchange_id": ex_rec.id if ex_rec else None,
@@ -189,6 +204,8 @@ async def pool_summary(db) -> dict:
         "total_units": round(u, 4),
         "unit_price": round(price, 6),
         "total_deposits": round(deposits),
-        "profit": round(val - deposits),
+        "members_profit": round(val - deposits),   # سود متعلق به اعضا (سهم آن‌ها)
+        "admin_commission_collected": round(collected),    # درآمد سوپر ادمین (تسویه‌شده)
+        "admin_commission_outstanding": round(outstanding),  # کارمزد معوقِ قابل‌وصول
         "members": len(subs),
     }

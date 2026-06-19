@@ -215,12 +215,13 @@ export default function AI() {
     try {
       const res = await api.post<ChatMessage>('/ai/chat', { message: text })
       setMessages((prev) => [...prev, res.data])
-    } catch {
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail
       setMessages((prev) => [
         ...prev,
         {
           role: 'assistant',
-          content: 'متأسفم، نتوانستم درخواست شما را پردازش کنم. دوباره تلاش کنید.',
+          content: detail || 'متأسفم، نتوانستم درخواست شما را پردازش کنم. دوباره تلاش کنید.',
           created_at: new Date().toISOString(),
         },
       ])
@@ -254,7 +255,8 @@ export default function AI() {
         {/* ─── Two-column layout ─── */}
         <div style={{ display: 'flex', gap: 22, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
-          {/* ════════ LEFT COLUMN ════════ */}
+          {/* ════════ LEFT COLUMN (فقط سوپر ادمین — کاربر عادی فقط چت‌بات را می‌بیند) ════════ */}
+          {isSuperAdmin && (
           <div style={{ flex: 1.5, minWidth: 340, display: 'flex', flexDirection: 'column', gap: 22 }}>
 
             {/* Card 1 – AI Engine */}
@@ -757,6 +759,7 @@ export default function AI() {
               </div>
             </div>
           </div>
+          )}
 
           {/* ════════ RIGHT COLUMN ════════ */}
           <div style={{ flex: 1, minWidth: 300 }}>

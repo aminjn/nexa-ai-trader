@@ -13,6 +13,32 @@ from ..config import settings
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 
+def _check_chat_limit(db: Session, user: models.User):
+    """سقف پیام چت‌بات در روز را طبق پلن کاربر بررسی می‌کند.
+
+    ai_chat_daily_limit: ۰ = نامحدود، -۱ = چت غیرفعال، N>۰ = N پیام در روز.
+    """
+    if user.is_superadmin:
+        return
+    from ..trading.access import active_plan
+    plan = active_plan(db, user)
+    limit = (plan.ai_chat_daily_limit if plan else -1)
+    if limit == 0:
+        return  # نامحدود
+    if limit < 0:
+        raise HTTPException(status_code=403, detail="چت‌بات هوش مصنوعی در پلن شما فعال نیست")
+    from datetime import datetime
+    start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    used = db.query(models.ChatMessage).filter(
+        models.ChatMessage.user_id == user.id,
+        models.ChatMessage.role == "user",
+        models.ChatMessage.created_at >= start,
+    ).count()
+    if used >= limit:
+        raise HTTPException(status_code=429,
+                            detail=f"به سقف روزانهٔ چت ({limit} پیام) رسیدید. فردا دوباره تلاش کنید یا پلن خود را ارتقا دهید.")
+
+
 def _get_settings(db: Session) -> models.SystemSettings:
     """رکورد تنظیمات سیستم را برمی‌گرداند (اگر نبود می‌سازد)."""
     s = db.query(models.SystemSettings).first()
@@ -63,6 +89,7 @@ async def send_chat(
 ):
     if not _active_api_key(db):
         raise HTTPException(status_code=400, detail="کلید API هوش مصنوعی تنظیم نشده است")
+    _check_chat_limit(db, current_user)
 
     # Save user message
     user_msg = models.ChatMessage(
@@ -107,6 +134,7 @@ async def stream_chat(
 ):
     if not _active_api_key(db):
         raise HTTPException(status_code=400, detail="کلید API هوش مصنوعی تنظیم نشده است")
+    _check_chat_limit(db, current_user)
 
     user_msg = models.ChatMessage(
         user_id=current_user.id,

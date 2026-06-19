@@ -22,6 +22,10 @@ def _plan_out(p: models.TradingPlan) -> dict:
         "price_toman": p.price_toman,
         "max_trades_per_day": p.max_trades_per_day,
         "allow_own_api": bool(p.allow_own_api),
+        "ai_chat_daily_limit": p.ai_chat_daily_limit or 0,
+        "signals_level": p.signals_level or 0,
+        "signals_delay_minutes": p.signals_delay_minutes or 0,
+        "signals_include_analysis": bool(p.signals_include_analysis),
         "commission_tiers": p.commission_tiers or [],
         "description": p.description or "",
         "features": p.features or [],
@@ -45,7 +49,9 @@ async def my_access(db: Session = Depends(get_db), current_user: models.User = D
     """وضعیت دسترسی کاربر: اشتراک فعال، پلن، کارمزد، اجازهٔ API شخصی."""
     if current_user.is_superadmin:
         return {"has_access": True, "is_superadmin": True, "can_use_own_api": True,
-                "subscription": None, "commission": access.commission_summary(db, current_user)}
+                "subscription": None, "commission": access.commission_summary(db, current_user),
+                "features": {"ai_chat_daily_limit": 0, "signals_level": 99,
+                             "signals_include_analysis": True}}
     sub = access.get_active_subscription(db, current_user.id)
     plan = access.get_plan(db, sub.plan_id) if sub else None
     # آخرین اشتراک در انتظار/ردشده برای نمایش وضعیت
@@ -69,6 +75,11 @@ async def my_access(db: Session = Depends(get_db), current_user: models.User = D
         commission = await pool.managed_commission(db, sub, plan)
     else:
         commission = {"applicable": False}
+    features = {
+        "ai_chat_daily_limit": (plan.ai_chat_daily_limit or 0) if plan else -1,
+        "signals_level": (plan.signals_level or 0) if plan else 0,
+        "signals_include_analysis": bool(plan.signals_include_analysis) if plan else False,
+    }
     return {
         "has_access": sub is not None,
         "is_superadmin": False,
@@ -76,6 +87,7 @@ async def my_access(db: Session = Depends(get_db), current_user: models.User = D
         "subscription": sub_out,
         "pending": bool(pending),
         "commission": commission,
+        "features": features,
     }
 
 
@@ -172,6 +184,10 @@ class PlanRequest(BaseModel):
     price_toman: int = 0
     max_trades_per_day: int = 0
     allow_own_api: bool = True
+    ai_chat_daily_limit: int = 0
+    signals_level: int = 0
+    signals_delay_minutes: int = 0
+    signals_include_analysis: bool = False
     commission_tiers: List[dict] = []
     description: str = ""
     features: List[str] = []

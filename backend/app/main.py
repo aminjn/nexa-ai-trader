@@ -111,6 +111,18 @@ def ensure_columns():
         with engine.begin() as conn:
             if "units" not in cols:
                 conn.execute(text("ALTER TABLE trading_subscriptions ADD COLUMN units FLOAT DEFAULT 0.0"))
+    # trading_plans: فیلدهای جدیدِ قابل‌تنظیم
+    if "trading_plans" in tables:
+        cols = {c["name"] for c in inspector.get_columns("trading_plans")}
+        with engine.begin() as conn:
+            if "ai_chat_daily_limit" not in cols:
+                conn.execute(text("ALTER TABLE trading_plans ADD COLUMN ai_chat_daily_limit INTEGER DEFAULT 0"))
+            if "signals_level" not in cols:
+                conn.execute(text("ALTER TABLE trading_plans ADD COLUMN signals_level INTEGER DEFAULT 0"))
+            if "signals_delay_minutes" not in cols:
+                conn.execute(text("ALTER TABLE trading_plans ADD COLUMN signals_delay_minutes INTEGER DEFAULT 0"))
+            if "signals_include_analysis" not in cols:
+                conn.execute(text("ALTER TABLE trading_plans ADD COLUMN signals_include_analysis BOOLEAN DEFAULT 0"))
     # pool_withdrawals: مقادیر قفل‌شده در لحظهٔ درخواست
     if "pool_withdrawals" in tables:
         cols = {c["name"] for c in inspector.get_columns("pool_withdrawals")}
@@ -218,19 +230,22 @@ async def lifespan(app: FastAPI):
                     name="آزمایشی ۳ روزه", plan_type="self_api", duration_days=3,
                     price_toman=0, max_trades_per_day=5, allow_own_api=True,
                     commission_tiers=[], sort=0,
+                    ai_chat_daily_limit=10, signals_level=0,
                     description="۳ روز معامله با ربات روی حساب خودتان (API شخصی)، حداکثر ۵ معامله در روز",
-                    features=["اتصال API شخصی", "حداکثر ۵ معامله در روز", "اعتبار ۳ روزه"]),
+                    features=["اتصال API شخصی", "حداکثر ۵ معامله در روز", "چت هوش مصنوعی محدود", "اعتبار ۳ روزه"]),
                 models.TradingPlan(
                     name="ماهانه کامل", plan_type="self_api", duration_days=30,
                     price_toman=10000000, max_trades_per_day=0, allow_own_api=True,
                     commission_tiers=[], sort=1,
+                    ai_chat_daily_limit=100, signals_level=1, signals_include_analysis=True,
                     description="یک ماه دسترسی کامل با همهٔ امکانات روی حساب خودتان",
-                    features=["اتصال API شخصی", "معاملهٔ نامحدود", "همهٔ امکانات", "اعتبار ۳۰ روزه"]),
+                    features=["اتصال API شخصی", "معاملهٔ نامحدود", "سیگنال + تحلیل", "چت هوش مصنوعی", "اعتبار ۳۰ روزه"]),
                 models.TradingPlan(
                     name="مدیریت‌شده (VIP)", plan_type="managed", duration_days=30,
                     price_toman=0, max_trades_per_day=0, allow_own_api=False,
                     commission_tiers=[{"min_toman": 100000000, "pct": 10}, {"min_toman": 0, "pct": 20}],
                     sort=2,
+                    ai_chat_daily_limit=100, signals_level=2, signals_include_analysis=True,
                     description="واریز به حساب ما و معاملهٔ ما به‌جای شما؛ کارمزد پله‌ای از سود (بالای ۱۰۰م: ۱۰٪، زیر آن: ۲۰٪)",
                     features=["واریز به حساب ما", "مدیریت کامل توسط NEXA", "کارمزد فقط از سود", "پله‌ای بر اساس واریزی"]),
             ])

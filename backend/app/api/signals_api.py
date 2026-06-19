@@ -146,11 +146,26 @@ async def my_link_code(db: Session = Depends(get_db), current_user: models.User 
 
 @router.get("/feed")
 async def signal_feed(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    plan = _effective_plan(db, current_user.id)
+    """فید سیگنال بر اساس پلنِ معامله‌گری کاربر (سطح/تأخیر/تحلیل از TradingPlan)."""
+    from ..trading.access import active_plan
     now = datetime.utcnow()
-    cutoff = now - timedelta(minutes=plan.delay_minutes or 0)
+
+    if current_user.is_superadmin:
+        level, delay, include_analysis, plan_name = 99, 0, True, "سوپر ادمین"
+    else:
+        tp = active_plan(db, current_user)
+        if not tp or (tp.signals_level or 0) <= 0:
+            # پلن فعلی سیگنال ندارد
+            return {"plan": {"name": tp.name if tp else "بدون پلن", "signals_level": 0},
+                    "enabled": False, "signals": []}
+        level = tp.signals_level or 0
+        delay = tp.signals_delay_minutes or 0
+        include_analysis = bool(tp.signals_include_analysis)
+        plan_name = tp.name
+
+    cutoff = now - timedelta(minutes=delay)
     rows = db.query(models.Signal).filter(
-        models.Signal.min_level <= plan.level,
+        models.Signal.min_level <= level,
         models.Signal.created_at <= cutoff,
     ).order_by(models.Signal.created_at.desc()).limit(60).all()
     out = []
@@ -159,10 +174,11 @@ async def signal_feed(db: Session = Depends(get_db), current_user: models.User =
             "id": s.id, "coin": s.coin, "side": s.side, "confidence": s.confidence,
             "entry_price": s.entry_price, "target_price": s.target_price, "stop_price": s.stop_price,
             "tech_conclusion": s.tech_conclusion, "fund_conclusion": s.fund_conclusion,
-            "analysis": s.analysis if plan.include_analysis else "",
+            "analysis": s.analysis if include_analysis else "",
             "created_at": s.created_at,
         })
-    return {"plan": _plan_dict(plan), "signals": out}
+    return {"plan": {"name": plan_name, "signals_level": level, "include_analysis": include_analysis},
+            "enabled": True, "signals": out}
 
 
 # ─────────────────────────── پرداخت (زرین‌پال) ───────────────────────────

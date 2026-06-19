@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { RefreshCw, Trash2, Plus, Eye, EyeOff, Wifi, WifiOff, Info } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { RefreshCw, Trash2, Plus, Eye, EyeOff, Wifi, WifiOff, Info, Lock, Check } from 'lucide-react'
 import Layout from '../components/Layout'
 import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
 import api from '../lib/api'
 
 interface Exchange {
@@ -50,7 +52,11 @@ function timeAgo(iso: string): string {
 
 export default function Exchanges() {
   const { t } = useAppStore()
+  const { isSuperAdmin } = useAuthStore()
+  const navigate = useNavigate()
 
+  const [canUseApi, setCanUseApi] = useState<boolean | null>(null)
+  const [apiPlans, setApiPlans] = useState<any[]>([])
   const [exchanges, setExchanges] = useState<Exchange[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -75,7 +81,18 @@ export default function Exchanges() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchExchanges() }, [])
+  useEffect(() => {
+    if (isSuperAdmin) { setCanUseApi(true); return }
+    api.get('/trading/my-access')
+      .then(r => setCanUseApi(!!r.data?.can_use_own_api))
+      .catch(() => setCanUseApi(false))
+    // پلن‌های دارای امکان API شخصی برای نمایش در صفحهٔ قفل
+    api.get('/trading/plans')
+      .then(r => setApiPlans((r.data || []).filter((p: any) => p.allow_own_api)))
+      .catch(() => {})
+  }, [isSuperAdmin])
+
+  useEffect(() => { if (canUseApi) fetchExchanges() }, [canUseApi])
 
   const handleSync = async (id: number) => {
     setSyncing(id)
@@ -148,6 +165,48 @@ export default function Exchanges() {
     fontSize: 12,
     marginBottom: 6,
     fontWeight: 600,
+  }
+
+  // ── قفلِ صفحهٔ صرافی برای پلن‌های بدون امکان API شخصی (مثلاً «واریز به حساب ما») ──
+  if (canUseApi === false) {
+    const fmt = (n: number) => Math.round(n || 0).toLocaleString('en-US')
+    return (
+      <Layout title={t.navExchanges} subtitle="اتصال صرافی شخصی">
+        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 18, padding: 32, textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 16, background: 'rgba(251,191,36,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Lock size={30} style={{ color: 'var(--amber)' }} />
+            </div>
+            <h2 style={{ margin: '0 0 10px', fontSize: 19, fontWeight: 800 }}>اتصال صرافی در پلن فعلی شما فعال نیست</h2>
+            <p style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.9, margin: 0 }}>
+              پلن فعلی شما از نوع «واریز به حساب ما» است و نیازی به اتصال API صرافی ندارد.
+              برای اتصال API شخصی و معامله روی حساب خودتان، یکی از پلن‌های دارای این امکان را تهیه کنید.
+            </p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+            {apiPlans.map(p => (
+              <div key={p.id} style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 16, padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>{p.name}</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
+                  {p.price_toman > 0 ? `${fmt(p.price_toman)} ت` : 'رایگان'}
+                  <span style={{ fontSize: 12, color: 'var(--dim)', fontWeight: 600 }}> / {p.duration_days} روز</span>
+                </div>
+                {(p.features || []).slice(0, 4).map((f: string, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13 }}>
+                    <Check size={14} style={{ color: 'var(--green)' }} /> {f}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <button onClick={() => navigate('/plans')} style={{ padding: '14px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit' }}>
+            مشاهده و تهیهٔ پلن‌های دارای اتصال API
+          </button>
+        </div>
+      </Layout>
+    )
   }
 
   return (

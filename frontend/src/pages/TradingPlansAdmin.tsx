@@ -8,6 +8,7 @@ interface Tier { min_toman: number; pct: number }
 interface Plan {
   id: number; name: string; plan_type: string; duration_days: number; price_toman: number;
   max_trades_per_day: number; allow_own_api: boolean; commission_tiers: Tier[];
+  ai_chat_daily_limit: number; signals_level: number; signals_delay_minutes: number; signals_include_analysis: boolean;
   description: string; features: string[]; active: boolean; sort: number
 }
 interface Sub {
@@ -27,7 +28,7 @@ interface WD {
 }
 interface PoolEx { id: number; name: string; user_id: number; is_pool: boolean }
 interface PoolData {
-  summary: { connected: boolean; exchange_id: number | null; value_toman: number; total_units: number; unit_price: number; total_deposits: number; profit: number; members: number };
+  summary: { connected: boolean; exchange_id: number | null; value_toman: number; total_units: number; unit_price: number; total_deposits: number; members_profit: number; admin_commission_collected: number; admin_commission_outstanding: number; members: number };
   exchanges: PoolEx[]
 }
 
@@ -81,7 +82,9 @@ export default function TradingPlansAdmin() {
   }
   const addPlan = () => setPlans(prev => [...prev, {
     id: -Date.now(), name: 'پلن جدید', plan_type: 'self_api', duration_days: 30, price_toman: 0,
-    max_trades_per_day: 0, allow_own_api: true, commission_tiers: [], description: '', features: [], active: true, sort: prev.length
+    max_trades_per_day: 0, allow_own_api: true, commission_tiers: [],
+    ai_chat_daily_limit: 0, signals_level: 0, signals_delay_minutes: 0, signals_include_analysis: false,
+    description: '', features: [], active: true, sort: prev.length
   }])
 
   const activate = async (s: Sub) => {
@@ -114,8 +117,10 @@ export default function TradingPlansAdmin() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14, marginBottom: 16 }}>
               {[
                 { l: 'ارزش کل استخر', v: fmt(poolData.summary.value_toman) + ' ت', c: 'var(--accent)' },
-                { l: 'مجموع واریزی', v: fmt(poolData.summary.total_deposits) + ' ت' },
-                { l: 'سود کل استخر', v: fmt(poolData.summary.profit) + ' ت', c: poolData.summary.profit >= 0 ? 'var(--green)' : 'var(--red)' },
+                { l: 'مجموع واریزی اعضا', v: fmt(poolData.summary.total_deposits) + ' ت' },
+                { l: 'سود اعضا', v: fmt(poolData.summary.members_profit) + ' ت', c: poolData.summary.members_profit >= 0 ? 'var(--green)' : 'var(--red)' },
+                { l: 'درآمد شما (کارمزدِ تسویه‌شده)', v: fmt(poolData.summary.admin_commission_collected) + ' ت', c: 'var(--green)' },
+                { l: 'کارمزد معوق (قابل وصول)', v: fmt(poolData.summary.admin_commission_outstanding) + ' ت', c: 'var(--amber)' },
                 { l: 'قیمت هر واحد', v: poolData.summary.unit_price.toLocaleString('en-US', { maximumFractionDigits: 4 }) },
                 { l: 'اعضا', v: String(poolData.summary.members) },
               ].map((x, i) => (
@@ -241,6 +246,18 @@ export default function TradingPlansAdmin() {
                     <label htmlFor={'act' + i} style={{ fontSize: 12 }}>فعال</label>
                   </div>
                 </div>
+
+                {/* امکانات هوش مصنوعی و سیگنال */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginTop: 12 }}>
+                  <div><div style={label}>سقف چت هوش مصنوعی/روز (۰=نامحدود، -۱=غیرفعال)</div><input type="number" style={inputStyle} value={p.ai_chat_daily_limit} onChange={e => upd(i, 'ai_chat_daily_limit', Number(e.target.value))} /></div>
+                  <div><div style={label}>سطح سیگنال (۰=بدون سیگنال)</div><input type="number" style={inputStyle} value={p.signals_level} onChange={e => upd(i, 'signals_level', Number(e.target.value))} /></div>
+                  <div><div style={label}>تأخیر سیگنال (دقیقه)</div><input type="number" style={inputStyle} value={p.signals_delay_minutes} onChange={e => upd(i, 'signals_delay_minutes', Number(e.target.value))} /></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 20 }}>
+                    <input type="checkbox" checked={p.signals_include_analysis} onChange={e => upd(i, 'signals_include_analysis', e.target.checked)} id={'sig' + i} />
+                    <label htmlFor={'sig' + i} style={{ fontSize: 12 }}>شامل تحلیل سیگنال</label>
+                  </div>
+                </div>
+
                 <div style={{ marginTop: 12 }}><div style={label}>توضیحات</div>
                   <textarea value={p.description} onChange={e => upd(i, 'description', e.target.value)} style={{ ...inputStyle, minHeight: 50, resize: 'vertical' }} /></div>
                 <div style={{ marginTop: 12 }}><div style={label}>امکانات (هر خط یک مورد)</div>

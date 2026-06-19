@@ -38,6 +38,8 @@ export default function Signals() {
   const [plans, setPlans] = useState<Plan[]>([])
   const [sub, setSub] = useState<SubInfo | null>(null)
   const [signals, setSignals] = useState<Signal[]>([])
+  const [signalsEnabled, setSignalsEnabled] = useState(true)
+  const [signalsPlanName, setSignalsPlanName] = useState('')
   const [link, setLink] = useState<any>(null)
   const [publishing, setPublishing] = useState(false)
 
@@ -54,12 +56,14 @@ export default function Signals() {
       const [p, s, f, l] = await Promise.all([
         api.get<Plan[]>('/signals/plans'),
         api.get<SubInfo>('/signals/subscription'),
-        api.get<{ signals: Signal[] }>('/signals/feed'),
+        api.get<{ signals: Signal[]; enabled?: boolean; plan?: any }>('/signals/feed'),
         api.get('/signals/link-code'),
       ])
       setPlans(p.data || [])
       setSub(s.data)
       setSignals(f.data?.signals || [])
+      setSignalsEnabled(f.data?.enabled !== false)
+      setSignalsPlanName(f.data?.plan?.name || '')
       setLink(l.data)
     } catch { /* ignore */ }
   }, [])
@@ -215,7 +219,8 @@ export default function Signals() {
           </div>
         </div>
 
-        {/* پلن‌ها */}
+        {/* پلن‌های قدیمیِ سیگنال — فقط برای سوپر ادمین (دسترسی کاربران از طریق پلن معامله‌گری کنترل می‌شود) */}
+        {isSuperAdmin && (
         <div style={card}>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>پلن‌های اشتراک</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
@@ -243,8 +248,24 @@ export default function Signals() {
             ))}
           </div>
         </div>
+        )}
+
+        {/* اگر پلن کاربر سیگنال ندارد — قفل و دعوت به ارتقا */}
+        {!isSuperAdmin && !signalsEnabled && (
+          <div style={{ ...card, textAlign: 'center' }}>
+            <Radio size={30} style={{ color: 'var(--amber)', marginBottom: 10 }} />
+            <div style={{ fontSize: 17, fontWeight: 800, marginBottom: 8 }}>پلن فعلی شما سیگنال ندارد</div>
+            <div style={{ color: 'var(--dim)', fontSize: 14, lineHeight: 1.9, marginBottom: 16 }}>
+              برای دریافت سیگنال‌ها، پلنی تهیه کنید که شامل سیگنال باشد.
+            </div>
+            <button onClick={() => { window.location.href = '/plans' }} style={{ padding: '12px 24px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+              مشاهدهٔ پلن‌ها
+            </button>
+          </div>
+        )}
 
         {/* فید سیگنال */}
+        {(isSuperAdmin || signalsEnabled) && (
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
             <Radio size={18} style={{ color: 'var(--accent)' }} /> آخرین سیگنال‌ها
@@ -275,6 +296,7 @@ export default function Signals() {
             </div>
           )}
         </div>
+        )}
 
         {/* ── بخش ادمین ── */}
         {isSuperAdmin && adminSettings && (

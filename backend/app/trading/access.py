@@ -42,6 +42,14 @@ def has_access(db, user) -> bool:
     return get_active_subscription(db, user.id) is not None
 
 
+def active_plan(db, user):
+    """پلن فعالِ کاربر را برمی‌گرداند (یا None). سوپر ادمین → None (نامحدود)."""
+    sub = get_active_subscription(db, user.id)
+    if not sub:
+        return None
+    return get_plan(db, sub.plan_id)
+
+
 def can_use_own_api(db, user) -> bool:
     """آیا کاربر اجازهٔ اتصال API شخصی دارد؟ (پلن فعال از نوع self_api یا allow_own_api)"""
     if getattr(user, "is_superadmin", False):

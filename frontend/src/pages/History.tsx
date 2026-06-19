@@ -3,7 +3,8 @@ import Layout from '../components/Layout'
 import { useAppStore } from '../stores/appStore'
 import api from '../lib/api'
 
-interface Trade { id:number; pair:string; side:string; entry:number; exit:number; amount:number; pnl:number; exchange:string; trade_type:string; opened_at:string; closed_at:string }
+interface Trade { id:number; pair:string; side:string; entry:number; exit:number; amount:number; pnl:number; pnl_pct:number; exchange:string; trade_type:string; opened_at:string; closed_at:string }
+const toToman = (n:number) => Math.round((n||0)/10).toLocaleString('fa-IR')  // قیمت‌ها به ریال ذخیره شده‌اند
 interface HistoryRes { total:number; page:number; pages:number; trades:Trade[] }
 
 export default function History() {
@@ -49,22 +50,25 @@ export default function History() {
         </div>
 
         <div style={{ background:'var(--card-bg)', border:'1px solid var(--border)', borderRadius:18, padding:'8px 0', overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr .8fr 1fr 1fr 1fr .9fr', gap:8, padding:'14px 24px', fontSize:12, color:'var(--faint)', borderBottom:'1px solid var(--border)' }}>
-            <span>{t.pair}</span><span>{t.dateTime}</span><span>{t.side}</span><span>{t.entry}</span><span>{t.exit}</span><span>{t.amount}</span><span style={{ textAlign:'end' }}>{t.pnl}</span>
+          <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr .8fr 1fr 1fr 1fr 1.1fr', gap:8, padding:'14px 24px', fontSize:12, color:'var(--faint)', borderBottom:'1px solid var(--border)' }}>
+            <span>{t.pair}</span><span>{t.dateTime}</span><span>{t.side}</span><span>قیمت خرید (ت)</span><span>قیمت فروش (ت)</span><span>{t.amount}</span><span style={{ textAlign:'end' }}>سود/زیان</span>
           </div>
           {loading ? (
             <div style={{ textAlign:'center', padding:40, color:'var(--faint)' }}>در حال بارگذاری...</div>
           ) : !data?.trades?.length ? (
             <div style={{ textAlign:'center', padding:40, color:'var(--faint)' }}>هیچ معامله‌ای یافت نشد</div>
           ) : data.trades.map(tr => (
-            <div key={tr.id} style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr .8fr 1fr 1fr 1fr .9fr', gap:8, padding:'14px 24px', fontSize:13, fontFamily:"'JetBrains Mono'", alignItems:'center', borderBottom:'1px solid var(--border)' }}>
+            <div key={tr.id} style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr .8fr 1fr 1fr 1fr 1.1fr', gap:8, padding:'14px 24px', fontSize:13, fontFamily:"'JetBrains Mono'", alignItems:'center', borderBottom:'1px solid var(--border)' }}>
               <span style={{ fontWeight:600, fontFamily:'Vazirmatn,sans-serif' }}>{tr.pair}</span>
               <span style={{ color:'var(--dim)' }}>{formatDate(tr.opened_at)}</span>
               <span style={{ color:sideColor(tr.side), fontWeight:600 }}>{sideLabel(tr.side)}</span>
-              <span style={{ color:'var(--dim)' }}>{tr.entry?.toFixed(2)}</span>
-              <span style={{ color:'var(--dim)' }}>{tr.exit?.toFixed(2)||'-'}</span>
+              <span style={{ color:'var(--dim)' }}>{toToman(tr.entry)}</span>
+              <span style={{ color:'var(--dim)' }}>{tr.exit ? toToman(tr.exit) : '-'}</span>
               <span style={{ color:'var(--dim)' }}>{tr.amount?.toFixed(6)}</span>
-              <span style={{ textAlign:'end', fontWeight:700, color:pnlColor(tr.pnl||0) }}>{(tr.pnl||0) >= 0 ? '+' : ''}{(tr.pnl||0).toFixed(4)}</span>
+              <span style={{ textAlign:'end', fontWeight:700, color:pnlColor(tr.pnl_pct||0), display:'flex', flexDirection:'column', alignItems:'flex-end', gap:2 }}>
+                <span style={{ fontSize:14 }}>{(tr.pnl_pct||0) >= 0 ? '+' : ''}{(tr.pnl_pct||0).toFixed(2)}٪</span>
+                <span style={{ fontSize:11, color:'var(--faint)', fontWeight:500 }}>{(tr.pnl||0) >= 0 ? '+' : ''}{toToman(tr.pnl)} ت</span>
+              </span>
             </div>
           ))}
         </div>

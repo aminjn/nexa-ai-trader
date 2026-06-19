@@ -237,6 +237,31 @@ def backfill_trade_pnl():
         db.close()
 
 
+_singleton_lock_fd = None  # نگه‌داشتن fd تا قفل برای طول عمر پروسه باز بماند
+
+
+def _acquire_singleton_lock() -> bool:
+    """قفل انحصاری برای تسک‌های پس‌زمینه. فقط یک worker موفق به گرفتن قفل می‌شود.
+
+    اگر چند worker اجرا شوند، بقیه False می‌گیرند و تسک‌های پس‌زمینه را اجرا نمی‌کنند.
+    """
+    global _singleton_lock_fd
+    try:
+        import fcntl, tempfile, os
+        path = os.path.join(tempfile.gettempdir(), "nexa_bg.lock")
+        fd = open(path, "w")
+        fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fd.write(str(os.getpid()))
+        fd.flush()
+        _singleton_lock_fd = fd  # باز نگه‌داشتن تا قفل آزاد نشود
+        return True
+    except (BlockingIOError, OSError):
+        return False
+    except Exception:
+        # اگر fcntl در دسترس نبود (مثلاً ویندوز)، فرض می‌کنیم تک‌ورکر است
+        return True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create tables
@@ -345,32 +370,38 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
 
-    # راه‌اندازی مجدد ربات‌های فعال پس از ری‌استارت سرور
-    db = SessionLocal()
-    try:
-        from .trading.bot import start_user_bot
-        active_users = db.query(models.User).filter(models.User.bot_active == True).all()
-        for u in active_users:
-            start_user_bot(u.id)
-            print(f"🤖 Bot resumed for user {u.id}")
-    except Exception as e:
-        print(f"⚠️ bot resume warning: {e}")
-    finally:
-        db.close()
+    # ── قفلِ تک‌ورکر ──
+    # اگر uvicorn با چند worker اجرا شود، تسک‌های پس‌زمینه (ربات، زمان‌بند، long-poll)
+    # فقط روی یک worker اجرا می‌شوند تا پست/معامله‌ی تکراری رخ ندهد.
+    run_background = _acquire_singleton_lock()
+    if not run_background:
+        print("ℹ️ این worker تسک‌های پس‌زمینه را اجرا نمی‌کند (worker دیگری مسئول است).")
 
-    # آموزش خودکار دوره‌ای مدل (هر ۶ ساعت با داده جدید)
-    import asyncio as _asyncio
-    from .api.model_api import auto_retrain_loop
-    _asyncio.create_task(auto_retrain_loop(6.0))
+    if run_background:
+        # راه‌اندازی مجدد ربات‌های فعال پس از ری‌استارت سرور
+        db = SessionLocal()
+        try:
+            from .trading.bot import start_user_bot
+            active_users = db.query(models.User).filter(models.User.bot_active == True).all()
+            for u in active_users:
+                start_user_bot(u.id)
+                print(f"🤖 Bot resumed for user {u.id}")
+        except Exception as e:
+            print(f"⚠️ bot resume warning: {e}")
+        finally:
+            db.close()
 
-    # زمان‌بند واحد و ماندگار: سیگنال، محتوا، تبلیغ و اسکرپ (مستقل از ری‌استارت)
-    from .signals.scheduler import scheduler_loop
-    _asyncio.create_task(scheduler_loop())
-
-    # اتصال خودکار ربات‌ها (long-polling) برای تلگرام و بله
-    from .signals.bot_poller import telegram_poll_loop, bale_poll_loop
-    _asyncio.create_task(telegram_poll_loop())
-    _asyncio.create_task(bale_poll_loop())
+        import asyncio as _asyncio
+        # آموزش خودکار دوره‌ای مدل (هر ۶ ساعت با داده جدید)
+        from .api.model_api import auto_retrain_loop
+        _asyncio.create_task(auto_retrain_loop(6.0))
+        # زمان‌بند واحد و ماندگار: سیگنال، محتوا، تبلیغ و اسکرپ
+        from .signals.scheduler import scheduler_loop
+        _asyncio.create_task(scheduler_loop())
+        # اتصال خودکار ربات‌ها (long-polling) تلگرام و بله
+        from .signals.bot_poller import telegram_poll_loop, bale_poll_loop
+        _asyncio.create_task(telegram_poll_loop())
+        _asyncio.create_task(bale_poll_loop())
 
     yield
 

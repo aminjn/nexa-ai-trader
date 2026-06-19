@@ -1,5 +1,5 @@
 """API نوتیفیکیشن‌ها (کاربر و سوپر ادمین)."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
@@ -92,44 +92,57 @@ class BroadcastRequest(BaseModel):
     link: str = "/notifications"
 
 
+async def _deliver_broadcast(user_ids, title, message, link, send_messengers):
+    """ارسال Web Push و پیام تلگرام/بله در پس‌زمینه (تا درخواست کند نشود)."""
+    from ..database import SessionLocal
+    db = SessionLocal()
+    try:
+        # Web Push (اپِ بسته هم می‌رسد)
+        try:
+            from ..push_web import push_to_users
+            push_to_users(db, user_ids, title, message, link)
+        except Exception:
+            pass
+        # تلگرام/بله برای کاربرانِ متصل
+        if send_messengers:
+            from ..signals.notifier import send_telegram, send_bale
+            s = db.query(models.SystemSettings).first()
+            tg_token = (s.telegram_bot_token if s else "") or ""
+            bale_token = (s.bale_bot_token if s else "") or ""
+            text = f"🔔 {title}\n\n{message}"
+            users = db.query(models.User).filter(models.User.id.in_(user_ids)).all() if user_ids else []
+            for u in users:
+                try:
+                    if tg_token and (u.telegram_chat_id or "").strip():
+                        await send_telegram(tg_token, u.telegram_chat_id, text)
+                    if bale_token and (u.bale_chat_id or "").strip():
+                        await send_bale(bale_token, u.bale_chat_id, text)
+                except Exception:
+                    continue
+    finally:
+        db.close()
+
+
 @router.post("/admin/broadcast")
-async def broadcast(req: BroadcastRequest, db: Session = Depends(get_db),
+async def broadcast(req: BroadcastRequest, background_tasks: BackgroundTasks,
+                    db: Session = Depends(get_db),
                     current_user: models.User = Depends(get_superadmin)):
-    """ارسال اعلان به کاربران: هم اعلانِ داخل اپ/PWA، هم پیامِ تلگرام/بله (push روی گوشی)."""
+    """ارسال اعلان به کاربران: اعلانِ داخل اپ فوری ثبت می‌شود؛ پوش و تلگرام/بله در پس‌زمینه."""
     q = db.query(models.User).filter(models.User.is_superadmin == False)
     if req.user_ids:
         q = q.filter(models.User.id.in_(req.user_ids))
     users = q.all()
+    user_ids = [u.id for u in users]
 
-    # ۱) اعلان داخل اپ (در زنگ/صفحهٔ اعلان‌ها و اعلان دستگاه هنگام باز بودن PWA دیده می‌شود)
-    for u in users:
-        db.add(models.Notification(for_admin=False, user_id=u.id, type="system",
+    # ۱) اعلان داخل اپ (سریع — همین‌جا ثبت می‌شود)
+    for uid in user_ids:
+        db.add(models.Notification(for_admin=False, user_id=uid, type="system",
                                    title=req.title, message=req.message, link=req.link))
     db.commit()
 
-    # ۲) Web Push برای دستگاه‌های ثبت‌شده (اعلانِ واقعی روی گوشی حتی با اپِ بسته)
-    push = 0
-    try:
-        from ..push_web import push_to_users
-        push = push_to_users(db, [u.id for u in users], req.title, req.message, req.link)
-    except Exception:
-        push = 0
+    # ۲) ارسال پوش و تلگرام/بله در پس‌زمینه (درخواست بلافاصله برمی‌گردد)
+    background_tasks.add_task(_deliver_broadcast, user_ids, req.title, req.message,
+                             req.link, req.send_telegram)
 
-    # ۳) پیام تلگرام/بله برای کاربرانِ متصل → اعلان واقعی روی گوشی
-    tg = bale = 0
-    if req.send_telegram:
-        from ..signals.notifier import send_telegram, send_bale
-        s = db.query(models.SystemSettings).first()
-        tg_token = (s.telegram_bot_token if s else "") or ""
-        bale_token = (s.bale_bot_token if s else "") or ""
-        text = f"🔔 {req.title}\n\n{req.message}"
-        for u in users:
-            if tg_token and (u.telegram_chat_id or "").strip():
-                if await send_telegram(tg_token, u.telegram_chat_id, text):
-                    tg += 1
-            if bale_token and (u.bale_chat_id or "").strip():
-                if await send_bale(bale_token, u.bale_chat_id, text):
-                    bale += 1
-
-    return {"message": f"اعلان برای {len(users)} کاربر ارسال شد",
-            "users": len(users), "telegram": tg, "bale": bale, "push": push}
+    return {"message": f"اعلان برای {len(users)} کاربر ثبت شد و در حال ارسال است.",
+            "users": len(users)}

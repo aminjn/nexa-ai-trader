@@ -68,10 +68,11 @@ def send_web_push(db, sub: "models.PushSubscription", title: str, body: str, url
 
 
 def push_to_users(db, user_ids, title: str, body: str, url: str = "/notifications") -> int:
-    """به همهٔ اشتراک‌های پوشِ کاربرانِ داده‌شده پیام می‌فرستد. تعداد موفق را برمی‌گرداند."""
-    q = db.query(models.PushSubscription)
-    if user_ids:
-        q = q.filter(models.PushSubscription.user_id.in_(list(user_ids)))
+    """به اشتراک‌های پوشِ کاربرانِ داده‌شده پیام می‌فرستد. تعداد موفق را برمی‌گرداند."""
+    if not user_ids:
+        return 0   # هدفی نیست (از پوش به همه جلوگیری می‌کند)
+    q = db.query(models.PushSubscription).filter(
+        models.PushSubscription.user_id.in_(list(user_ids)))
     sent = 0
     for sub in q.all():
         if send_web_push(db, sub, title, body, url):

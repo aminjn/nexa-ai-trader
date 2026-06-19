@@ -46,6 +46,7 @@ export default function Signals() {
   const [adminSubs, setAdminSubs] = useState<AdminSub[]>([])
   const [generating, setGenerating] = useState(false)
   const [testResult, setTestResult] = useState<any>(null)
+  const [adminPlans, setAdminPlans] = useState<Plan[]>([])
 
   const load = useCallback(async () => {
     try {
@@ -65,14 +66,48 @@ export default function Signals() {
   const loadAdmin = useCallback(async () => {
     if (!isSuperAdmin) return
     try {
-      const [st, su] = await Promise.all([
+      const [st, su, pl] = await Promise.all([
         api.get('/signals/admin/settings'),
         api.get<AdminSub[]>('/signals/admin/subscriptions'),
+        api.get<Plan[]>('/signals/admin/plans'),
       ])
       setAdminSettings(st.data)
       setAdminSubs(su.data || [])
+      setAdminPlans(pl.data || [])
     } catch { /* ignore */ }
   }, [isSuperAdmin])
+
+  const setPlanField = (idx: number, field: string, value: any) => {
+    setAdminPlans(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
+  }
+  const toggleChannel = (idx: number, ch: string) => {
+    setAdminPlans(prev => prev.map((p, i) => {
+      if (i !== idx) return p
+      const chs = p.channels || []
+      return { ...p, channels: chs.includes(ch) ? chs.filter(c => c !== ch) : [...chs, ch] }
+    }))
+  }
+  const savePlan = async (p: Plan) => {
+    try {
+      const body = { key: p.key, name: p.name, level: p.level, price_toman: p.price_toman, duration_days: p.duration_days,
+        max_coins: p.max_coins, delay_minutes: p.delay_minutes, include_analysis: p.include_analysis,
+        channels: p.channels || [], description: p.description || '', active: p.active, sort: (p as any).sort || p.level }
+      if (p.id) await api.put(`/signals/admin/plans/${p.id}`, body)
+      else await api.post('/signals/admin/plans', body)
+      toast.success('پلن ذخیره شد'); loadAdmin(); load()
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
+  }
+  const deletePlan = async (p: Plan) => {
+    if (!p.id) { setAdminPlans(prev => prev.filter(x => x !== p)); return }
+    if (!window.confirm(`پلن «${p.name}» حذف شود؟`)) return
+    try { await api.delete(`/signals/admin/plans/${p.id}`); toast.success('حذف شد'); loadAdmin(); load() }
+    catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
+  }
+  const addPlan = () => {
+    setAdminPlans(prev => [...prev, { id: 0, key: `plan${Date.now()}`, name: 'پلن جدید', level: 1, price_toman: 100000,
+      duration_days: 30, max_coins: 5, delay_minutes: 0, include_analysis: false, channels: ['telegram','bale','inapp'],
+      description: '', active: true } as any])
+  }
 
   useEffect(() => { load(); loadAdmin() }, [load, loadAdmin])
   useEffect(() => { const id = setInterval(load, 20000); return () => clearInterval(id) }, [load])
@@ -278,6 +313,8 @@ export default function Signals() {
                   <input style={inputStyle} value={adminSettings.card_number} onChange={e => setAdminSettings({ ...adminSettings, card_number: e.target.value })} dir="ltr" placeholder="6037-XXXX-XXXX-XXXX" /></div>
                 <div><div style={label}>نام صاحب کارت</div>
                   <input style={inputStyle} value={adminSettings.card_holder} onChange={e => setAdminSettings({ ...adminSettings, card_holder: e.target.value })} placeholder="نام و نام خانوادگی" /></div>
+                <div><div style={label}>شماره حساب / شبا</div>
+                  <input style={inputStyle} value={adminSettings.account_number} onChange={e => setAdminSettings({ ...adminSettings, account_number: e.target.value })} dir="ltr" placeholder="IR000000000000000000000000" /></div>
                 <div><div style={label}>آی‌دی ادمین پشتیبانی (ارسال رسید)</div>
                   <input style={inputStyle} value={adminSettings.support_contact} onChange={e => setAdminSettings({ ...adminSettings, support_contact: e.target.value })} dir="ltr" placeholder="@NexaSupport" /></div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 22 }}>
@@ -286,6 +323,49 @@ export default function Signals() {
                 </div>
               </div>
               <button onClick={saveAdminSettings} style={{ marginTop: 14, padding: '10px 22px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>ذخیره تنظیمات</button>
+            </div>
+
+            {/* ویرایش پلن‌ها */}
+            <div style={card}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>📦 ویرایش پلن‌ها</div>
+                <button onClick={addPlan} style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>+ افزودن پلن</button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {adminPlans.map((p, i) => (
+                  <div key={p.id || `new${i}`} style={{ padding: 16, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
+                      <div><div style={label}>نام پلن</div><input style={inputStyle} value={p.name} onChange={e => setPlanField(i, 'name', e.target.value)} /></div>
+                      <div><div style={label}>قیمت (تومان)</div><input type="number" style={inputStyle} value={p.price_toman} onChange={e => setPlanField(i, 'price_toman', Number(e.target.value))} /></div>
+                      <div><div style={label}>مدت (روز)</div><input type="number" style={inputStyle} value={p.duration_days} onChange={e => setPlanField(i, 'duration_days', Number(e.target.value))} /></div>
+                      <div><div style={label}>سطح (۰=رایگان،۱،۲)</div><input type="number" style={inputStyle} value={p.level} onChange={e => setPlanField(i, 'level', Number(e.target.value))} /></div>
+                      <div><div style={label}>تأخیر (دقیقه)</div><input type="number" style={inputStyle} value={p.delay_minutes} onChange={e => setPlanField(i, 'delay_minutes', Number(e.target.value))} /></div>
+                      <div><div style={label}>حداکثر ارز</div><input type="number" style={inputStyle} value={p.max_coins} onChange={e => setPlanField(i, 'max_coins', Number(e.target.value))} /></div>
+                    </div>
+                    <div style={{ marginTop: 10 }}><div style={label}>توضیحات</div>
+                      <input style={inputStyle} value={p.description} onChange={e => setPlanField(i, 'description', e.target.value)} /></div>
+                    <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={p.include_analysis} onChange={e => setPlanField(i, 'include_analysis', e.target.checked)} /> شامل تحلیل کامل
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={p.active} onChange={e => setPlanField(i, 'active', e.target.checked)} /> فعال
+                      </label>
+                      <span style={{ fontSize: 12, color: 'var(--dim)' }}>کانال‌ها:</span>
+                      {['telegram', 'bale', 'inapp'].map(ch => (
+                        <label key={ch} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={(p.channels || []).includes(ch)} onChange={() => toggleChannel(i, ch)} />
+                          {ch === 'telegram' ? 'تلگرام' : ch === 'bale' ? 'بله' : 'پنل'}
+                        </label>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <button onClick={() => savePlan(p)} style={{ padding: '8px 18px', borderRadius: 9, border: 'none', background: 'var(--accent)', color: '#05121a', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>ذخیره</button>
+                      <button onClick={() => deletePlan(p)} style={{ padding: '8px 14px', borderRadius: 9, border: '1px solid rgba(239,68,68,0.4)', background: 'transparent', color: '#ef4444', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>حذف</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div style={card}>

@@ -65,9 +65,12 @@ def _payment_text() -> str:
             lines.append(f"• <b>{p.name}</b>: {price}")
             if p.description:
                 lines.append(f"  {p.description}")
-        if s and s.card_number:
-            lines += ["", "برای خرید، مبلغ پلن را به این کارت واریز کن:",
-                      f"💳 <b>{s.card_number}</b>" + (f"\n👤 به نام {s.card_holder}" if s.card_holder else "")]
+        if s and (s.card_number or s.account_number):
+            lines += ["", "برای خرید، مبلغ پلن را به این حساب واریز کن:"]
+            if s.card_number:
+                lines.append(f"💳 کارت: <b>{s.card_number}</b>" + (f" — به نام {s.card_holder}" if s.card_holder else ""))
+            if s.account_number:
+                lines.append(f"🏦 شماره حساب/شبا: <b>{s.account_number}</b>")
         if s and s.support_contact:
             lines += ["", f"سپس رسید پرداخت را برای ادمین بفرست: <b>{s.support_contact}</b> تا اشتراکت فعال شود."]
         return "\n".join(lines)
@@ -89,13 +92,16 @@ async def _ai_reply(text: str) -> str:
         )
         card = s.card_number or "(تنظیم نشده)"
         holder = s.card_holder or ""
+        account = s.account_number or ""
         support = s.support_contact or "(تنظیم نشده)"
+        pay_info = f"شماره کارت {card}" + (f" به نام {holder}" if holder else "")
+        if account:
+            pay_info += f" یا شماره حساب/شبا {account}"
         sys_prompt = (
             "تو «دستیار فروش و پشتیبانی NEXA AI» هستی؛ یک سرویس سیگنال و تحلیل رمزارز فارسی. "
             "کوتاه، دوستانه و فارسی جواب بده. به سؤال کاربر درباره سرویس، سیگنال‌ها و پلن‌ها پاسخ بده. "
             "اگر کاربر قصد خرید یا ارتقا داشت، او را راهنمایی کن: پلن مناسب را پیشنهاد بده، "
-            f"مبلغ را بگو، شماره کارت {card}" + (f" به نام {holder}" if holder else "") +
-            f" را بده و بگو رسید را برای ادمین {support} بفرستد تا فعال شود. "
+            f"مبلغ را بگو، اطلاعات پرداخت ({pay_info}) را بده و بگو رسید را برای ادمین {support} بفرستد تا فعال شود. "
             "هیچ‌وقت قول سود تضمینی نده. پلن‌های فعلی: " + plans_txt
         )
         resp = await get_ai_response(

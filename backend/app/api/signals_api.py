@@ -358,6 +358,7 @@ class SignalSettingsRequest(BaseModel):
     ai_support_enabled: Optional[bool] = None
     card_number: Optional[str] = None
     card_holder: Optional[str] = None
+    account_number: Optional[str] = None
     support_contact: Optional[str] = None
 
 
@@ -384,6 +385,7 @@ async def admin_get_settings(db: Session = Depends(get_db), current_user: models
         "ai_support_enabled": bool(s.ai_support_enabled),
         "card_number": s.card_number or "",
         "card_holder": s.card_holder or "",
+        "account_number": s.account_number or "",
         "support_contact": s.support_contact or "",
     }
 

@@ -58,6 +58,8 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN card_number VARCHAR DEFAULT ''"))
             if "card_holder" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN card_holder VARCHAR DEFAULT ''"))
+            if "account_number" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN account_number VARCHAR DEFAULT ''"))
             if "support_contact" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN support_contact VARCHAR DEFAULT ''"))
     # users: شناسه‌های پیام‌رسان

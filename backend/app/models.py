@@ -148,6 +148,7 @@ class SystemSettings(Base):
     ai_support_enabled = Column(Boolean, default=True)
     card_number = Column(String, default="")
     card_holder = Column(String, default="")
+    account_number = Column(String, default="")   # شماره حساب / شبا
     support_contact = Column(String, default="")  # آی‌دی ادمین برای ارسال رسید (@admin)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

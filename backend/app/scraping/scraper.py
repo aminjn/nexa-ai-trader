@@ -37,6 +37,36 @@ def _parse_feed(html: str, max_items: int):
     return out
 
 
+def _discover_feed(html: str, base_url: str):
+    """آدرس فید RSS/Atom را از <link> داخل صفحه پیدا می‌کند یا مسیرهای رایج را امتحان می‌کند."""
+    from urllib.parse import urljoin
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        for link in soup.find_all("link"):
+            t = (link.get("type") or "").lower()
+            if ("rss" in t or "atom" in t or "xml" in t) and link.get("href"):
+                return urljoin(base_url, link.get("href"))
+    except Exception:
+        pass
+    return None
+
+
+def _feed_result(html: str, source, persist: bool, max_items: int) -> str:
+    """منطق مشترک پردازش فید (تست/ذخیره)."""
+    feed_items = _parse_feed(html, max_items if persist else 5)
+    seen = set(getattr(source, "seen_urls", None) or []) if persist else set()
+    new_items = [it for it in feed_items if it["url"] not in seen]
+    if persist:
+        items = (getattr(source, "items", None) or []) + new_items
+        items = items[-50:]
+        source.items = items
+        source.seen_urls = (list(seen) + [it["url"] for it in new_items])[-300:]
+        shown = list(reversed(items[-15:]))  # تازه‌ترین‌ها بالا
+        source.last_value = "\n".join(i["text"] for i in shown)[:3000]
+        return f"{len(new_items)} مطلب جدید"
+    return "\n".join(i["text"] for i in feed_items)[:3000] or "(آیتمی در خوراک یافت نشد)"
+
+
 async def scrape_url(url: str, selector: str = "", use_proxy: bool = False, max_chars: int = 1200) -> str:
     """یک URL را می‌گیرد و متن المان‌های منطبق با selector را برمی‌گرداند."""
     proxy = settings.GAPGPT_PROXY if use_proxy else None
@@ -93,19 +123,19 @@ async def scrape_source(source, persist: bool = False) -> str:
 
     # ── خوراک RSS/Atom (تازه‌ترین اخبار، بدون نیاز به جاوااسکریپت) ──
     if _is_feed(source.url, html):
-        feed_items = _parse_feed(html, max_items if persist else 5)
-        seen = set(getattr(source, "seen_urls", None) or []) if persist else set()
-        new_items = [it for it in feed_items if it["url"] not in seen]
-        if persist:
-            items = (getattr(source, "items", None) or []) + new_items
-            items = items[-50:]
-            source.items = items
-            source.seen_urls = (list(seen) + [it["url"] for it in new_items])[-300:]
-            # تازه‌ترین آیتم‌ها بالای متن باشند
-            shown = list(reversed(items[-15:]))
-            source.last_value = "\n".join(i["text"] for i in shown)[:3000]
-            return f"{len(new_items)} مطلب جدید"
-        return "\n".join(i["text"] for i in feed_items)[:3000] or "(آیتمی در خوراک یافت نشد)"
+        return _feed_result(html, source, persist, max_items)
+
+    # ── اگر رسپی‌ای تعریف نشده، خودکار فید سایت را پیدا و استفاده کن ──
+    has_recipe = bool(link_sel and fields) or bool(getattr(source, "selector", "") or "")
+    if not has_recipe:
+        feed_url = _discover_feed(html, source.url)
+        if feed_url:
+            try:
+                fh = await _fetch_html(feed_url, source.use_proxy, timeout=item_timeout)
+                if _is_feed(feed_url, fh):
+                    return _feed_result(fh, source, persist, max_items)
+            except Exception:
+                pass
 
     soup = BeautifulSoup(html, "html.parser")
 

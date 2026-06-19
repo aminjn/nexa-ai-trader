@@ -432,11 +432,12 @@ class MLTrainer:
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
-        # RandomForest چندهسته‌ای (n_jobs=-1) — روی چند CPU موازی و بسیار سریع‌تر از GradientBoosting
+        # RandomForest چندهسته‌ای (n_jobs=-1). بدون class_weight تا سیگنالِ «خرید» محتاط‌تر و
+        # دقیق‌تر باشد (Precision بالاتر — مهم‌تر از Recall برای معامله). عمق کمتر = overfit کمتر.
         _p(60, f"آموزش مدل روی {len(X_train):,} نمونه (موازی)...")
         self.model = RandomForestClassifier(
-            n_estimators=200, max_depth=14, min_samples_leaf=3,
-            n_jobs=-1, random_state=42, class_weight="balanced_subsample",
+            n_estimators=250, max_depth=10, min_samples_leaf=8,
+            n_jobs=-1, random_state=42,
         )
         self.model.fit(X_train_scaled, y_train)
         _p(88, "ارزیابی مدل...")
@@ -445,6 +446,22 @@ class MLTrainer:
         self.accuracy = float(accuracy_score(y_test, y_pred))
         precision = float(precision_score(y_test, y_pred, zero_division=0))
         recall = float(recall_score(y_test, y_pred, zero_division=0))
+
+        # ── Precision در «آستانهٔ معاملاتیِ» واقعی (آنچه ربات تجربه می‌کند) ──
+        # ربات فقط روی سیگنال‌های پراطمینان معامله می‌کند؛ این عدد بامعناترین معیار است.
+        prec_at = {}
+        try:
+            proba_pos = self.model.predict_proba(X_test_scaled)[:, 1]
+            import numpy as _np
+            for thr in (0.60, 0.65, 0.70):
+                sel = proba_pos >= thr
+                n_sel = int(sel.sum())
+                if n_sel >= 20:
+                    p = float((y_test[sel] == 1).mean())
+                    prec_at[str(thr)] = {"precision": round(p * 100, 1), "signals": n_sel,
+                                         "share": round(n_sel / len(y_test) * 100, 1)}
+        except Exception:
+            pass
 
         importances = self.model.feature_importances_
         self.feature_importances = sorted(
@@ -461,6 +478,7 @@ class MLTrainer:
             "accuracy": round(self.accuracy * 100, 2),
             "precision": round(precision * 100, 2),
             "recall": round(recall * 100, 2),
+            "precision_at_threshold": prec_at,   # Precision در آستانه‌های بالا (معیار معاملاتی)
             "accumulated_rows": int(len(raw)),
             "total_samples": int(len(df)),
             "train_samples": int(len(X_train)),

@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 interface FeatureImportance { name: string; key: string; importance: number }
 interface Metrics {
   accuracy?: number; precision?: number; recall?: number;
+  precision_at_threshold?: Record<string, { precision: number; signals: number; share: number }>;
   total_samples?: number; train_samples?: number; test_samples?: number;
   num_features?: number; symbols?: string[]; date_from?: string; date_to?: string; source?: string; split?: string;
   ai_threshold?: number;
@@ -165,7 +166,11 @@ export default function Model() {
                 { l:'تعداد نمونه', v: (status.metrics.total_samples||0).toLocaleString('fa-IR') },
                 { l:'بازارها', v: (status.metrics.symbols||[]).join('، ') || '—' },
                 { l:'دقت (Accuracy)', v: `${status.metrics.accuracy}٪` },
-                { l:'صحت (Precision)', v: `${status.metrics.precision}٪` },
+                { l:'صحت (Precision @۰.۵)', v: `${status.metrics.precision}٪` },
+                ...(status.metrics.precision_at_threshold?.['0.65'] ? [{
+                  l: '🎯 صحتِ سیگنال خرید (آستانهٔ ۶۵٪)',
+                  v: `${status.metrics.precision_at_threshold['0.65'].precision}٪ (روی ${status.metrics.precision_at_threshold['0.65'].share}٪ سیگنال‌ها)`
+                }] : []),
                 { l:'فراخوانی (Recall)', v: `${status.metrics.recall}٪` },
                 { l:'تعداد اندیکاتور', v: status.metrics.num_features },
                 { l:'روش ارزیابی', v: status.metrics.split || 'زمانی (out-of-sample)' },

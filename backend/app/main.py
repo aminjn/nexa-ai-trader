@@ -56,6 +56,12 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN ad_interval_hours INTEGER DEFAULT 12"))
             if "ad_text" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN ad_text TEXT DEFAULT ''"))
+            if "last_signal_at" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN last_signal_at DATETIME"))
+            if "last_content_at" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN last_content_at DATETIME"))
+            if "last_ad_at" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN last_ad_at DATETIME"))
             if "ai_support_enabled" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN ai_support_enabled BOOLEAN DEFAULT 1"))
             if "card_number" not in cols:
@@ -188,31 +194,14 @@ async def lifespan(app: FastAPI):
     from .api.model_api import auto_retrain_loop
     _asyncio.create_task(auto_retrain_loop(6.0))
 
-    # اسکرپ خودکار منابع خبری (هر ۱ ساعت)
-    async def _scrape_loop():
-        from .scraping.scraper import scrape_all
-        while True:
-            await _asyncio.sleep(300)  # هر ۵ دقیقه بررسی، هر منبع طبق زمان‌بندی خودش
-            sdb = SessionLocal()
-            try:
-                await scrape_all(sdb, respect_schedule=True)
-            except Exception as e:
-                print(f"⚠️ scrape loop warning: {e}")
-            finally:
-                sdb.close()
-    _asyncio.create_task(_scrape_loop())
+    # زمان‌بند واحد و ماندگار: سیگنال، محتوا، تبلیغ و اسکرپ (مستقل از ری‌استارت)
+    from .signals.scheduler import scheduler_loop
+    _asyncio.create_task(scheduler_loop())
 
-    # تولید و توزیع خودکار سیگنال (طبق بازه‌ی تنظیم‌شده در پنل)
-    from .signals.engine import signals_loop
-    _asyncio.create_task(signals_loop())
-
-    # اتصال خودکار ربات‌ها (long-polling) و انتشار خودکار محتوا
+    # اتصال خودکار ربات‌ها (long-polling) برای تلگرام و بله
     from .signals.bot_poller import telegram_poll_loop, bale_poll_loop
-    from .signals.content import content_loop, ad_loop
     _asyncio.create_task(telegram_poll_loop())
     _asyncio.create_task(bale_poll_loop())
-    _asyncio.create_task(content_loop())
-    _asyncio.create_task(ad_loop())
 
     yield
 

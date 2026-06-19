@@ -148,6 +148,10 @@ class SystemSettings(Base):
     content_interval_hours = Column(Integer, default=6)  # هر چند ساعت محتوا منتشر شود
     ad_interval_hours = Column(Integer, default=12)       # هر چند ساعت تبلیغ منتشر شود
     ad_text = Column(Text, default="")                    # متن تبلیغ دستی (اگر خالی باشد هوش مصنوعی می‌سازد)
+    # زمان آخرین اجرای خودکار (ماندگار، مستقل از ری‌استارت)
+    last_signal_at = Column(DateTime, nullable=True)
+    last_content_at = Column(DateTime, nullable=True)
+    last_ad_at = Column(DateTime, nullable=True)
     # پشتیبانی هوش مصنوعی داخل ربات + اطلاعات پرداخت کارت‌به‌کارت
     ai_support_enabled = Column(Boolean, default=True)
     card_number = Column(String, default="")

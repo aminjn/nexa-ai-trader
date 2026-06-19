@@ -89,18 +89,37 @@ async def wallet_trades(limit: int = 100, db: Session = Depends(get_db),
         models.Trade.status == "closed",
     ).order_by(models.Trade.closed_at.desc().nullslast(), models.Trade.id.desc()).limit(limit).all()
 
+    # کارمزدِ مالکِ معاملات (برای محاسبهٔ معاملات قدیمی که مبلغشان ذخیره نشده)
+    owner = db.query(models.User).filter(models.User.id == oid).first()
+    fee_pct = (getattr(owner, "fee_pct", 0.25) or 0.25)
+
+    def quote_div(pair: str) -> float:
+        q = (pair.split("/")[-1] if pair and "/" in pair else "").upper()
+        return 10.0 if q in ("RLS", "IRR", "IRT") else 1.0  # ریال → تومان
+
     rows = []
     tot_cost = tot_proceeds = tot_fee = tot_net = 0.0
     for t in trades:
-        cost = (t.cost_toman or 0) * frac
-        proceeds = (t.proceeds_toman or 0) * frac
-        fee = (t.fee_toman or 0) * frac
-        net = (t.pnl or 0) * frac
+        # مقادیر ذخیره‌شده؛ اگر نبود (معاملات قدیمی) از قیمت ورود/خروج × مقدار محاسبه کن
+        if t.cost_toman or t.proceeds_toman or t.fee_toman:
+            cost = t.cost_toman or 0
+            proceeds = t.proceeds_toman or 0
+            fee = t.fee_toman or 0
+            net = (t.pnl or 0)
+        else:
+            d = quote_div(t.pair)
+            amt = t.amount or 0
+            cost = (t.entry_price or 0) * amt / d
+            proceeds = (t.exit_price or 0) * amt / d
+            fee = (cost + proceeds) * fee_pct / 100.0
+            net = proceeds - cost - fee   # سود/زیان خالصِ بازمحاسبه‌شده (شاملِ کمیسیون)
+        cost *= frac; proceeds *= frac; fee *= frac; net *= frac
+        pct = (net / cost * 100.0) if cost else 0
         tot_cost += cost; tot_proceeds += proceeds; tot_fee += fee; tot_net += net
         rows.append({
             "id": t.id, "pair": t.pair,
             "cost_toman": round(cost), "proceeds_toman": round(proceeds),
-            "fee_toman": round(fee), "net_pnl": round(net), "pnl_pct": t.pnl_pct,
+            "fee_toman": round(fee), "net_pnl": round(net), "pnl_pct": round(pct, 3),
             "closed_at": t.closed_at.isoformat() if t.closed_at else None,
         })
     return {

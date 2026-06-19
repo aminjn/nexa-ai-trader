@@ -33,6 +33,36 @@ def _clean_cut(text: str, limit: int) -> str:
     return cut.strip() + " …"
 
 
+BAR = "━━━━━━━━━━━━━━"
+
+
+async def _news_bullets(db, news_raw: str, n: int = 5) -> list:
+    """اخبار خام را به چند خبرِ کوتاهِ فارسیِ روان و کامل تبدیل می‌کند (با AI؛ وگرنه برش تمیز)."""
+    news_raw = (news_raw or "").strip()
+    if not news_raw:
+        return []
+    try:
+        from ..ai.gapgpt import get_ai_response, get_ai_config
+        if get_ai_config(db).get("api_key"):
+            prompt = (
+                f"این اخبار خامِ رمزارز را به حداکثر {n} خبرِ کوتاهِ فارسیِ روان تبدیل کن. "
+                "هر خبر دقیقاً یک خط، کامل و بدون جملهٔ ناقص، و کاملاً فارسی (هیچ متن انگلیسی نگذار). "
+                "فقط خطوط خبر را برگردان؛ هر خط را با «🔹 » شروع کن و هیچ توضیح اضافه نده.\n\n"
+                + news_raw[:1500]
+            )
+            resp = await asyncio.wait_for(get_ai_response([{"role": "user", "content": prompt}], db=db), timeout=40)
+            lines = [l.strip() for l in (resp or "").splitlines() if l.strip()]
+            lines = [(l if l.startswith("🔹") else "🔹 " + l.lstrip("•-–* ")) for l in lines]
+            if lines:
+                return lines[:n]
+    except Exception:
+        pass
+    # پشتیبان: جمله‌های اول را به‌صورت بولت دربیاور
+    import re
+    sents = [s.strip() for s in re.split(r"[\n.؟!]", news_raw) if len(s.strip()) > 25]
+    return ["🔹 " + _clean_cut(s, 140) for s in sents[:n]]
+
+
 async def generate_market_content(db) -> str:
     srow = db.query(models.SystemSettings).first()
     coins_raw = (srow.signal_coins if srow else "") or "BTC,ETH"
@@ -41,7 +71,7 @@ async def generate_market_content(db) -> str:
     ex = NobitexExchange("")
     trainer = get_trainer()
 
-    # ── جمع‌آوری داده‌ها ──
+    # ── قیمت و سیگنال لحظه‌ای هر ارز ──
     coin_lines = []
     for coin in coins:
         try:
@@ -51,15 +81,15 @@ async def generate_market_content(db) -> str:
             if not rial:
                 continue
             toman = rial / 10.0
-            side = "—"
+            side = "⏳ صبر"
             if trainer.is_trained:
                 ohlcv = await ex.get_ohlcv(pair, "1h", 200)
                 if ohlcv:
                     df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
                     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
                     ml = trainer.predict(df)
-                    side = {"BUY": "🟢 خرید", "SELL": "🔴 فروش", "WAIT": "⏳ صبر"}.get(ml.get("signal"), "—")
-            coin_lines.append(f"• <b>{coin}</b>: {_fmt(toman)} تومان | سیگنال: {side}")
+                    side = {"BUY": "🟢 خرید", "SELL": "🔴 فروش", "WAIT": "⏳ صبر"}.get(ml.get("signal"), "⏳ صبر")
+            coin_lines.append(f"🔸 <b>{coin}</b> — {_fmt(toman)} ت  |  {side}")
         except Exception:
             continue
 
@@ -71,49 +101,27 @@ async def generate_market_content(db) -> str:
     except Exception:
         pass
 
-    news = ""
+    news_raw = ""
     try:
         from ..scraping.scraper import collect_scraped_context
-        news = collect_scraped_context(db, max_chars=1500)
+        news_raw = collect_scraped_context(db, max_chars=1500)
     except Exception:
         pass
+    bullets = await _news_bullets(db, news_raw)
 
-    # ── اگر کلید هوش مصنوعی هست، یک پست تمیز و کامل بنویس ──
-    try:
-        from ..ai.gapgpt import get_ai_response, get_ai_config
-        if srow and get_ai_config(db).get("api_key"):
-            ctx = "قیمت و سیگنال ارزها:\n" + "\n".join(coin_lines)
-            if fund_summary:
-                ctx += "\n\nتحلیل فاندامنتال: " + fund_summary
-            if news:
-                ctx += "\n\nاخبار خام (خلاصه کن): " + news[:1200]
-            prompt = (
-                "تو تولیدکننده محتوای کانال «NEXA AI» (سیگنال و تحلیل رمزارز) هستی. "
-                "از داده‌های زیر یک پست روان و کامل فارسی برای کانال بنویس. "
-                "⚠️ هر خبری که به انگلیسی است را حتماً به فارسیِ روان ترجمه و خلاصه کن — "
-                "هیچ متن انگلیسی در خروجی نگذار. خبرهای مهم را در چند خط بیاور، "
-                "جمله ناقص نگذار، قول سود تضمینی نده. "
-                "در پایان یک خط «— کانال رسمی NEXA AI» بگذار.\n\n" + ctx
-            )
-            resp = await asyncio.wait_for(
-                get_ai_response([{"role": "user", "content": prompt}], db=db),
-                timeout=40,
-            )
-            if resp and len(resp.strip()) > 30:
-                return resp.strip()[:3500]
-    except Exception:
-        pass
-
-    # ── حالت پشتیبان: متن ساختاریافته با برش تمیز ──
+    # ── ساخت پستِ گرافیکیِ تمیز در کد (قالب ثابت و خوانا) ──
     from .engine import tehran_now
-    lines = [f"📈 <b>تحلیل بازار NEXA AI</b> — {tehran_now().strftime('%Y/%m/%d %H:%M')}", ""]
-    lines += coin_lines
+    now = tehran_now()
+    parts = [f"📊 <b>گزارش بازار NEXA AI</b>\n🗓 {now.strftime('%Y/%m/%d')}  ·  🕐 {now.strftime('%H:%M')}"]
+    if coin_lines:
+        parts.append("💰 <b>قیمت و سیگنال لحظه‌ای</b>\n" + "\n".join(coin_lines))
     if fund_summary:
-        lines += ["", "🌍 <b>فاندامنتال:</b> " + _clean_cut(fund_summary, 400)]
-    if news:
-        lines += ["", "📰 <b>از اخبار:</b>", _clean_cut(news, 700)]
-    lines += ["", "— کانال رسمی NEXA AI"]
-    return "\n".join(lines)
+        parts.append("🌍 <b>نبض بازار</b>\n" + _clean_cut(fund_summary, 450))
+    if bullets:
+        parts.append("📰 <b>مهم‌ترین خبرها</b>\n" + "\n".join(bullets))
+    parts.append("🤖 <b>NEXA AI</b> — تحلیل هوشمند بازار رمزارز\n⚠️ سیگنال‌ها تضمین سود نیستند؛ مدیریت ریسک کنید.")
+    msg = ("\n" + BAR + "\n").join(parts)
+    return _clean_cut(msg, 3500)
 
 
 def _join_footer(platform: str, srow) -> str:
@@ -182,34 +190,43 @@ async def generate_ad(db) -> str:
         if p.plan_type == "managed":
             return "کارمزد از سود"
         return ('%s تومان/%d روز' % (f"{p.price_toman:,}", p.duration_days)) if p.price_toman > 0 else 'رایگان'
-    plans_txt = "؛ ".join(f"{p.name}: {_price(p)}" for p in plans)
+    # کارت پلن‌ها به‌صورت گرافیکی (هر پلن یک خط با ایموجی)
+    plan_cards = []
+    for p in plans:
+        icon = "👑" if p.plan_type == "managed" else "⚡"
+        plan_cards.append(f"{icon} <b>{p.name}</b> — {_price(p)}")
+    plans_block = "\n".join(plan_cards)
     support = (srow.support_contact if srow else "") or ""
-    bot = (srow.telegram_bot_username if srow else "") or ""
+
+    body = ""
     try:
         from ..ai.gapgpt import get_ai_response, get_ai_config
         if srow and get_ai_config(db).get("api_key"):
             prompt = (
-                "یک تبلیغ کوتاه، جذاب و حرفه‌ای فارسی برای کانال «NEXA AI» بنویس تا کاربران را به خرید "
-                "اشتراک سیگنال رمزارز ترغیب کند. لحن پرانرژی ولی صادقانه؛ هیچ قول سود تضمینی نده. "
-                f"پلن‌ها: {plans_txt}. "
-                + (f"برای مشاوره و خرید به {support} پیام بدهند. " if support else "")
-                + (f"ربات: {bot}. " if bot else "")
-                + "حداکثر ۶ خط، با چند ایموجی مناسب و یک دعوت به اقدام در پایان."
+                "یک متنِ تبلیغاتیِ کوتاه (۲ تا ۳ خط)، جذاب و حرفه‌ای فارسی برای ربات معامله‌گر «NEXA AI» بنویس "
+                "که کاربر را به استفاده ترغیب کند. لحن پرانرژی ولی صادقانه؛ هیچ قول سود تضمینی نده. "
+                "فقط همان ۲-۳ خط متن را برگردان، بدون عنوان و بدون لیست پلن (پلن‌ها جداگانه اضافه می‌شوند)."
             )
             resp = await asyncio.wait_for(
                 get_ai_response([{"role": "user", "content": prompt}], db=db), timeout=40)
-            if resp and len(resp.strip()) > 30:
-                return resp.strip()[:3000]
+            if resp and len(resp.strip()) > 20:
+                body = _clean_cut(resp.strip(), 400)
     except Exception:
         pass
-    # پشتیبان (بدون هوش مصنوعی)
-    lines = ["🚀 NEXA AI — سیگنال و تحلیل هوشمند رمزارز", "",
-             "با مدل یادگیری ماشین + تحلیل فاندامنتال و تکنیکال، سیگنال‌های به‌موقع دریافت کن.",
-             f"پلن‌ها: {plans_txt}"]
+    if not body:
+        body = ("با ربات هوشمند NEXA AI، با مدل یادگیری ماشین + تحلیل فاندامنتال و تکنیکال، "
+                "معاملات رمزارز را خودکار و حساب‌شده انجام بده.")
+
+    # ساخت تبلیغِ گرافیکیِ تمیز
+    parts = ["🚀 <b>NEXA AI — ربات معامله‌گر هوشمند رمزارز</b>", body]
+    if plans_block:
+        parts.append("💎 <b>پلن‌ها</b>\n" + plans_block)
+    cta = []
     if support:
-        lines.append(f"برای خرید و مشاوره: {support}")
-    lines.append("همین حالا عضو شو! 📈")
-    return "\n".join(lines)
+        cta.append(f"📩 ثبت‌نام و مشاوره: {support}")
+    cta.append("✅ همین حالا شروع کن!")
+    parts.append("\n".join(cta))
+    return ("\n" + BAR + "\n").join(parts)
 
 
 async def publish_ad(db) -> bool:

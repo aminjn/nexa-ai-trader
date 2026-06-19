@@ -44,45 +44,50 @@ async def fetch_binance_5y(pairs: List[str]) -> pd.DataFrame:
 
 
 async def fetch_nobitex_history(symbols: List[str], resolution: str = "60",
-                                days: int = 1095) -> pd.DataFrame:
+                                days: int = 720) -> pd.DataFrame:
     """داده تاریخی از نوبیتکس (مستقیم). resolution: "60"=ساعتی، "D"=روزانه.
 
-    برای جلوگیری از سقفِ تعداد کندل در هر درخواست، در پنجره‌های زمانی صفحه‌بندی می‌شود.
+    نمادها هم‌زمان (موازی) و هر نماد در پنجره‌های زمانی صفحه‌بندی می‌شود
+    (نوبیتکس داده از ~۲۰۲۵ دارد، پس بازهٔ پیش‌فرض کوتاه است تا سریع باشد).
     """
+    import asyncio
     base = settings.NOBITEX_BASE_URL
     to_t = int(time.time())
     from_t = to_t - days * 86400
-    # طول هر پنجره (ثانیه): برای ساعتی ~۶۰ روز (≈۱۴۴۰ کندل)، برای روزانه کل بازه
     window = 60 * 86400 if resolution not in ("D", "1D") else days * 86400
-    all_frames = []
-    for symbol in symbols:
+
+    async def fetch_symbol(symbol: str) -> pd.DataFrame:
         frames = []
         start = from_t
-        while start < to_t:
-            end = min(start + window, to_t)
-            url = f"{base}/market/udf/history"
-            params = {"symbol": symbol, "resolution": resolution, "from": start, "to": end}
-            try:
-                async with httpx.AsyncClient(timeout=30, trust_env=False) as client:
+        async with httpx.AsyncClient(timeout=20, trust_env=False) as client:
+            while start < to_t:
+                end = min(start + window, to_t)
+                url = f"{base}/market/udf/history"
+                params = {"symbol": symbol, "resolution": resolution, "from": start, "to": end}
+                try:
                     resp = await client.get(url, params=params)
                     resp.raise_for_status()
                     data = resp.json()
-                if data.get("s") == "ok" and data.get("t"):
-                    frames.append(pd.DataFrame({
-                        "timestamp": pd.to_datetime(data["t"], unit="s"),
-                        "open": [float(x) for x in data["o"]],
-                        "high": [float(x) for x in data["h"]],
-                        "low": [float(x) for x in data["l"]],
-                        "close": [float(x) for x in data["c"]],
-                        "volume": [float(x) for x in data["v"]],
-                    }))
-            except Exception:
-                pass
-            start = end
-        if frames:
-            g = pd.concat(frames).drop_duplicates("timestamp").sort_values("timestamp")
-            g["symbol"] = symbol
-            all_frames.append(g)
+                    if data.get("s") == "ok" and data.get("t"):
+                        frames.append(pd.DataFrame({
+                            "timestamp": pd.to_datetime(data["t"], unit="s"),
+                            "open": [float(x) for x in data["o"]],
+                            "high": [float(x) for x in data["h"]],
+                            "low": [float(x) for x in data["l"]],
+                            "close": [float(x) for x in data["c"]],
+                            "volume": [float(x) for x in data["v"]],
+                        }))
+                except Exception:
+                    pass
+                start = end
+        if not frames:
+            return pd.DataFrame()
+        g = pd.concat(frames).drop_duplicates("timestamp").sort_values("timestamp")
+        g["symbol"] = symbol
+        return g
+
+    results = await asyncio.gather(*[fetch_symbol(s) for s in symbols], return_exceptions=True)
+    all_frames = [r for r in results if isinstance(r, pd.DataFrame) and not r.empty]
     if not all_frames:
         return pd.DataFrame()
     return pd.concat(all_frames, ignore_index=True)

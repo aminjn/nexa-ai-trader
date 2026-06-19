@@ -20,13 +20,22 @@ def _is_feed(url: str, html: str) -> bool:
 
 
 def _parse_feed(html: str, max_items: int, body_chars: int = 900):
-    """خوراک RSS/Atom را پارس می‌کند: عنوان + متن کامل مطلب (content:encoded در وردپرس)."""
+    """خوراک RSS/Atom را پارس می‌کند: عنوان + متن کامل مطلب (content:encoded در وردپرس).
+    مطالب تبلیغاتی/رپورتاژ آگهی فیلتر می‌شوند."""
+    promo = ("رپورتاژ", "آگهی", "اسپانسر", "sponsored", "advertorial", "تبلیغ")
     soup = BeautifulSoup(html, "html.parser")
     nodes = soup.find_all("item") or soup.find_all("entry")
     out = []
-    for n in nodes[:max_items]:
+    for n in nodes:
+        if len(out) >= max_items:
+            break
         title = n.find("title")
         title = title.get_text(" ", strip=True) if title else ""
+        # دسته‌بندی‌ها برای تشخیص رپورتاژ/تبلیغ
+        cats = " ".join(c.get_text(" ", strip=True) for c in n.find_all("category"))
+        blob = (title + " " + cats).lower()
+        if any(p in blob for p in promo):
+            continue  # رد کردن مطلب تبلیغاتی
         # متن کامل: ابتدا content:encoded (وردپرس)، سپس description/summary/content
         body_node = (
             n.find(lambda t: t.name and t.name.lower().endswith("encoded"))

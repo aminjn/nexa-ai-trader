@@ -161,6 +161,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             # سیگنال ML را یک‌بار محاسبه می‌کنیم (هم برای خروج، هم برای ورود)
             ml_signal = None
             ml_conf = 0.0
+            df = None
             if trainer.is_trained:
                 ohlcv = await exchange.get_ohlcv(pair, "1h", 300)
                 if ohlcv:
@@ -271,10 +272,47 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             if not can_open_new_trade(db, user):
                 log_bot_event(f"🚦 {pair}: به سقف معاملهٔ روزانهٔ پلن رسیده‌اید — معاملهٔ جدید باز نمی‌شود")
                 continue
-            # آستانه نهایی روی اطمینان تعدیل‌شده اعمال می‌شود
-            if adj_conf < trainer.confidence_threshold:
-                log_bot_event(f"⏳ {pair}: اطمینان نهایی ({adj_conf*100:.0f}٪) کمتر از آستانه — صبر")
+            # ── ورود سخت‌گیرانه: اطمینان بالا + مومنتوم قوی ──
+            # کفِ مطلق اطمینان (مستقل از آستانه) تا فقط سیگنال‌های پرقدرت وارد شوند
+            STRICT_MIN_CONF = max(trainer.confidence_threshold + 0.05, 0.62)
+            if adj_conf < STRICT_MIN_CONF:
+                log_bot_event(
+                    f"⏳ {pair}: اطمینان نهایی ({adj_conf*100:.0f}٪) کمتر از حد سخت‌گیرانهٔ "
+                    f"{STRICT_MIN_CONF*100:.0f}٪ — صبر")
                 continue
+
+            # فاندامنتال نباید به‌وضوح منفی باشد
+            if user.ai_trading_enabled and fund_score <= -0.2:
+                log_bot_event(f"⏳ {pair}: فاندامنتال منفی ({fund_score:+.2f}) — ورود انجام نشد")
+                continue
+
+            # فیلتر مومنتوم: فقط در روند صعودیِ سالم وارد شو
+            if df is not None and len(df) >= 30:
+                try:
+                    from ..ml.trainer import add_features
+                    feat = add_features(df).dropna()
+                    if not feat.empty:
+                        r = feat.iloc[-1]
+                        rsi = float(r.get("rsi_14", 50))
+                        macd_hist = float(r.get("macd_hist", 0))
+                        adx = float(r.get("adx", 0))
+                        ret5 = (df["close"].iloc[-1] / df["close"].iloc[-6] - 1) * 100 if len(df) > 6 else 0
+                        reasons = []
+                        if macd_hist <= 0:
+                            reasons.append("MACD نزولی")
+                        if rsi < 50:
+                            reasons.append(f"RSI ضعیف ({rsi:.0f})")
+                        if rsi > 75:
+                            reasons.append(f"RSI اشباع خرید ({rsi:.0f})")
+                        if adx < 20:
+                            reasons.append(f"روند ضعیف (ADX {adx:.0f})")
+                        if ret5 <= 0:
+                            reasons.append(f"مومنتوم کوتاه‌مدت منفی ({ret5:+.2f}٪)")
+                        if reasons:
+                            log_bot_event(f"⏳ {pair}: مومنتوم کافی نیست — {'، '.join(reasons)} — صبر")
+                            continue
+                except Exception:
+                    pass
 
             # بررسی موجودی و حداقل سفارش
             if quote_free <= min_value:

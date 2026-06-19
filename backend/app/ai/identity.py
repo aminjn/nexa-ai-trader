@@ -33,7 +33,7 @@ async def verify_identity(card_image: str, frames, db=None) -> dict:
         return {"match": False, "confidence": 0, "is_id_card": False, "is_real_selfie": False,
                 "reason": "فریمی از ویدئو دریافت نشد", "error": True}
     cfg = get_ai_config(db)
-    client = make_client(cfg["api_key"], timeout=120.0)
+    client = make_client(cfg["api_key"], timeout=45.0)
     content = [{"type": "text", "text": _PROMPT},
                {"type": "image_url", "image_url": {"url": card_image}}]
     for fr in frames:
@@ -82,7 +82,7 @@ async def transcribe_audio(video_data_uri: str, db=None) -> str:
     if "mp4" in header:
         ext = "mp4"
     cfg = get_ai_config(db)
-    client = make_client(cfg["api_key"], timeout=120.0)
+    client = make_client(cfg["api_key"], timeout=45.0)
     try:
         resp = await client.audio.transcriptions.create(
             model="whisper-1",

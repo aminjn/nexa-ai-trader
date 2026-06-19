@@ -89,16 +89,18 @@ async def submit_kyc(req: KycSubmit, db: Session = Depends(get_db),
     if req.birth_date:
         current_user.birth_date = req.birth_date.strip()
 
-    # ۱) تطابق چهره روی فریم‌های ویدئو (مدل vision گپ)
-    result = await verify_identity(req.card_image, req.frames, db=db)
+    # ۱+۲) تطابق چهره (vision) و رونویسی گفتار (whisper) به‌صورت موازی
+    import asyncio
+    result, transcript = await asyncio.gather(
+        verify_identity(req.card_image, req.frames, db=db),
+        transcribe_audio(req.video, db=db),
+    )
     current_user.kyc_match_score = result.get("confidence", 0)
     reason = result.get("reason", "")
     conf = result.get("confidence", 0) or 0
     face_ok = bool(result.get("match") and result.get("is_id_card")
                    and result.get("is_real_selfie") and conf >= AUTO_VERIFY_THRESHOLD)
 
-    # ۲) بررسی گفتارِ چالش با whisper (مدل‌های گپ) — تشخیص خودکار زنده‌بودن
-    transcript = await transcribe_audio(req.video, db=db)
     speech = check_spoken(transcript, req.challenge or current_user.kyc_challenge or "")
     speech_ok = bool(speech.get("ok"))
     speech_txt = (f"گفتار: «{speech.get('transcript', '')}» "

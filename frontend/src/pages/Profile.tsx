@@ -88,18 +88,28 @@ export default function Profile() {
     setVideoData(''); setFrames([]); framesRef.current = []; chunksRef.current = []
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 640 } }, audio: true,
+        video: { facingMode: 'user', width: { ideal: 360 }, height: { ideal: 480 }, frameRate: { ideal: 20 } }, audio: true,
       })
       streamRef.current = stream
-      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.muted = true; await videoRef.current.play() }
-      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') ? 'video/webm;codecs=vp8,opus' : 'video/webm'
-      const rec = new MediaRecorder(stream, { mimeType: mime })
+      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.muted = true; await videoRef.current.play().catch(() => {}) }
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') ? 'video/webm;codecs=vp8,opus'
+        : (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '')
+      // بیت‌ریت پایین تا حجم آپلود کوچک بماند (~۰.۵ مگابیت ویدئو + ۶۴ کیلوبیت صدا)
+      const rec = new MediaRecorder(stream, mime
+        ? { mimeType: mime, videoBitsPerSecond: 500000, audioBitsPerSecond: 64000 }
+        : { videoBitsPerSecond: 500000 })
       recRef.current = rec
       rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data) }
       rec.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: 'video/webm' })
-        setVideoData(await blobToDataUri(blob))
+        // اگر فریمی نگرفته شد، یک فریم نهایی همین حالا بگیر
+        if (framesRef.current.length === 0) grabFrame()
+        const dataUri = await blobToDataUri(blob)
+        const sizeKb = Math.round((blob.size || 0) / 1024)
+        if (sizeKb > 9000) { toast.error(`حجم ویدئو زیاد است (${sizeKb}KB). دوباره و کوتاه‌تر ضبط کنید.`) }
+        setVideoData(dataUri)
         setFrames([...framesRef.current])
+        if (videoRef.current) videoRef.current.srcObject = null
         streamRef.current?.getTracks().forEach(t => t.stop()); streamRef.current = null
       }
       rec.start()
@@ -128,11 +138,19 @@ export default function Profile() {
     if (!videoData || frames.length === 0) { toast.error('ابتدا ویدئوی احراز هویت را ضبط کنید'); return }
     setSubmitting(true)
     try {
-      const r = await api.post('/profile/kyc', { card_image: cardImg, video: videoData, frames, challenge: challenge.text, national_id: nationalId, birth_date: birthDate })
+      const r = await api.post('/profile/kyc',
+        { card_image: cardImg, video: videoData, frames, challenge: challenge.text, national_id: nationalId, birth_date: birthDate },
+        { timeout: 120000 })
       if (r.data.kyc_status === 'verified') toast.success('هویت شما تأیید شد ✅')
+      else if (r.data.kyc_status === 'rejected') toast.error(r.data.note || 'احراز هویت رد شد')
       else toast.success('ویدئو ارسال شد؛ در انتظار بررسی.')
       setCardImg(''); resetVideo(); load()
-    } catch (e: any) { toast.error(e?.response?.data?.detail || 'خطا در ارسال') } finally { setSubmitting(false) }
+    } catch (e: any) {
+      const st = e?.response?.status
+      if (st === 413) toast.error('حجم ویدئو برای سرور زیاد است. لطفاً ویدئوی کوتاه‌تر بگیرید یا با پشتیبانی تماس بگیرید.')
+      else if (e?.code === 'ECONNABORTED') toast.error('زمان ارسال طولانی شد. اینترنت ضعیف یا ویدئو بزرگ است.')
+      else toast.error(e?.response?.data?.detail || `خطا در ارسال${st ? ` (کد ${st})` : ''}`)
+    } finally { setSubmitting(false) }
   }
 
   const meta = KYC_META[p?.kyc_status || 'none'] || KYC_META.none
@@ -212,8 +230,8 @@ export default function Profile() {
                 <div style={label}>۲) ویدئوی احراز هویت</div>
                 <div style={{ height: 180, borderRadius: 12, border: '1px dashed var(--border2)', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
                   {videoData && !recording
-                    ? <video src={videoData} style={{ maxWidth: '100%', maxHeight: '100%' }} controls playsInline />
-                    : <video ref={videoRef} style={{ maxWidth: '100%', maxHeight: '100%', transform: 'scaleX(-1)' }} muted playsInline />}
+                    ? <video key="kyc-playback" src={videoData} style={{ maxWidth: '100%', maxHeight: '100%' }} controls playsInline />
+                    : <video key="kyc-live" ref={videoRef} style={{ maxWidth: '100%', maxHeight: '100%', transform: 'scaleX(-1)' }} muted playsInline autoPlay />}
                   {recording && <span style={{ position: 'absolute', top: 8, insetInlineEnd: 8, background: 'var(--red)', color: '#fff', fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 8 }}>● {secs}s</span>}
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>

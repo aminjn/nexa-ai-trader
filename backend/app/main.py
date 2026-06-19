@@ -54,6 +54,8 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN content_interval_hours INTEGER DEFAULT 6"))
             if "ad_interval_hours" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN ad_interval_hours INTEGER DEFAULT 12"))
+            if "ad_text" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN ad_text TEXT DEFAULT ''"))
             if "ai_support_enabled" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN ai_support_enabled BOOLEAN DEFAULT 1"))
             if "card_number" not in cols:

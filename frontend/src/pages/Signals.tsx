@@ -345,8 +345,14 @@ export default function Signals() {
                   <input type="number" min={1} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>
                 <div><div style={label}>محتوای تحلیلی هر چند ساعت (تلگرام + بله)</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.content_interval_hours} onChange={e => setAdminSettings({ ...adminSettings, content_interval_hours: Number(e.target.value) })} /></div>
-                <div><div style={label}>تبلیغ هوش مصنوعی هر چند ساعت</div>
+                <div><div style={label}>تبلیغ هر چند ساعت منتشر شود</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.ad_interval_hours} onChange={e => setAdminSettings({ ...adminSettings, ad_interval_hours: Number(e.target.value) })} /></div>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <div style={label}>متن تبلیغ (دستی) — اگر خالی بگذاری، هوش مصنوعی خودش می‌سازد</div>
+                  <textarea value={adminSettings.ad_text || ''} onChange={e => setAdminSettings({ ...adminSettings, ad_text: e.target.value })}
+                    rows={5} placeholder="متن تبلیغ دلخواهت را اینجا بنویس... (خالی = ساخت خودکار با هوش مصنوعی)"
+                    style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.8 }} />
+                </div>
                 <div><div style={label}>شماره کارت (پرداخت کارت‌به‌کارت)</div>
                   <input style={inputStyle} value={adminSettings.card_number} onChange={e => setAdminSettings({ ...adminSettings, card_number: e.target.value })} dir="ltr" placeholder="6037-XXXX-XXXX-XXXX" /></div>
                 <div><div style={label}>نام صاحب کارت</div>

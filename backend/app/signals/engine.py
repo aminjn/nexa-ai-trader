@@ -112,25 +112,37 @@ async def generate_signals(db, push: bool = True) -> int:
     return len(created)
 
 
-def _signal_line(sig: models.Signal) -> str:
-    """یک خط فشرده برای هر ارز در پیام جمع‌بندی."""
-    side_fa = {"BUY": "🟢خرید", "SELL": "🔴فروش", "WAIT": "⏳صبر"}.get(sig.side, sig.side)
-    line = f"<b>{sig.coin}</b> {side_fa} ({round(sig.confidence*100)}٪) — {_fmt(sig.entry_price)} ت"
-    if sig.side == "BUY":
-        line += f" | 🎯{_fmt(sig.target_price)} | 🛑{_fmt(sig.stop_price)}"
-    return line
-
-
 def _batch_messages(signals, header: str, include_analysis: bool = False, limit: int = 3500):
-    """سیگنال‌ها را به یک (یا چند، اگر خیلی زیاد بود) پیام تبدیل می‌کند."""
-    lines = [_signal_line(s) for s in signals]
-    msgs, cur = [], header
+    """سیگنال‌ها را دسته‌بندی‌شده (خرید/فروش/صبر) و خوانا به یک یا چند پیام تبدیل می‌کند."""
+    buys = [s for s in signals if s.side == "BUY"]
+    sells = [s for s in signals if s.side == "SELL"]
+    waits = [s for s in signals if s.side not in ("BUY", "SELL")]
+
+    lines = []
+    if buys:
+        lines.append("🟢 <b>پیشنهاد خرید</b>")
+        for s in buys:
+            lines.append(f"   <b>{s.coin}</b> — {_fmt(s.entry_price)} ت")
+            lines.append(f"   🎯 هدف {_fmt(s.target_price)} · 🛑 حد ضرر {_fmt(s.stop_price)} · اطمینان {round(s.confidence*100)}٪")
+    if sells:
+        if lines:
+            lines.append("➖➖➖➖➖➖")
+        lines.append("🔴 <b>فروش / احتیاط</b>")
+        for s in sells:
+            lines.append(f"   <b>{s.coin}</b> — {_fmt(s.entry_price)} ت · اطمینان {round(s.confidence*100)}٪")
+    if waits:
+        if lines:
+            lines.append("➖➖➖➖➖➖")
+        lines.append("⏳ <b>در انتظار</b>: " + "، ".join(s.coin for s in waits))
+
+    # تقسیم به چند پیام اگر خیلی بلند شد
+    msgs, cur = [], header + "\n"
     for ln in lines:
         if len(cur) + len(ln) + 1 > limit:
-            msgs.append(cur)
-            cur = header
+            msgs.append(cur.rstrip())
+            cur = header + "\n"
         cur += "\n" + ln
-    msgs.append(cur + "\n\n— NEXA AI")
+    msgs.append(cur.rstrip() + "\n\n— NEXA AI 📊")
     return msgs
 
 

@@ -356,6 +356,7 @@ class SignalSettingsRequest(BaseModel):
     bale_bot_username: Optional[str] = None
     content_interval_hours: Optional[int] = None
     ad_interval_hours: Optional[int] = None
+    ad_text: Optional[str] = None
     ai_support_enabled: Optional[bool] = None
     card_number: Optional[str] = None
     card_holder: Optional[str] = None
@@ -401,6 +402,7 @@ async def admin_get_settings(db: Session = Depends(get_db), current_user: models
         "bale_bot_username": s.bale_bot_username or "",
         "content_interval_hours": s.content_interval_hours or 6,
         "ad_interval_hours": s.ad_interval_hours or 12,
+        "ad_text": s.ad_text or "",
         "ai_support_enabled": bool(s.ai_support_enabled),
         "card_number": s.card_number or "",
         "card_holder": s.card_holder or "",

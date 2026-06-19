@@ -151,8 +151,10 @@ async def content_loop():
 # ─────────────────────────── تبلیغ (Ad) ───────────────────────────
 
 async def generate_ad(db) -> str:
-    """هوش مصنوعی یک تبلیغ جذاب برای جذب مشترک می‌سازد (بر اساس پلن‌ها و اطلاعات تماس)."""
+    """تبلیغ را برمی‌گرداند: اگر متن دستی تنظیم شده باشد همان، وگرنه هوش مصنوعی می‌سازد."""
     srow = db.query(models.SystemSettings).first()
+    if srow and (srow.ad_text or "").strip():
+        return srow.ad_text.strip()
     plans = db.query(models.Plan).filter(models.Plan.active == True).order_by(models.Plan.level).all()
     plans_txt = "؛ ".join(
         f"{p.name}: {('%d تومان/%d روز' % (p.price_toman, p.duration_days)) if p.price_toman>0 else 'رایگان'}"

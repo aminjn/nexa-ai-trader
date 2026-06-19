@@ -48,7 +48,16 @@ export default function Model() {
   const [status, setStatus] = useState<ModelStatus|null>(null)
   const [loading, setLoading] = useState(true)
   const [training, setTraining] = useState(false)
+  const [bt, setBt] = useState<any>(null)
+  const [btLoading, setBtLoading] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval>>()
+
+  const runBacktest = async () => {
+    setBtLoading(true); setBt(null)
+    try { const r = await api.get('/model/backtest'); setBt(r.data) }
+    catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در بک‌تست') }
+    finally { setBtLoading(false) }
+  }
 
   const load = async () => {
     try { const r = await api.get('/model/status'); setStatus(r.data) }
@@ -247,6 +256,45 @@ export default function Model() {
             <div style={{ fontSize:11, color:'var(--faint)', marginTop:12 }}>
               فرمت CSV: ستون‌های timestamp, open, high, low, close, volume (و symbol اختیاری)
             </div>
+          </div>
+        )}
+
+        {/* بک‌تست با کارمزد (فقط سوپر ادمین) */}
+        {isSuperAdmin && (
+          <div style={{ background:'var(--panel)', border:'1px solid var(--border)', borderRadius:18, padding:24 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:14 }}>
+              <div>
+                <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>🧪 بک‌تست با کارمزد</div>
+                <div style={{ fontSize:12, color:'var(--dim)', marginTop:4 }}>شبیه‌سازی روی دادهٔ out-of-sample با احتساب کمیسیون — سود/زیان واقعی</div>
+              </div>
+              <button onClick={runBacktest} disabled={btLoading} style={{ padding:'11px 22px', border:'none', borderRadius:11, background:'var(--accent)', color:'#05121a', fontWeight:700, fontSize:14, cursor:'pointer', opacity:btLoading?.7:1 }}>
+                {btLoading ? 'در حال اجرا…' : 'اجرای بک‌تست'}
+              </button>
+            </div>
+            {bt && bt.error && <div style={{ color:'var(--amber)', fontSize:13 }}>{bt.error}</div>}
+            {bt && !bt.error && (
+              <>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px,1fr))', gap:12 }}>
+                  {[
+                    { l:'تعداد معامله', v: (bt.trades||0).toLocaleString('fa-IR') },
+                    { l:'نرخ برد', v: `${bt.win_rate}٪`, c: bt.win_rate>=50?'var(--green)':'var(--amber)' },
+                    { l:'میانگین سود هر معامله', v: `${bt.avg_net_pct}٪`, c: bt.avg_net_pct>=0?'var(--green)':'var(--red)' },
+                    { l:'بازده مرکب کل', v: `${bt.total_compound_pct}٪`, c: bt.total_compound_pct>=0?'var(--green)':'var(--red)' },
+                    { l:'ضریب سود (PF)', v: bt.profit_factor ?? '—', c: (bt.profit_factor||0)>=1?'var(--green)':'var(--red)' },
+                    { l:'حداکثر افت سرمایه', v: `${bt.max_drawdown_pct}٪`, c:'var(--red)' },
+                  ].map((x,i)=>(
+                    <div key={i} style={{ background:'var(--bg2)', borderRadius:12, padding:14, textAlign:'center' }}>
+                      <div style={{ fontSize:12, color:'var(--dim)' }}>{x.l}</div>
+                      <div style={{ fontSize:18, fontWeight:800, marginTop:6, color:x.c||'var(--text)', fontFamily:"'JetBrains Mono'" }}>{x.v}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize:12, color:'var(--faint)', marginTop:12 }}>
+                  پارامترها: آستانهٔ {bt.threshold}٪ · کارمزد {bt.fee_pct}٪ هر طرف · هدف +{bt.tp_pct}٪ / حد ضرر −{bt.sl_pct}٪ در {bt.horizon_h} ساعت
+                  {bt.profit_factor!=null && (bt.profit_factor>=1 ? ' — ✅ پس از کمیسیون سودده است' : ' — ⚠️ پس از کمیسیون ضرر می‌دهد')}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

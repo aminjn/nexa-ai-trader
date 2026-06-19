@@ -232,6 +232,20 @@ async def start_training(
     return {"message": "آموزش شروع شد"}
 
 
+@router.get("/backtest")
+async def backtest(threshold: float = 0, fee_pct: float = 0.25,
+                   db: Session = Depends(get_db),
+                   current_user: models.User = Depends(get_superadmin)):
+    """بک‌تستِ صادقانه با کارمزد روی دادهٔ out-of-sample.
+
+    threshold: آستانهٔ اطمینان (۰ = آستانهٔ فعلیِ مدل). fee_pct: کارمزد هر طرف.
+    """
+    from ..ml.backtest import run_backtest_sync
+    thr = (threshold / 100.0) if threshold and threshold > 1 else (threshold or None)
+    result = await asyncio.to_thread(run_backtest_sync, thr, fee_pct)
+    return result
+
+
 async def auto_retrain_loop(interval_hours: float = 6.0):
     """هر چند ساعت یک‌بار مدل را با داده‌ی به‌روز دوباره آموزش می‌دهد."""
     while True:

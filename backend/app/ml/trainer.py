@@ -303,8 +303,20 @@ class MLTrainer:
         if progress_callback:
             await progress_callback(20, f"محاسبه ۳۵+ اندیکاتور روی {len(symbols)} بازار...")
 
-        # ویژگی‌ها را برای هر نماد جداگانه محاسبه می‌کنیم تا مرز نمادها قاطی نشود
+        # ── کلِ کارِ سنگینِ CPU (اندیکاتور + آموزش + ارزیابی) در یک thread جدا اجرا می‌شود
+        #    تا event loop و کل سرور قفل نشود (جلوگیری از 504). ──
         feature_cols = get_feature_columns()
+        result = await asyncio.to_thread(
+            self._fit_model_sync, raw, feature_cols, symbols, date_from, date_to, source
+        )
+
+        if progress_callback:
+            await progress_callback(100, "آموزش کامل شد!")
+        return result
+
+    def _fit_model_sync(self, raw, feature_cols, symbols, date_from, date_to, source) -> dict:
+        """بخش همگامِ سنگین: محاسبهٔ اندیکاتورها، آموزش و ارزیابی (در thread اجرا می‌شود)."""
+        # ویژگی‌ها را برای هر نماد جداگانه محاسبه می‌کنیم تا مرز نمادها قاطی نشود
         frames = []
         if "symbol" in raw.columns:
             for sym, g in raw.groupby("symbol"):
@@ -318,40 +330,30 @@ class MLTrainer:
         if len(df) < 200:
             raise RuntimeError("داده کافی پس از محاسبه اندیکاتورها باقی نماند.")
 
+        # سقفِ امن برای حجم داده تا آموزش در زمان معقول تمام شود
+        MAX_ROWS = 150_000
+        if len(df) > MAX_ROWS:
+            df = df.sample(MAX_ROWS, random_state=42).sort_index()
+
         X = df[feature_cols].values
         y = df["target"].values
-
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-        if progress_callback:
-            await progress_callback(40, "نرمال‌سازی داده‌ها...")
 
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
+        # یک‌بار آموزش (به‌جای ۴ بار) — سریع‌تر و بدون اتلاف
         self.model = GradientBoostingClassifier(
             n_estimators=100, learning_rate=0.1, max_depth=4, random_state=42,
         )
-
-        stages = [25, 50, 75, 100]
-        for i, n in enumerate(stages):
-            self.model.set_params(n_estimators=n)
-            self.model.fit(X_train_scaled, y_train)
-            if progress_callback:
-                pct = 45 + (i + 1) * 10
-                await progress_callback(pct, f"آموزش Gradient Boosting... {n} درخت")
-            await asyncio.sleep(0.05)
-
-        if progress_callback:
-            await progress_callback(90, "در حال ارزیابی و استخراج آموخته‌ها...")
+        self.model.fit(X_train_scaled, y_train)
 
         y_pred = self.model.predict(X_test_scaled)
         self.accuracy = float(accuracy_score(y_test, y_pred))
         precision = float(precision_score(y_test, y_pred, zero_division=0))
         recall = float(recall_score(y_test, y_pred, zero_division=0))
 
-        # اهمیت هر اندیکاتور (مدل چه چیزی یاد گرفته)
         importances = self.model.feature_importances_
         self.feature_importances = sorted(
             [{"name": FEATURE_NAMES[i], "key": feature_cols[i], "importance": round(float(importances[i]) * 100, 2)}
@@ -362,9 +364,6 @@ class MLTrainer:
         joblib.dump(self.model, self.model_path)
         joblib.dump(self.scaler, self.scaler_path)
         self.is_trained = True
-
-        if progress_callback:
-            await progress_callback(100, "آموزش کامل شد!")
 
         self.metrics = {
             "accuracy": round(self.accuracy * 100, 2),

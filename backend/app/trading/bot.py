@@ -234,13 +234,20 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 log_bot_event(f"💰 {pair}: موجودی ({quote_free:,.0f}) کمتر از حداقل سفارش ({min_value:,.0f} {quote})")
                 continue
 
-            spend = quote_free * (user.capital_pct / 100)
+            # بافر امن: نوبیتکس برای سفارش بازار بیش از مبلغ خام رزرو می‌کند (کارمزد + لغزش).
+            # پس حداکثر ۹۰٪ موجودی را در نظر می‌گیریم تا خطای OverValueOrder ندهد.
+            import math
+            budget = quote_free * 0.90
+            spend = budget * (user.capital_pct / 100)
             if spend < min_value:
-                spend = min(quote_free, min_value)
+                spend = min(budget, min_value)
             if spend < min_value:
                 log_bot_event(f"💰 {pair}: مبلغ معامله کمتر از حداقل سفارش است")
                 continue
-            amount = round(spend / current_price, 6)
+            # کف‌گرد به ۶ رقم اعشار تا مقدار از بودجه بالا نزند
+            amount = math.floor((spend / current_price) * 1e6) / 1e6
+            if amount <= 0:
+                continue
             try:
                 order = await exchange.create_market_order(pair, "buy", amount)
                 trade = models.Trade(

@@ -18,11 +18,24 @@ DEFAULT_TP = 3.5
 DEFAULT_SL = 1.5
 
 
+_FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+
 def _fmt(n: float) -> str:
     try:
-        return f"{round(n):,}"
+        return f"{round(n):,}".translate(_FA_DIGITS)
     except Exception:
         return str(n)
+
+
+def _bar(conf: float) -> str:
+    """نوار اطمینان گرافیکی با بلوک‌های یونیکد."""
+    filled = max(0, min(10, round((conf or 0) * 10)))
+    return "█" * filled + "░" * (10 - filled)
+
+
+def _pct(conf: float) -> str:
+    return f"{round((conf or 0) * 100)}".translate(_FA_DIGITS)
 
 
 async def generate_signals(db, push: bool = True) -> int:
@@ -112,37 +125,52 @@ async def generate_signals(db, push: bool = True) -> int:
     return len(created)
 
 
+def _buy_card(s) -> str:
+    return (
+        f"🟢 <b>خرید {s.coin}</b>\n"
+        f"💵 قیمت: {_fmt(s.entry_price)} ت\n"
+        f"🎯 هدف: {_fmt(s.target_price)}  ┊  🛑 حد ضرر: {_fmt(s.stop_price)}\n"
+        f"📊 اطمینان: {_bar(s.confidence)} {_pct(s.confidence)}٪"
+    )
+
+
+def _sell_card(s) -> str:
+    return (
+        f"🔴 <b>فروش / احتیاط {s.coin}</b>\n"
+        f"💵 قیمت: {_fmt(s.entry_price)} ت\n"
+        f"📊 اطمینان: {_bar(s.confidence)} {_pct(s.confidence)}٪"
+    )
+
+
 def _batch_messages(signals, header: str, include_analysis: bool = False, limit: int = 3500):
-    """سیگنال‌ها را دسته‌بندی‌شده (خرید/فروش/صبر) و خوانا به یک یا چند پیام تبدیل می‌کند."""
+    """سیگنال‌ها را به‌صورت کارت‌های گرافیکی خوانا می‌سازد (خرید/فروش جدا، صبر جمع‌وجور)."""
     buys = [s for s in signals if s.side == "BUY"]
     sells = [s for s in signals if s.side == "SELL"]
     waits = [s for s in signals if s.side not in ("BUY", "SELL")]
+    sep = "➖➖➖➖➖➖➖➖➖"
 
-    lines = []
-    if buys:
-        lines.append("🟢 <b>پیشنهاد خرید</b>")
-        for s in buys:
-            lines.append(f"   <b>{s.coin}</b> — {_fmt(s.entry_price)} ت")
-            lines.append(f"   🎯 هدف {_fmt(s.target_price)} · 🛑 حد ضرر {_fmt(s.stop_price)} · اطمینان {round(s.confidence*100)}٪")
-    if sells:
-        if lines:
-            lines.append("➖➖➖➖➖➖")
-        lines.append("🔴 <b>فروش / احتیاط</b>")
-        for s in sells:
-            lines.append(f"   <b>{s.coin}</b> — {_fmt(s.entry_price)} ت · اطمینان {round(s.confidence*100)}٪")
+    blocks = []
+    for s in buys:
+        blocks.append(_buy_card(s))
+    for s in sells:
+        blocks.append(_sell_card(s))
+
+    head = header + "\n" + sep
+    foot_parts = []
     if waits:
-        if lines:
-            lines.append("➖➖➖➖➖➖")
-        lines.append("⏳ <b>در انتظار</b>: " + "، ".join(s.coin for s in waits))
+        foot_parts.append("⏳ <b>در انتظار:</b> " + "، ".join(s.coin for s in waits))
+    foot_parts.append("🤖 <b>NEXA AI</b>")
+    footer = sep + "\n" + "\n".join(foot_parts)
 
-    # تقسیم به چند پیام اگر خیلی بلند شد
-    msgs, cur = [], header + "\n"
-    for ln in lines:
-        if len(cur) + len(ln) + 1 > limit:
-            msgs.append(cur.rstrip())
-            cur = header + "\n"
-        cur += "\n" + ln
-    msgs.append(cur.rstrip() + "\n\n— NEXA AI 📊")
+    # کارت‌ها را با جداکننده کنار هم بگذار و در صورت طولانی‌شدن به چند پیام تقسیم کن
+    msgs, cur = [], head
+    for b in blocks:
+        piece = "\n\n" + b
+        if len(cur) + len(piece) + len(footer) + 4 > limit:
+            msgs.append(cur + "\n\n" + sep)
+            cur = head
+        cur += piece
+    msgs.append(cur + "\n\n" + footer)
     return msgs
 
 

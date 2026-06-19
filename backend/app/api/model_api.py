@@ -163,6 +163,8 @@ async def _generate_ai_explanation(result: dict) -> str:
             prompt = (
                 f"یک مدل یادگیری ماشین برای پیش‌بینی جهت قیمت رمزارز روی داده {m.get('source')} "
                 f"({m.get('date_from')} تا {m.get('date_to')}، {m.get('total_samples')} نمونه) آموزش دید.\n"
+                f"روش ارزیابی: تقسیم {m.get('split', 'زمانی')} — تست روی جدیدترین داده‌ها (out-of-sample)؛ "
+                f"نشت داده از آینده وجود ندارد و این تاریخ‌ها مربوط به گذشته/اکنون‌اند (نه آینده).\n"
                 f"دقت: {m.get('accuracy')}٪ | Precision: {m.get('precision')}٪ | Recall: {m.get('recall')}٪\n\n"
                 f"مهم‌ترین اندیکاتورهایی که مدل یاد گرفت (به ترتیب اهمیت):\n{lines}\n\n"
                 "به‌صورت کوتاه و کاملاً فارسی توضیح بده: ۱) مدل عمدتاً روی چه نوع سیگنال‌هایی تکیه کرده "

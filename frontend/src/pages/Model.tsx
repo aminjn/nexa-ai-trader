@@ -10,7 +10,7 @@ interface FeatureImportance { name: string; key: string; importance: number }
 interface Metrics {
   accuracy?: number; precision?: number; recall?: number;
   total_samples?: number; train_samples?: number; test_samples?: number;
-  num_features?: number; symbols?: string[]; date_from?: string; date_to?: string; source?: string;
+  num_features?: number; symbols?: string[]; date_from?: string; date_to?: string; source?: string; split?: string;
   ai_threshold?: number;
 }
 interface ModelStatus {
@@ -168,6 +168,7 @@ export default function Model() {
                 { l:'صحت (Precision)', v: `${status.metrics.precision}٪` },
                 { l:'فراخوانی (Recall)', v: `${status.metrics.recall}٪` },
                 { l:'تعداد اندیکاتور', v: status.metrics.num_features },
+                { l:'روش ارزیابی', v: status.metrics.split || 'زمانی (out-of-sample)' },
                 { l:'🧠 آستانه تصمیم', v: status.metrics.ai_threshold ? `${status.metrics.ai_threshold}٪ (تنظیم AI)` : (status.confidence_threshold ? `${status.confidence_threshold}٪ (پیش‌فرض)` : '—') },
               ].map((x,i)=>(
                 <div key={i} style={{ background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 14px' }}>

@@ -330,14 +330,28 @@ class MLTrainer:
         if len(df) < 200:
             raise RuntimeError("داده کافی پس از محاسبه اندیکاتورها باقی نماند.")
 
-        # سقفِ امن برای حجم داده تا آموزش در زمان معقول تمام شود
+        # سقفِ امن برای حجم داده تا آموزش در زمان معقول تمام شود.
+        # برای ارزیابیِ صادقانه (out-of-sample) داده را بر اساس زمان مرتب می‌کنیم
+        # و جدیدترین بخش را به‌عنوان تست کنار می‌گذاریم (جلوگیری از نشت زمانی).
         MAX_ROWS = 150_000
-        if len(df) > MAX_ROWS:
-            df = df.sample(MAX_ROWS, random_state=42).sort_index()
+        time_based = "timestamp" in df.columns
+        if time_based:
+            df = df.sort_values("timestamp")
+            if len(df) > MAX_ROWS:
+                df = df.tail(MAX_ROWS)   # جدیدترین داده‌ها (مرتبط‌تر با رژیم فعلی)
+        else:
+            if len(df) > MAX_ROWS:
+                df = df.sample(MAX_ROWS, random_state=42)
 
         X = df[feature_cols].values
         y = df["target"].values
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        if time_based:
+            # تقسیم زمانی: ۸۰٪ قدیمی‌تر = آموزش، ۲۰٪ جدیدتر = تست
+            n_test = max(1, int(len(df) * 0.2))
+            X_train, X_test = X[:-n_test], X[-n_test:]
+            y_train, y_test = y[:-n_test], y[-n_test:]
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
@@ -378,6 +392,7 @@ class MLTrainer:
             "date_from": date_from,
             "date_to": date_to,
             "source": source,
+            "split": "زمانی (out-of-sample)" if time_based else "تصادفی",
         }
 
         return {

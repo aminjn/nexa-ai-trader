@@ -15,6 +15,9 @@ from .api.admin import router as admin_router
 from .api.scraper_api import router as scraper_router
 from .api.signals_api import router as signals_router
 from .api.trading_plans import router as trading_plans_router
+from .api.profile import router as profile_router
+from .api.wallet import router as wallet_router
+from .api.notifications import router as notifications_router
 from .auth.service import create_user, get_user_by_email
 from .database import SessionLocal
 from .config import settings
@@ -99,6 +102,21 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE users ADD COLUMN trading_coins VARCHAR DEFAULT 'BTC,ETH,XRP,ADA,DOGE,LTC,TRX,BCH,BNB,SOL,DOT,AVAX,MATIC,SHIB,LINK,UNI,ATOM,FIL,ETC,XLM'"))
             if "fee_pct" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN fee_pct FLOAT DEFAULT 0.25"))
+            # پروفایل / احراز هویت / کیف پول
+            for col, ddl in [
+                ("national_id", "VARCHAR DEFAULT ''"),
+                ("birth_date", "VARCHAR DEFAULT ''"),
+                ("avatar", "TEXT DEFAULT ''"),
+                ("kyc_status", "VARCHAR DEFAULT 'none'"),
+                ("kyc_card_image", "TEXT DEFAULT ''"),
+                ("kyc_selfie_image", "TEXT DEFAULT ''"),
+                ("kyc_match_score", "FLOAT DEFAULT 0.0"),
+                ("kyc_note", "TEXT DEFAULT ''"),
+                ("kyc_submitted_at", "DATETIME"),
+                ("wallet_balance_toman", "INTEGER DEFAULT 0"),
+            ]:
+                if col not in cols:
+                    conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
     # exchange_apis: علامت حساب استخر مدیریت‌شده
     if "exchange_apis" in tables:
         cols = {c["name"] for c in inspector.get_columns("exchange_apis")}
@@ -313,6 +331,9 @@ app.include_router(admin_router)
 app.include_router(scraper_router)
 app.include_router(signals_router)
 app.include_router(trading_plans_router)
+app.include_router(profile_router)
+app.include_router(wallet_router)
+app.include_router(notifications_router)
 
 
 @app.get("/")

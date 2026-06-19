@@ -38,6 +38,20 @@ class User(Base):
     bale_chat_id = Column(String, default="")
     link_code = Column(String, default="", index=True)  # کد اتصال خودکار ربات (/start CODE)
 
+    # ── پروفایل و احراز هویت (KYC) ──
+    national_id = Column(String, default="")            # کد ملی
+    birth_date = Column(String, default="")             # تاریخ تولد (متن)
+    avatar = Column(Text, default="")                   # تصویر پروفایل (base64 data-uri)
+    kyc_status = Column(String, default="none")         # none | pending | verified | rejected
+    kyc_card_image = Column(Text, default="")           # تصویر کارت ملی (base64)
+    kyc_selfie_image = Column(Text, default="")         # سلفی/فریم ویدئو (base64)
+    kyc_match_score = Column(Float, default=0.0)        # درصد تطابق چهره (هوش مصنوعی)
+    kyc_note = Column(Text, default="")                 # توضیح نتیجهٔ احراز هویت
+    kyc_submitted_at = Column(DateTime, nullable=True)
+
+    # ── کیف پول (اعتبار ریالی نزد پلتفرم؛ برای پلن‌های غیر-managed) ──
+    wallet_balance_toman = Column(Integer, default=0)
+
     exchanges = relationship("ExchangeAPI", back_populates="user", cascade="all, delete-orphan")
     trades = relationship("Trade", back_populates="user", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
@@ -234,6 +248,39 @@ class TradingPlan(Base):
     active = Column(Boolean, default=True)
     sort = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Notification(Base):
+    """نوتیفیکیشن برای کاربر یا سوپر ادمین."""
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    for_admin = Column(Boolean, default=False)          # True → برای سوپر ادمین‌ها
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)  # گیرنده (اگر کاربر)
+    ref_user_id = Column(Integer, nullable=True)        # کاربر مرتبط (برای نوتیف‌های ادمین)
+    type = Column(String, default="system")             # kyc | deposit | withdrawal | system
+    title = Column(String, default="")
+    message = Column(Text, default="")
+    link = Column(String, default="")                   # مسیر مرتبط در پنل
+    read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class Deposit(Base):
+    """درخواست واریز کارت‌به‌کارت کاربر (ثبت در کیف پول، در انتظار تأیید سوپر ادمین)."""
+    __tablename__ = "deposits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    amount_toman = Column(Integer, default=0)
+    method = Column(String, default="card")             # card (کارت‌به‌کارت)
+    reference = Column(String, default="")              # شماره پیگیری/۴ رقم آخر کارت/زمان واریز
+    receipt_image = Column(Text, default="")            # تصویر رسید (base64)
+    purpose = Column(String, default="wallet")          # wallet | invest (سرمایه‌گذاری در استخر managed)
+    status = Column(String, default="pending")          # pending | approved | rejected
+    note = Column(String, default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime, nullable=True)
 
 
 class PoolWithdrawal(Base):

@@ -19,8 +19,27 @@ def _is_feed(url: str, html: str) -> bool:
     return ("<rss" in head or "<feed" in head or "<?xml" in head) or url.rstrip("/").endswith(("feed", "rss", ".xml"))
 
 
+def _item_ts(node) -> float:
+    """زمان انتشار آیتم فید را به‌صورت timestamp برمی‌گرداند (برای مرتب‌سازی)."""
+    import email.utils
+    from datetime import datetime as _dt
+    for tag in ("pubdate", "published", "updated", "date"):
+        el = node.find(tag)
+        if el:
+            s = el.get_text(strip=True)
+            try:
+                return email.utils.parsedate_to_datetime(s).timestamp()
+            except Exception:
+                pass
+            try:
+                return _dt.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+            except Exception:
+                pass
+    return 0.0
+
+
 def _parse_feed(html: str, max_items: int, body_chars: int = 900):
-    """خوراک RSS/Atom را پارس می‌کند: عنوان + متن کامل مطلب (content:encoded در وردپرس).
+    """خوراک RSS/Atom را پارس می‌کند: عنوان + متن کامل + آدرس یکتا + زمان انتشار.
     مطالب تبلیغاتی/رپورتاژ آگهی فیلتر می‌شوند."""
     promo = ("رپورتاژ", "آگهی", "اسپانسر", "sponsored", "advertorial", "تبلیغ")
     soup = BeautifulSoup(html, "html.parser")
@@ -31,26 +50,31 @@ def _parse_feed(html: str, max_items: int, body_chars: int = 900):
             break
         title = n.find("title")
         title = title.get_text(" ", strip=True) if title else ""
-        # دسته‌بندی‌ها برای تشخیص رپورتاژ/تبلیغ
         cats = " ".join(c.get_text(" ", strip=True) for c in n.find_all("category"))
         blob = (title + " " + cats).lower()
         if any(p in blob for p in promo):
-            continue  # رد کردن مطلب تبلیغاتی
-        # متن کامل: ابتدا content:encoded (وردپرس)، سپس description/summary/content
+            continue
         body_node = (
             n.find(lambda t: t.name and t.name.lower().endswith("encoded"))
             or n.find("description") or n.find("summary") or n.find("content")
         )
         raw = body_node.get_text(" ", strip=True) if body_node else ""
         body = BeautifulSoup(raw, "html.parser").get_text(" ", strip=True)
+        # آدرس یکتا برای تشخیص تکراری: guid > link > title
+        guid = n.find("guid")
         link = n.find("link")
-        href = (link.get("href") or link.get_text(strip=True)) if link else ""
+        url = ""
+        if guid and guid.get_text(strip=True):
+            url = guid.get_text(strip=True)
+        elif link:
+            url = link.get("href") or link.get_text(strip=True) or ""
+        url = url or title
         if body and body.strip() != title.strip():
             text = f"📰 {title}\n{body[:body_chars]}"
         else:
             text = f"📰 {title}"
         if text.strip():
-            out.append({"url": href or title, "text": text.strip()})
+            out.append({"url": url, "text": text.strip(), "ts": _item_ts(n)})
     return out
 
 
@@ -80,13 +104,18 @@ def _feed_result(html: str, source, persist: bool, max_items: int) -> str:
 
     if persist:
         items = (getattr(source, "items", None) or []) + new_items
-        items = items[-50:]
+        # یکتاسازی نهایی بر اساس url و مرتب‌سازی بر اساس زمان انتشار (جدیدترین اول)
+        uniq = {}
+        for it in items:
+            uniq[it.get("url")] = it
+        items = sorted(uniq.values(), key=lambda i: i.get("ts", 0), reverse=True)[:50]
         source.items = items
-        source.seen_urls = (list(seen) + [it["url"] for it in new_items])[-300:]
-        shown = list(reversed(items))[:max(max_items, 15)]  # تازه‌ترین‌ها بالا
+        source.seen_urls = ([it["url"] for it in items])[-300:]
+        shown = items[:max(max_items, 15)]
         source.last_value = "\n\n".join(_short(i) for i in shown)[:6000]
         return f"{len(new_items)} مطلب جدید (مجموع {len(items)})"
-    return "\n\n".join(_short(i) for i in feed_items)[:6000] or "(آیتمی در خوراک یافت نشد)"
+    ordered = sorted(feed_items, key=lambda i: i.get("ts", 0), reverse=True)
+    return "\n\n".join(_short(i) for i in ordered)[:6000] or "(آیتمی در خوراک یافت نشد)"
 
 
 async def scrape_url(url: str, selector: str = "", use_proxy: bool = False, max_chars: int = 1200) -> str:

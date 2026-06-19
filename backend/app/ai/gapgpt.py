@@ -59,11 +59,15 @@ async def get_ai_response(messages: List[Dict[str, str]], stream: bool = False, 
     if stream:
         return  # handled separately
 
-    response = await client.chat.completions.create(
-        model=cfg["model"],
-        messages=full_messages,
-        max_tokens=1000,
-    )
+    try:
+        response = await client.chat.completions.create(
+            model=cfg["model"], messages=full_messages, max_tokens=2500,
+        )
+    except Exception:
+        # برخی مدل‌های جدید max_tokens را نمی‌پذیرند
+        response = await client.chat.completions.create(
+            model=cfg["model"], messages=full_messages,
+        )
     return response.choices[0].message.content
 
 
@@ -75,7 +79,7 @@ async def stream_ai_response(messages: List[Dict[str, str]], db=None) -> AsyncGe
     stream = await client.chat.completions.create(
         model=cfg["model"],
         messages=full_messages,
-        max_tokens=1000,
+        max_tokens=2500,
         stream=True,
     )
     async for chunk in stream:

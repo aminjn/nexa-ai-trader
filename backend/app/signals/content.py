@@ -36,8 +36,21 @@ def _clean_cut(text: str, limit: int) -> str:
 BAR = "━━━━━━━━━━━━━━"
 
 
+def _is_english(text: str) -> bool:
+    """آیا متن عمدتاً انگلیسی/لاتین است؟ (برای حذف خبرهای ترجمه‌نشده)"""
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return False
+    latin = sum(1 for c in letters if ord(c) < 0x0600)  # حروف غیرفارسی/عربی
+    return latin / len(letters) > 0.35
+
+
 async def _news_bullets(db, news_raw: str, n: int = 5) -> list:
-    """اخبار خام را به چند خبرِ کوتاهِ فارسیِ روان و کامل تبدیل می‌کند (با AI؛ وگرنه برش تمیز)."""
+    """اخبار خام را به چند خبرِ کوتاهِ فارسیِ روان تبدیل می‌کند.
+
+    خبرهای خارجی حتماً به فارسی ترجمه می‌شوند؛ اگر هوش مصنوعی در دسترس نباشد یا
+    ترجمه نشود، خبرِ انگلیسی نمایش داده نمی‌شود (به‌جای اینکه خام انگلیسی برود).
+    """
     news_raw = (news_raw or "").strip()
     if not news_raw:
         return []
@@ -45,22 +58,28 @@ async def _news_bullets(db, news_raw: str, n: int = 5) -> list:
         from ..ai.gapgpt import get_ai_response, get_ai_config
         if get_ai_config(db).get("api_key"):
             prompt = (
-                f"این اخبار خامِ رمزارز را به حداکثر {n} خبرِ کوتاهِ فارسیِ روان تبدیل کن. "
-                "هر خبر دقیقاً یک خط، کامل و بدون جملهٔ ناقص، و کاملاً فارسی (هیچ متن انگلیسی نگذار). "
-                "فقط خطوط خبر را برگردان؛ هر خط را با «🔹 » شروع کن و هیچ توضیح اضافه نده.\n\n"
+                f"خبرهای خامِ زیر دربارهٔ رمزارز هستند و ممکن است انگلیسی باشند. "
+                f"آن‌ها را به حداکثر {n} خبرِ کوتاهِ فارسی ترجمه و خلاصه کن. "
+                "🔴 قانون مهم: خروجی باید ۱۰۰٪ فارسی باشد؛ هر خبر انگلیسی را حتماً ترجمه کن و "
+                "هیچ جمله یا عبارت انگلیسی در خروجی نگذار (فقط نمادهای ارز مثل BTC/ETH مجازند). "
+                "هر خبر دقیقاً یک خط و کامل (بدون جملهٔ ناقص). "
+                "فقط خطوط خبر را برگردان؛ هر خط با «🔹 » شروع شود و هیچ توضیح اضافه نده.\n\n"
                 + news_raw[:1500]
             )
             resp = await asyncio.wait_for(get_ai_response([{"role": "user", "content": prompt}], db=db), timeout=40)
             lines = [l.strip() for l in (resp or "").splitlines() if l.strip()]
             lines = [(l if l.startswith("🔹") else "🔹 " + l.lstrip("•-–* ")) for l in lines]
+            # خطوطی که هنوز عمدتاً انگلیسی‌اند (ترجمه‌نشده) را حذف کن
+            lines = [l for l in lines if not _is_english(l)]
             if lines:
                 return lines[:n]
     except Exception:
         pass
-    # پشتیبان: جمله‌های اول را به‌صورت بولت دربیاور
+    # بدون ترجمهٔ هوش مصنوعی: فقط خبرهای فارسیِ موجود را نشان بده (انگلیسی را حذف کن)
     import re
     sents = [s.strip() for s in re.split(r"[\n.؟!]", news_raw) if len(s.strip()) > 25]
-    return ["🔹 " + _clean_cut(s, 140) for s in sents[:n]]
+    fa = [s for s in sents if not _is_english(s)]
+    return ["🔹 " + _clean_cut(s, 140) for s in fa[:n]]
 
 
 async def generate_market_content(db) -> str:

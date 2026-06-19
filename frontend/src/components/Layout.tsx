@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, Globe, Radio, CreditCard, Wallet, UserCircle, Bell } from 'lucide-react'
+import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, Sparkles, Shield, Settings, LogOut, Sun, Moon, Globe, Radio, CreditCard, Wallet, UserCircle, Bell, Power } from 'lucide-react'
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
 import NotificationBell from './NotificationBell'
@@ -138,9 +138,9 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
                 <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15 }}>{equity} ت</span>
               </div>
             )}
-            <button onClick={toggleBot} title={botActive ? t.botRunning : t.botStopped} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '9px 11px' : '10px 16px', border: `1px solid ${botActive ? 'var(--green)' : 'var(--border2)'}`, borderRadius: 12, background: botActive ? 'color-mix(in srgb,var(--green) 12%,transparent)' : 'transparent', color: botActive ? 'var(--green)' : 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, transition: '.2s' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: botActive ? 'var(--green)' : 'var(--dim)', boxShadow: botActive ? '0 0 8px var(--green)' : 'none', animation: botActive ? 'pulse 2s infinite' : 'none' }} />
-              {!isMobile && (botActive ? t.botRunning : t.botStopped)}
+            <button onClick={toggleBot} title={botActive ? t.botRunning : t.botStopped} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 9, padding: isMobile ? '8px 12px' : '10px 16px', border: `1.5px solid ${botActive ? 'var(--green)' : 'var(--red)'}`, borderRadius: 12, background: botActive ? 'color-mix(in srgb,var(--green) 14%,transparent)' : 'color-mix(in srgb,var(--red) 12%,transparent)', color: botActive ? 'var(--green)' : 'var(--red)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13, transition: '.2s', flexShrink: 0 }}>
+              <Power size={16} />
+              {botActive ? (isMobile ? 'روشن' : t.botRunning) : (isMobile ? 'خاموش' : t.botStopped)}
             </button>
             <NotificationBell />
             <button onClick={toggleTheme} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', width: 40, height: 38, borderRadius: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

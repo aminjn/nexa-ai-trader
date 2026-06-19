@@ -19,6 +19,7 @@ class StrategyUpdate(BaseModel):
     short_enabled: bool = False
     leverage: int = 3
     ai_trading_enabled: bool = True
+    ml_exit_enabled: bool = False
 
 
 @router.get("/")
@@ -35,6 +36,7 @@ async def get_strategy(
         "short_enabled": current_user.short_enabled,
         "leverage": current_user.leverage,
         "ai_trading_enabled": current_user.ai_trading_enabled,
+        "ml_exit_enabled": current_user.ml_exit_enabled,
         "bot_active": current_user.bot_active,
     }
 
@@ -53,6 +55,7 @@ async def update_strategy(
     current_user.short_enabled = data.short_enabled
     current_user.leverage = data.leverage
     current_user.ai_trading_enabled = data.ai_trading_enabled
+    current_user.ml_exit_enabled = data.ml_exit_enabled
     db.commit()
     return {"message": "استراتژی با موفقیت ذخیره شد"}
 

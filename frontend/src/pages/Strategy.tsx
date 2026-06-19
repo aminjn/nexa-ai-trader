@@ -15,6 +15,7 @@ export default function Strategy() {
   const [tradesPerDay, setTradesPerDay] = useState(40)
   const [capitalPct, setCapitalPct] = useState(50)
   const [stopLoss, setStopLoss] = useState(2)
+  const [mlExit, setMlExit] = useState(false)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -28,6 +29,7 @@ export default function Strategy() {
         if (d.trades_per_day != null) setTradesPerDay(d.trades_per_day)
         if (d.capital_pct != null) setCapitalPct(d.capital_pct)
         if (d.stop_loss != null) setStopLoss(d.stop_loss)
+        if (d.ml_exit_enabled != null) setMlExit(d.ml_exit_enabled)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -54,6 +56,7 @@ export default function Strategy() {
         trades_per_day: tradesPerDay,
         capital_pct: capitalPct,
         stop_loss: stopLoss,
+        ml_exit_enabled: mlExit,
       })
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
@@ -220,6 +223,25 @@ export default function Strategy() {
                     </div>
                   )
                 })}
+              </div>
+            </div>
+
+            {/* خروج هوشمند با ML */}
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ maxWidth: 520 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>خروج هوشمند با سیگنال ML</div>
+                  <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.8 }}>
+                    اگر <b>روشن</b> باشد، ربات علاوه بر سود هدف و حد ضرر، هر وقت مدل سیگنال «فروش» قاطع بدهد هم خارج می‌شود
+                    (ممکن است با سود/زیان کوچک ببندد). اگر <b>خاموش</b> باشد، ربات <b>دقیقاً طبق استراتژی</b> فقط در سود {targetProfit}٪ یا حد ضرر {stopLoss}٪ می‌فروشد.
+                  </div>
+                </div>
+                <button onClick={() => setMlExit(v => !v)} style={{
+                  width: 56, height: 30, borderRadius: 999, border: 'none', cursor: 'pointer', position: 'relative',
+                  background: mlExit ? 'var(--accent)' : 'var(--border2)', transition: '.2s', flexShrink: 0,
+                }}>
+                  <span style={{ position: 'absolute', top: 3, insetInlineStart: mlExit ? 29 : 3, width: 24, height: 24, borderRadius: '50%', background: '#fff', transition: '.2s' }} />
+                </button>
               </div>
             </div>
 

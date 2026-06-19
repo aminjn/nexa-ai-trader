@@ -26,6 +26,8 @@ class User(Base):
     short_enabled = Column(Boolean, default=False)
     leverage = Column(Integer, default=3)
     ai_trading_enabled = Column(Boolean, default=True)
+    # خروج زودهنگام با سیگنال فروش ML (اگر خاموش باشد فقط سود هدف/حد ضرر اعمال می‌شود)
+    ml_exit_enabled = Column(Boolean, default=False)
 
     # شناسه‌های پیام‌رسان برای دریافت سیگنال (هر کاربر آی‌دی عددی خودش را وصل می‌کند)
     telegram_chat_id = Column(String, default="")

@@ -157,7 +157,8 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     reason = f"هدف سود ({change_pct:+.2f}٪)"
                 elif change_pct <= -user.stop_loss:
                     reason = f"حد ضرر ({change_pct:+.2f}٪)"
-                elif ml_signal and ml_signal["signal"] == "SELL" and ml_conf >= trainer.confidence_threshold:
+                elif (getattr(user, "ml_exit_enabled", False) and ml_signal
+                      and ml_signal["signal"] == "SELL" and ml_conf >= trainer.confidence_threshold):
                     reason = f"سیگنال فروش ML (اطمینان {ml_conf*100:.0f}٪ | سود/زیان {change_pct:+.2f}٪)"
 
                 if reason:

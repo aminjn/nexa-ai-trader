@@ -70,6 +70,8 @@ def ensure_columns():
                 conn.execute(text("ALTER TABLE users ADD COLUMN bale_chat_id VARCHAR DEFAULT ''"))
             if "link_code" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN link_code VARCHAR DEFAULT ''"))
+            if "ml_exit_enabled" not in cols:
+                conn.execute(text("ALTER TABLE users ADD COLUMN ml_exit_enabled BOOLEAN DEFAULT 0"))
     # ml_models: ستون‌های جزئیات آموزش
     if "ml_models" in tables:
         cols = {c["name"] for c in inspector.get_columns("ml_models")}

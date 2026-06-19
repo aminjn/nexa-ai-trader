@@ -123,7 +123,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
       {/* Main */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
         {/* Header */}
-        <header style={{ height: isMobile ? 60 : 72, flexShrink: 0, borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb,var(--bg2) 70%,transparent)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 14px' : '0 28px', position: 'sticky', top: 0, zIndex: 5 }}>
+        <header style={{ height: isMobile ? 60 : 72, flexShrink: 0, borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb,var(--bg2) 70%,transparent)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? 'env(safe-area-inset-top) max(14px, env(safe-area-inset-right)) 0 max(14px, env(safe-area-inset-left))' : '0 28px', position: 'sticky', top: 0, zIndex: 5, boxSizing: 'content-box' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
             {isMobile && <Logo size={28} />}
             <div style={{ minWidth: 0 }}>

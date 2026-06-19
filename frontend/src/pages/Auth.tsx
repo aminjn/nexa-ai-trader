@@ -289,7 +289,7 @@ export default function Auth() {
         background: 'var(--bg)',
         display: 'flex',
         flexDirection: 'column',
-        padding: isMobile ? '24px 18px' : '48px',
+        padding: isMobile ? 'max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom))' : '48px',
         position: 'relative',
       }}>
         {/* Top-right toggles */}

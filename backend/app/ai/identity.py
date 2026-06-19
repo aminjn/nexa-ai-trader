@@ -38,13 +38,13 @@ async def verify_identity(card_image: str, frames, db=None) -> dict:
                {"type": "image_url", "image_url": {"url": card_image}}]
     for fr in frames:
         content.append({"type": "image_url", "image_url": {"url": fr}})
+    msgs = [{"role": "user", "content": content}]
     try:
-        resp = await client.chat.completions.create(
-            model=cfg["model"],
-            messages=[{"role": "user", "content": content}],
-            temperature=0,
-            max_tokens=400,
-        )
+        try:
+            resp = await client.chat.completions.create(model=cfg["model"], messages=msgs, max_tokens=400)
+        except Exception:
+            # برخی مدل‌های جدید max_tokens را هم نمی‌پذیرند → بدون پارامترهای اختیاری
+            resp = await client.chat.completions.create(model=cfg["model"], messages=msgs)
         raw = resp.choices[0].message.content or ""
     except Exception as e:
         return {"match": False, "confidence": 0, "is_id_card": False, "is_real_selfie": False,

@@ -36,7 +36,8 @@ export default function BottomNav({ items }: { items: NavItem[] }) {
       {moreOpen && (
         <div onClick={() => setMoreOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 60 }}>
           <div onClick={e => e.stopPropagation()} style={{
-            position: 'fixed', insetInlineStart: 0, insetInlineEnd: 0, bottom: 64, background: 'var(--panel)',
+            position: 'fixed', insetInlineStart: 0, insetInlineEnd: 0,
+            bottom: 'calc(64px + env(safe-area-inset-bottom))', background: 'var(--panel)',
             borderTop: '1px solid var(--border2)', borderRadius: '18px 18px 0 0', padding: 16, zIndex: 61,
             maxHeight: '60vh', overflowY: 'auto',
           }}>

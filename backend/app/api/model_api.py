@@ -82,10 +82,15 @@ async def _train_background():
         _training_progress["progress"] = pct
         _training_progress["message"] = msg
 
+    def progress_sync(pct: int, msg: str):
+        # از داخل thread آموزش فراخوانی می‌شود (به‌روزرسانی نوار پیشرفت)
+        _training_progress["progress"] = pct
+        _training_progress["message"] = msg
+
     from ..database import SessionLocal
     trainer = get_trainer()
     try:
-        result = await trainer.train(progress_callback=progress_cb)
+        result = await trainer.train(progress_callback=progress_cb, progress_sync=progress_sync)
 
         # ابتدا نتایج را ذخیره و وضعیت را «آماده» می‌کنیم تا پنل قفل نماند
         db = SessionLocal()

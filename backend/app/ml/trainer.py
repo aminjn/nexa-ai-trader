@@ -276,6 +276,7 @@ class MLTrainer:
     async def train(
         self,
         progress_callback: Optional[Callable] = None,
+        progress_sync: Optional[Callable] = None,
         use_cached_data: bool = False,
     ) -> dict:
         if progress_callback:
@@ -307,21 +308,29 @@ class MLTrainer:
         #    تا event loop و کل سرور قفل نشود (جلوگیری از 504). ──
         feature_cols = get_feature_columns()
         result = await asyncio.to_thread(
-            self._fit_model_sync, raw, feature_cols, symbols, date_from, date_to, source
+            self._fit_model_sync, raw, feature_cols, symbols, date_from, date_to, source, progress_sync
         )
 
         if progress_callback:
             await progress_callback(100, "آموزش کامل شد!")
         return result
 
-    def _fit_model_sync(self, raw, feature_cols, symbols, date_from, date_to, source) -> dict:
+    def _fit_model_sync(self, raw, feature_cols, symbols, date_from, date_to, source, progress=None) -> dict:
         """بخش همگامِ سنگین: محاسبهٔ اندیکاتورها، آموزش و ارزیابی (در thread اجرا می‌شود)."""
+        def _p(pct, msg):
+            try:
+                if progress:
+                    progress(pct, msg)
+            except Exception:
+                pass
         # ویژگی‌ها را برای هر نماد جداگانه محاسبه می‌کنیم تا مرز نمادها قاطی نشود
         frames = []
+        total = len(list(raw.groupby("symbol"))) if "symbol" in raw.columns else 1
         if "symbol" in raw.columns:
-            for sym, g in raw.groupby("symbol"):
+            for i, (sym, g) in enumerate(raw.groupby("symbol")):
                 g = g.sort_values("timestamp")
                 frames.append(add_features(g))
+                _p(20 + int((i + 1) / max(1, total) * 30), f"محاسبه اندیکاتورها... {i+1}/{total} بازار")
             df = pd.concat(frames, ignore_index=True)
         else:
             df = add_features(raw)
@@ -353,15 +362,19 @@ class MLTrainer:
         else:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+        _p(55, "نرمال‌سازی داده‌ها...")
         self.scaler = StandardScaler()
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
-        # یک‌بار آموزش (به‌جای ۴ بار) — سریع‌تر و بدون اتلاف
-        self.model = GradientBoostingClassifier(
-            n_estimators=100, learning_rate=0.1, max_depth=4, random_state=42,
+        # RandomForest چندهسته‌ای (n_jobs=-1) — روی چند CPU موازی و بسیار سریع‌تر از GradientBoosting
+        _p(60, f"آموزش مدل روی {len(X_train):,} نمونه (موازی)...")
+        self.model = RandomForestClassifier(
+            n_estimators=200, max_depth=14, min_samples_leaf=3,
+            n_jobs=-1, random_state=42, class_weight="balanced_subsample",
         )
         self.model.fit(X_train_scaled, y_train)
+        _p(88, "ارزیابی مدل...")
 
         y_pred = self.model.predict(X_test_scaled)
         self.accuracy = float(accuracy_score(y_test, y_pred))

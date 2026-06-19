@@ -4,6 +4,8 @@ import { LayoutDashboard, Brain, TrendingUp, TrendingDown, Building2, History, S
 import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
 import NotificationBell from './NotificationBell'
+import BottomNav from './BottomNav'
+import { useIsMobile } from '../hooks/useIsMobile'
 import Logo from './Logo'
 import api from '../lib/api'
 import toast from 'react-hot-toast'
@@ -56,6 +58,7 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
 
   const accentBg = 'linear-gradient(135deg, var(--accent), var(--accent2))'
   const initials = fullName?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'U'
+  const isMobile = useIsMobile()
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
@@ -69,7 +72,8 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
       <div style={{ position: 'fixed', bottom: -180, insetInlineEnd: -90, width: 540, height: 540, borderRadius: '50%',
         background: 'radial-gradient(circle,var(--accent2) 0%,transparent 70%)', opacity: .15, filter: 'blur(48px)', pointerEvents: 'none', zIndex: 0 }} />
 
-      {/* Sidebar */}
+      {/* Sidebar (در موبایل مخفی؛ به‌جایش منوی پایین) */}
+      {!isMobile && (
       <aside style={{ width: 248, flexShrink: 0, background: 'var(--sidebar-bg)', borderInlineEnd: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column', padding: '22px 16px', position: 'sticky', top: 0, height: '100vh', zIndex: 10 }}>
         
@@ -113,35 +117,43 @@ export default function Layout({ children, title, subtitle }: LayoutProps) {
           </button>
         </div>
       </aside>
+      )}
 
       {/* Main */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
         {/* Header */}
-        <header style={{ height: 72, flexShrink: 0, borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb,var(--bg2) 70%,transparent)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', position: 'sticky', top: 0, zIndex: 5 }}>
-          <div>
-            <div style={{ fontFamily: "'Space Grotesk'", fontSize: 20, fontWeight: 700 }}>{title}</div>
-            {subtitle && <div style={{ fontSize: 12, color: 'var(--dim)' }}>{subtitle}</div>}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12 }}>
-              <span style={{ fontSize: 11, color: 'var(--dim)' }}>{t.totalEquity}</span>
-              <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15 }}>{equity} ت</span>
+        <header style={{ height: isMobile ? 60 : 72, flexShrink: 0, borderBottom: '1px solid var(--border)', background: 'color-mix(in srgb,var(--bg2) 70%,transparent)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '0 14px' : '0 28px', position: 'sticky', top: 0, zIndex: 5 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            {isMobile && <Logo size={28} />}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: "'Space Grotesk'", fontSize: isMobile ? 16 : 20, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
+              {subtitle && !isMobile && <div style={{ fontSize: 12, color: 'var(--dim)' }}>{subtitle}</div>}
             </div>
-            <button onClick={toggleBot} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 16px', border: `1px solid ${botActive ? 'var(--green)' : 'var(--border2)'}`, borderRadius: 12, background: botActive ? 'color-mix(in srgb,var(--green) 12%,transparent)' : 'transparent', color: botActive ? 'var(--green)' : 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, transition: '.2s' }}>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
+            {!isMobile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 12 }}>
+                <span style={{ fontSize: 11, color: 'var(--dim)' }}>{t.totalEquity}</span>
+                <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 15 }}>{equity} ت</span>
+              </div>
+            )}
+            <button onClick={toggleBot} title={botActive ? t.botRunning : t.botStopped} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: isMobile ? '9px 11px' : '10px 16px', border: `1px solid ${botActive ? 'var(--green)' : 'var(--border2)'}`, borderRadius: 12, background: botActive ? 'color-mix(in srgb,var(--green) 12%,transparent)' : 'transparent', color: botActive ? 'var(--green)' : 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, transition: '.2s' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: botActive ? 'var(--green)' : 'var(--dim)', boxShadow: botActive ? '0 0 8px var(--green)' : 'none', animation: botActive ? 'pulse 2s infinite' : 'none' }} />
-              {botActive ? t.botRunning : t.botStopped}
+              {!isMobile && (botActive ? t.botRunning : t.botStopped)}
             </button>
             <NotificationBell />
-            <button onClick={toggleTheme} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', width: 40, height: 38, borderRadius: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button onClick={toggleTheme} style={{ background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', width: 40, height: 38, borderRadius: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
         </header>
 
-        <main style={{ flex: 1, padding: 28, overflowY: 'auto' }}>
+        <main style={{ flex: 1, padding: isMobile ? '16px 14px' : 28, overflowY: 'auto', paddingBottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom) + 16px)' : 28 }}>
           {children}
         </main>
       </div>
+
+      {isMobile && <BottomNav items={navItems} />}
     </div>
   )
 }

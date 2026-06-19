@@ -5,6 +5,7 @@ import { useAppStore } from '../stores/appStore';
 import { useAuthStore } from '../stores/authStore';
 import api from '../lib/api';
 import Logo from '../components/Logo';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 type Mode = 'login' | 'register';
 type Tab = 'email' | 'mobile';
@@ -13,6 +14,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { lang, theme, t, dir, toggleTheme } = useAppStore();
   const { login } = useAuthStore();
+  const isMobile = useIsMobile();
 
   const [mode, setMode] = useState<Mode>('login');
   const [tab, setTab] = useState<Tab>('email');
@@ -133,7 +135,8 @@ export default function Auth() {
         fontFamily: 'Space Grotesk, sans-serif',
       }}
     >
-      {/* ── Left Column ── */}
+      {/* ── Left Column (در موبایل مخفی) ── */}
+      {!isMobile && (
       <div
         style={{
           width: '55%',
@@ -278,14 +281,15 @@ export default function Auth() {
           * سود تضمین‌شده نیست. معامله ریسک دارد. عملکرد گذشته تضمینی برای نتایج آینده نیست؛ تنها مبلغی را وارد کنید که توان از دست دادن آن را دارید.
         </p>
       </div>
+      )}
 
       {/* ── Right Column ── */}
       <div style={{
-        width: '45%',
+        width: isMobile ? '100%' : '45%',
         background: 'var(--bg)',
         display: 'flex',
         flexDirection: 'column',
-        padding: '48px',
+        padding: isMobile ? '24px 18px' : '48px',
         position: 'relative',
       }}>
         {/* Top-right toggles */}

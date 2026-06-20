@@ -272,34 +272,13 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["htf_d_ret"] = pd.to_numeric(df["htf_d_ret"], errors="coerce").fillna(0.0)
     df["htf_d_dist20"] = pd.to_numeric(df["htf_d_dist20"], errors="coerce").fillna(0.0)
 
-    # ── هدف (تریپل‌بَریر): آیا قیمت قبل از افتِ TB_SL به سودِ TB_TP می‌رسد؟ ──
-    # برچسب ۱ = ستاپِ سوددهِ تمیز (به هدف می‌رسد بدون خوردنِ حد ضرر در بازه)؛ ۰ = غیر آن.
-    # این هدف با نحوهٔ معاملهٔ ربات (ورود → خروج در هدف/حد ضرر) هم‌راستاست.
-    hi = h.values
-    lo = l.values
-    cl = c.values
-    n = len(cl)
-    up = cl * (1 + TB_TP)
-    dn = cl * (1 - TB_SL)
-    label = np.zeros(n, dtype=float)
-    resolved = np.zeros(n, dtype=bool)
-    idx = np.arange(n)
-    for k in range(1, TB_H + 1):
-        j = idx + k
-        valid = j < n
-        jj = np.clip(j, 0, n - 1)
-        hh = hi[jj]
-        ll = lo[jj]
-        up_hit = valid & ~resolved & (hh >= up)
-        dn_hit = valid & ~resolved & (ll <= dn)
-        only_up = up_hit & ~dn_hit          # فقط هدف خورد → برد
-        close_first = up_hit | dn_hit        # هر چه اول رخ داد (اگر هر دو در یک کندل → محتاطانه ضرر)
-        label[only_up] = 1.0
-        resolved[close_first] = True
-    # ردیف‌های انتهایی که پنجرهٔ آیندهٔ کامل ندارند و حل‌نشده‌اند → NaN (حذف در آموزش)
-    incomplete = (idx + TB_H) >= n
-    label[incomplete & ~resolved] = np.nan
-    df["target"] = label
+    # ── هدف ساده (مثلِ منطقِ قبلی که پرتکرار معامله می‌کرد): کندلِ بعدی بالاتر است؟ ──
+    # هدفِ ساده ⇒ حدودِ نیمی از نمونه‌ها مثبت ⇒ مدل سیگنالِ «خرید» فراوان می‌دهد و
+    # بات تندتند معاملهٔ کوچک می‌زند. (هدفِ تریپل‌بَریر در بازارِ نزولی تقریباً هیچ خریدی نمی‌داد.)
+    nxt = c.shift(-1)
+    label = (nxt > c).astype(float)
+    label[nxt.isna()] = np.nan          # ردیفِ آخر آیندهٔ معلوم ندارد → حذف در آموزش
+    df["target"] = label.values
 
     return df.replace([np.inf, -np.inf], np.nan)
 
@@ -447,12 +426,12 @@ class MLTrainer:
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
-        # RandomForest چندهسته‌ای (n_jobs=-1). بدون class_weight تا سیگنالِ «خرید» محتاط‌تر و
-        # دقیق‌تر باشد (Precision بالاتر — مهم‌تر از Recall برای معامله). عمق کمتر = overfit کمتر.
+        # RandomForest چندهسته‌ای (n_jobs=-1) با class_weight متوازن تا سیگنالِ «خرید»
+        # به‌اندازهٔ کافی صادر شود (مثلِ منطقِ قبلیِ پرتکرار).
         _p(60, f"آموزش مدل روی {len(X_train):,} نمونه (موازی)...")
         self.model = RandomForestClassifier(
-            n_estimators=250, max_depth=10, min_samples_leaf=8,
-            n_jobs=-1, random_state=42,
+            n_estimators=250, max_depth=12, min_samples_leaf=5,
+            class_weight="balanced", n_jobs=-1, random_state=42,
         )
         self.model.fit(X_train_scaled, y_train)
         _p(88, "ارزیابی مدل...")

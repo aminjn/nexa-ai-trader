@@ -148,9 +148,37 @@ async def _train_background():
                 log_bot_event(f"🧠 هوش مصنوعی مدل را تنظیم کرد — آستانه تصمیم: {round(tuned*100,1)}٪")
         except Exception:
             pass
+
+        # ── خودبهینه‌ساز: بهترین استراتژیِ سودده را پیدا و خودکار روی بات اعمال کن ──
+        try:
+            await _auto_optimize()
+        except Exception as e:
+            log_bot_event(f"خطا در خودبهینه‌ساز: {str(e)[:120]}")
     except Exception as e:
         _training_progress = {"status": "error", "progress": 0, "message": f"خطا: {str(e)}"}
         log_bot_event(f"خطا در آموزش مدل: {str(e)[:120]}")
+
+
+async def _auto_optimize():
+    """خودبهینه‌ساز را در thread اجرا می‌کند و نتیجه را در لاگ می‌نویسد."""
+    from ..ml.backtest import run_auto_optimize_sync
+    res = await asyncio.to_thread(run_auto_optimize_sync)
+    if res.get("error"):
+        log_bot_event(f"⚙️ خودبهینه‌ساز: {res['error']}")
+        return res
+    if res.get("applied"):
+        s = res["strategy"]
+        log_bot_event(
+            f"✅ خودبهینه‌ساز استراتژیِ سودده یافت و اعمال کرد — حالتِ «{s['mode']}» · "
+            f"آستانه {round(s['threshold']*100)}٪ · هدف +{s['tp_pct']}٪ / حدضرر −{s['sl_pct']}٪ · "
+            f"افق {s['horizon_h']}h (PF {s['profit_factor']}، انتظارِ سود {s['expectancy_pct']}٪/معامله). بات فعال شد.")
+    else:
+        b = res.get("best")
+        bf = f"(بهترین PF {b['profit_factor']})" if b else ""
+        log_bot_event(
+            f"⚙️ خودبهینه‌ساز: هیچ ترکیبِ سودده‌ای پس از کمیسیون یافت نشد {bf} — "
+            f"بات تا یافتنِ استراتژیِ سودده معامله نمی‌کند.")
+    return res
 
 
 async def _generate_ai_explanation(result: dict) -> str:
@@ -273,6 +301,21 @@ async def set_guard_override(override: bool = False,
     from ..trading.guard import set_override, get_guard
     set_override(override)
     return get_guard()
+
+
+@router.get("/strategy")
+async def get_active_strategy(db: Session = Depends(get_db),
+                              current_user: models.User = Depends(get_superadmin)):
+    """استراتژیِ زنده‌ای که خودبهینه‌ساز انتخاب کرده (آستانه/حالت/هدف/حدضرر/افق)."""
+    from ..trading.strategy import get_strategy
+    return get_strategy()
+
+
+@router.post("/optimize")
+async def optimize_now(db: Session = Depends(get_db),
+                       current_user: models.User = Depends(get_superadmin)):
+    """خودبهینه‌ساز را همین حالا اجرا کن (معمولاً خودکار بعد از هر آموزش اجرا می‌شود)."""
+    return await _auto_optimize()
 
 
 async def auto_retrain_loop(interval_hours: float = 6.0):

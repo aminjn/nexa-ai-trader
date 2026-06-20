@@ -53,10 +53,23 @@ export default function Model() {
   const [sweep, setSweep] = useState<any>(null)
   const [sweepLoading, setSweepLoading] = useState(false)
   const [guard, setGuard] = useState<any>(null)
+  const [strategy, setStrategy] = useState<any>(null)
+  const [optimizing, setOptimizing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval>>()
 
   const loadGuard = async () => {
     try { const r = await api.get('/model/guard'); setGuard(r.data) } catch {}
+    try { const r = await api.get('/model/strategy'); setStrategy(r.data) } catch {}
+  }
+  const optimizeNow = async () => {
+    setOptimizing(true)
+    try {
+      const r = await api.post('/model/optimize')
+      if (r.data.applied) toast.success('استراتژیِ سودده پیدا و خودکار اعمال شد')
+      else toast('فعلاً ترکیبِ سودده‌ای یافت نشد — بات تا یافتنش معامله نمی‌کند', { icon: '⚙️' })
+      loadGuard()
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در بهینه‌سازی') }
+    finally { setOptimizing(false) }
   }
   const toggleOverride = async () => {
     try {
@@ -276,6 +289,59 @@ export default function Model() {
             </div>
             <div style={{ fontSize:11, color:'var(--faint)', marginTop:12 }}>
               فرمت CSV: ستون‌های timestamp, open, high, low, close, volume (و symbol اختیاری)
+            </div>
+          </div>
+        )}
+
+        {/* خودبهینه‌ساز: استراتژیِ زندهٔ بات (فقط سوپر ادمین) */}
+        {isSuperAdmin && strategy && (
+          <div style={{ background:'var(--panel)', border:`1px solid ${strategy.active?'var(--green)':'var(--border)'}`, borderRadius:18, padding:24 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+              <div style={{ maxWidth:560 }}>
+                <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>⚙️ خودبهینه‌ساز (خودکار)</div>
+                <div style={{ fontSize:12, color:'var(--dim)', marginTop:6, lineHeight:1.8 }}>
+                  سیستم خودش بعد از هر آموزش، ده‌ها ترکیبِ استراتژی را بک‌تست می‌کند، سوددهترین را
+                  برمی‌گزیند و خودکار روی بات اعمال می‌کند — بدون نیاز به دکمه‌زدنِ دستی.
+                </div>
+                {strategy.active ? (
+                  <div style={{ marginTop:12, display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:10 }}>
+                    {[
+                      { l:'حالت', v: strategy.mode },
+                      { l:'آستانه', v: `${Math.round(strategy.threshold*100)}٪` },
+                      { l:'هدف', v: `+${strategy.tp_pct}٪` },
+                      { l:'حد ضرر', v: `−${strategy.sl_pct}٪` },
+                      { l:'افق', v: `${strategy.horizon_h}h` },
+                      { l:'PF', v: strategy.profit_factor ?? '—' },
+                      { l:'انتظارِ سود', v: `${strategy.expectancy_pct}٪` },
+                    ].map((x,i)=>(
+                      <div key={i} style={{ background:'var(--bg2)', borderRadius:10, padding:'9px 10px', textAlign:'center' }}>
+                        <div style={{ fontSize:11, color:'var(--dim)' }}>{x.l}</div>
+                        <div style={{ fontSize:15, fontWeight:800, marginTop:4, fontFamily:"'JetBrains Mono'", color:'var(--green)' }}>{x.v}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ marginTop:12, fontSize:13, color:'var(--amber)', fontWeight:700 }}>
+                    هنوز استراتژیِ سوددهی (پس از کمیسیون) پیدا نشده — بات برای جلوگیری از ضرر معامله نمی‌کند.
+                    با هر آموزش/داده‌ی جدید دوباره خودکار تلاش می‌شود.
+                  </div>
+                )}
+                {strategy.updated_at && (
+                  <div style={{ fontSize:11, color:'var(--faint)', marginTop:10 }}>
+                    آخرین بهینه‌سازی: {new Date(strategy.updated_at).toLocaleString('fa-IR')}
+                  </div>
+                )}
+              </div>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:13, fontWeight:800, padding:'7px 14px', borderRadius:10, marginBottom:10,
+                  background: strategy.active?'rgba(16,185,129,.14)':'rgba(245,158,11,.14)',
+                  color: strategy.active?'var(--green)':'var(--amber)' }}>
+                  {strategy.active ? '✅ بات فعال — استراتژیِ سودده' : '⏳ در انتظارِ استراتژیِ سودده'}
+                </div>
+                <button onClick={optimizeNow} disabled={optimizing} style={{ padding:'9px 16px', border:'1px solid var(--border)', borderRadius:10, background:'transparent', color:'var(--accent)', fontWeight:700, fontSize:13, cursor:'pointer', opacity:optimizing?.6:1 }}>
+                  {optimizing ? 'در حال بهینه‌سازی…' : 'بهینه‌سازیِ دستی الان'}
+                </button>
+              </div>
             </div>
           </div>
         )}

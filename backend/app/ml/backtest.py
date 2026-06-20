@@ -126,6 +126,40 @@ def run_backtest_sweep_sync(fee_pct: float = 0.25, test_only: bool = True) -> di
             "any_profitable": len(profitable) > 0}
 
 
+def run_auto_optimize_sync(fee_pct: float = 0.25) -> dict:
+    """خودبهینه‌ساز: همهٔ ترکیب‌ها (عادی/معکوس × آستانه × هدف/حدضرر) را بک‌تست می‌کند،
+    سوددهترین ترکیبِ معتبر را برمی‌گزیند و به‌طور خودکار روی استراتژیِ زندهٔ بات اعمال می‌کند.
+
+    معیارِ پذیرش (برای کاهشِ بیش‌برازش): PF ≥ ۱.۱ و میانگینِ خالص > ۰ و دستِ‌کم ۳۰ معامله.
+    اگر هیچ ترکیبی واجد نباشد، استراتژی غیرفعال می‌شود و بات معاملهٔ واقعی نمی‌کند.
+    """
+    from ..trading.strategy import set_strategy
+    from ..trading.guard import set_expectancy
+    res = run_backtest_sweep_sync(fee_pct=fee_pct)
+    if res.get("error"):
+        return {"applied": False, "error": res["error"]}
+    combos = res.get("combos", [])
+    good = [c for c in combos
+            if (c.get("profit_factor") or 0) >= 1.1
+            and c.get("avg_net_pct", 0) > 0
+            and c.get("trades", 0) >= 30]
+    if good:
+        b = good[0]
+        strat = set_strategy({
+            "active": True, "mode": b["mode"], "invert": bool(b["invert"]),
+            "threshold": b["threshold"] / 100.0, "tp_pct": b["tp_pct"], "sl_pct": b["sl_pct"],
+            "horizon_h": b["horizon_h"], "expectancy_pct": b["avg_net_pct"],
+            "profit_factor": b["profit_factor"], "trades": b["trades"],
+        })
+        set_expectancy(b["avg_net_pct"], b["trades"])     # مثبت ⇒ محافظ اجازه می‌دهد
+        return {"applied": True, "strategy": strat, "best": b, "combos": combos}
+    # هیچ ترکیبِ سودده‌ای نبود ⇒ بات معامله نکند
+    set_strategy({"active": False})
+    best = combos[0] if combos else None
+    set_expectancy(best["avg_net_pct"] if best else -1.0, best["trades"] if best else 0)
+    return {"applied": False, "best": best, "combos": combos}
+
+
 def run_backtest_sync(threshold: float = None, fee_pct: float = 0.25,
                       tp: float = TB_TP, sl: float = TB_SL, horizon: int = TB_H,
                       test_only: bool = True) -> dict:

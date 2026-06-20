@@ -162,8 +162,8 @@ def _join_footer(platform: str, srow) -> str:
 async def _polish_news(db, raw: str) -> str:
     """خبر را برای پست آماده می‌کند:
     - اگر از قبل فارسی است → مستقیم (بدون AI، فوری).
-    - اگر انگلیسی است → با AI به فارسیِ روان ترجمه می‌شود (timeout بلند + تلاشِ دوباره).
-    - اگر ترجمه نشد → رشتهٔ خالی برمی‌گرداند تا خبرِ انگلیسیِ خام پست نشود.
+    - اگر انگلیسی است → حتماً به فارسیِ روان ترجمه می‌شود (مدلِ سریع + چند بار تلاش).
+    - اگر همهٔ تلاش‌ها شکست خورد → رشتهٔ خالی (خبرِ انگلیسیِ خام پست نمی‌شود).
     """
     raw = (raw or "").strip()
     if not raw:
@@ -173,25 +173,27 @@ async def _polish_news(db, raw: str) -> str:
 
     try:
         from ..ai.gapgpt import get_ai_response, get_ai_config
-        if not get_ai_config(db).get("api_key"):
-            return ""                         # بدون کلید نمی‌توان ترجمه کرد
-        prompt = (
-            "متنِ خبرِ رمزارز زیر را به فارسیِ روان و خبری ترجمه کن (۲ تا ۴ جمله). "
-            "فقط ترجمهٔ کاملِ فارسی را بده — بدون هیچ جملهٔ انگلیسی و بدون مقدمه:\n\n"
-            + raw[:1200]
-        )
-        for _ in range(2):                    # دو بار تلاش
-            try:
-                resp = await asyncio.wait_for(
-                    get_ai_response([{"role": "user", "content": prompt}], db=db), timeout=55)
-                resp = (resp or "").strip()
-                if len(resp) > 30 and not _is_english(resp):
-                    return _clean_cut(resp, 700)
-            except Exception:
-                continue
     except Exception:
-        pass
-    return ""                                 # ترجمه نشد → پست نکن
+        return ""
+    if not get_ai_config(db).get("api_key"):
+        return ""                            # بدون کلید نمی‌توان ترجمه کرد
+    prompt = (
+        "متنِ خبرِ رمزارز زیر را کامل به فارسیِ روان و خبری ترجمه کن (۲ تا ۴ جمله). "
+        "خروجی باید کاملاً فارسی باشد؛ هیچ جملهٔ انگلیسی نگذار. فقط ترجمه را بده، بدون مقدمه:\n\n"
+        + raw[:1200]
+    )
+    # مدلِ سریع‌تر برای ترجمه (پایدارتر از پروکسی)، با تلاشِ چندباره
+    for mdl in ("gpt-4o-mini", "gpt-4o-mini", None):
+        try:
+            resp = await asyncio.wait_for(
+                get_ai_response([{"role": "user", "content": prompt}], db=db, model=mdl),
+                timeout=60)
+            resp = (resp or "").strip()
+            if len(resp) > 25 and not _is_english(resp):
+                return _clean_cut(resp, 700)
+        except Exception:
+            continue
+    return ""                                # ترجمه نشد → پست نکن
 
 
 async def post_news_items(db, items: list, max_items: int = 4) -> int:

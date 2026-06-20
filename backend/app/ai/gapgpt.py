@@ -51,9 +51,11 @@ def get_ai_client(db=None) -> AsyncOpenAI:
     return make_client(cfg["api_key"])
 
 
-async def get_ai_response(messages: List[Dict[str, str]], stream: bool = False, db=None) -> str:
+async def get_ai_response(messages: List[Dict[str, str]], stream: bool = False, db=None,
+                          model: Optional[str] = None) -> str:
     cfg = get_ai_config(db)
     client = make_client(cfg["api_key"])
+    use_model = model or cfg["model"]
     full_messages = [{"role": "system", "content": SYSTEM_PROMPT_FA}] + messages
 
     if stream:
@@ -61,12 +63,12 @@ async def get_ai_response(messages: List[Dict[str, str]], stream: bool = False, 
 
     try:
         response = await client.chat.completions.create(
-            model=cfg["model"], messages=full_messages, max_tokens=2500,
+            model=use_model, messages=full_messages, max_tokens=2500,
         )
     except Exception:
         # برخی مدل‌های جدید max_tokens را نمی‌پذیرند
         response = await client.chat.completions.create(
-            model=cfg["model"], messages=full_messages,
+            model=use_model, messages=full_messages,
         )
     return response.choices[0].message.content
 

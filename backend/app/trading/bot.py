@@ -78,18 +78,10 @@ async def run_user_bot(user_id: int):
         finally:
             db.close()
 
-        # Wait between cycles based on trades_per_day setting
-        db2 = SessionLocal()
-        try:
-            u = db2.query(models.User).filter(models.User.id == user_id).first()
-            if u:
-                interval = max(60, int(86400 / max(1, u.trades_per_day)))
-            else:
-                interval = 300
-        finally:
-            db2.close()
-
-        await asyncio.sleep(interval)
+        # بازار را مکرر بررسی می‌کنیم (هر ۲ دقیقه) تا فرصت‌ها از دست نرود.
+        # تعدادِ معاملهٔ روزانه جداگانه با سقفِ پلن (can_open_new_trade) محدود می‌شود،
+        # نه با فاصله‌انداختنِ بررسی‌ها — وگرنه بات بیشترِ وقت «خواب» می‌ماند.
+        await asyncio.sleep(120)
 
 
 # حداقل ارزش سفارش بر اساس ارز پایه (تقریبی طبق قوانین نوبیتکس)

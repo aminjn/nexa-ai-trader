@@ -221,8 +221,8 @@ async def post_news_items(db, items: list, max_items: int = 4) -> int:
         if len(raw) < 25:
             continue
         body = await _polish_news(db, raw)
-        if not body:
-            continue
+        if not body or _is_english(body):
+            continue                          # گاردِ نهایی: هرگز انگلیسیِ خام پست نشود
         src = it.get("source", "")
         header = f"📰 <b>خبر بازار</b>{(' — ' + src) if src else ''}"
         text = f"{header}\n{BAR}\n{body}"

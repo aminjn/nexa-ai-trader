@@ -173,6 +173,8 @@ class SystemSettings(Base):
     last_signal_at = Column(DateTime, nullable=True)
     last_content_at = Column(DateTime, nullable=True)
     last_ad_at = Column(DateTime, nullable=True)
+    news_autopost = Column(Boolean, default=True)   # پستِ خودکارِ خبرِ تازه به گروه‌ها
+    last_news_at = Column(DateTime, nullable=True)
     # پشتیبانی هوش مصنوعی داخل ربات + اطلاعات پرداخت کارت‌به‌کارت
     ai_support_enabled = Column(Boolean, default=True)
     card_number = Column(String, default="")

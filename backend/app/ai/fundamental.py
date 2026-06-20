@@ -11,7 +11,7 @@ from .gapgpt import get_ai_response, get_ai_config
 
 # کش برای جلوگیری از فراخوانی مکرر هوش مصنوعی
 _cache = {"ts": 0.0, "data": None}
-_TTL = 1800  # هر ۳۰ دقیقه به‌روزرسانی
+_TTL = 600  # هر ۱۰ دقیقه به‌روزرسانی (تا تحلیل با اخبار تازه هماهنگ بماند)
 
 
 def _change_pct(ohlcv, n: int) -> float:

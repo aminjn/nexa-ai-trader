@@ -113,6 +113,7 @@ def _feed_result(html: str, source, persist: bool, max_items: int) -> str:
         items = sorted(uniq.values(), key=lambda i: i.get("ts", 0), reverse=True)[:50]
         source.items = items
         source.seen_urls = ([it["url"] for it in items])[-300:]
+        source._new_news = new_items          # آیتم‌های تازه برای پستِ خودکار به گروه‌ها
         shown = items[:max(max_items, 15)]
         source.last_value = "\n\n".join(_short(i) for i in shown)[:6000]
         return f"{len(new_items)} مطلب جدید (مجموع {len(items)})"
@@ -251,6 +252,7 @@ async def scrape_source(source, persist: bool = False) -> str:
             items = items[-50:]  # نگه‌داری ۵۰ مطلب آخر
             source.items = items
             source.seen_urls = (list(seen) + new_urls)[-300:]
+            source._new_news = new_items          # آیتم‌های تازه برای پستِ خودکار به گروه‌ها
             source.last_value = "\n".join(i["text"] for i in items[-15:])[:3000]
             return f"{len(new_items)} مطلب جدید"
         # حالت تست: همین چند مطلب تازه را نشان بده
@@ -330,25 +332,40 @@ async def analyze_page(url: str, use_proxy: bool = False) -> list:
     return groups
 
 
-async def scrape_all(db, respect_schedule: bool = False) -> int:
-    """همه منابع فعال را اسکرپ و ذخیره می‌کند. respect_schedule=True فقط منابع سررسیدشده."""
+async def scrape_all(db, respect_schedule: bool = False, post_news: bool = True) -> int:
+    """همه منابع فعال را اسکرپ و ذخیره می‌کند. respect_schedule=True فقط منابع سررسیدشده.
+
+    post_news=True: خبرهای تازهٔ هر منبع بلافاصله به گروه‌های تلگرام/بله پست می‌شود.
+    """
     from .. import models
     sources = db.query(models.ScrapeSource).filter(models.ScrapeSource.enabled == True).all()
     now = datetime.utcnow()
     ok = 0
+    fresh_news = []
     for s in sources:
         if respect_schedule and s.last_scraped:
             interval = (s.interval_minutes or 60)
             if (now - s.last_scraped).total_seconds() < interval * 60:
                 continue  # هنوز زمانش نرسیده
         try:
+            s._new_news = []
             await scrape_source(s, persist=True)
             s.last_scraped = datetime.utcnow()
             ok += 1
+            for it in (getattr(s, "_new_news", None) or []):
+                fresh_news.append({**it, "source": s.name})
         except Exception as e:
             s.last_value = f"خطا: {str(e)[:120]}"
             s.last_scraped = datetime.utcnow()
     db.commit()
+
+    # ── پستِ خودکارِ خبرهای تازه به گروه‌ها (به‌محضِ رسیدن، نه هر ۶ ساعت) ──
+    if post_news and fresh_news:
+        try:
+            from ..signals.content import post_news_items
+            await post_news_items(db, fresh_news)
+        except Exception as e:
+            print(f"⚠️ post_news error: {str(e)[:150]}")
     return ok
 
 

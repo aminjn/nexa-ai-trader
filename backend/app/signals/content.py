@@ -159,6 +159,74 @@ def _join_footer(platform: str, srow) -> str:
     return "\n" + SEP + "\n" + "\n".join(parts)
 
 
+async def _polish_news(db, raw: str) -> str:
+    """خبرِ خام را به یک خبرِ کوتاهِ فارسیِ روان تبدیل می‌کند (اگر AI در دسترس باشد)."""
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    try:
+        from ..ai.gapgpt import get_ai_response, get_ai_config
+        if get_ai_config(db).get("api_key"):
+            prompt = (
+                "این خبرِ رمزارز را به یک پاراگرافِ کوتاهِ فارسیِ روان و خبری بازنویسی کن "
+                "(۲ تا ۴ جمله). اگر انگلیسی است به فارسی برگردان. فقط متنِ خبر را بده، بدون مقدمه:\n\n"
+                + raw[:1200]
+            )
+            resp = await asyncio.wait_for(
+                get_ai_response([{"role": "user", "content": prompt}], db=db), timeout=35)
+            if resp and len(resp.strip()) > 30:
+                return _clean_cut(resp.strip(), 700)
+    except Exception:
+        pass
+    return _clean_cut(raw, 600)
+
+
+async def post_news_items(db, items: list, max_items: int = 4) -> int:
+    """خبرهای تازه را بلافاصله به کانال‌های تلگرام/بله پست می‌کند (به‌محضِ اسکرپ‌شدن).
+
+    برای جلوگیری از اسپم، حداکثر چند خبرِ تازه در هر اجرا و فقط اگر کانالی تنظیم شده.
+    """
+    srow = db.query(models.SystemSettings).first()
+    if not srow:
+        return 0
+    if getattr(srow, "news_autopost", True) is False:
+        return 0
+    has_channel = (srow.telegram_channel_id and srow.telegram_bot_token) or \
+                  (srow.bale_channel_id and srow.bale_bot_token)
+    if not has_channel:
+        return 0
+
+    # جدیدترین‌ها اول، حذفِ خبرهای کاملاً انگلیسیِ خام، سقفِ تعداد
+    items = sorted(items, key=lambda i: i.get("ts", 0), reverse=True)
+    sent = 0
+    for it in items:
+        if sent >= max_items:
+            break
+        raw = (it.get("text") or "").strip()
+        if len(raw) < 25:
+            continue
+        body = await _polish_news(db, raw)
+        if not body:
+            continue
+        src = it.get("source", "")
+        header = f"📰 <b>خبر بازار</b>{(' — ' + src) if src else ''}"
+        text = f"{header}\n{BAR}\n{body}"
+        if srow.telegram_channel_id and srow.telegram_bot_token:
+            await send_telegram(srow.telegram_bot_token, srow.telegram_channel_id,
+                                text + _join_footer("telegram", srow))
+        if srow.bale_channel_id and srow.bale_bot_token:
+            await send_bale(srow.bale_bot_token, srow.bale_channel_id,
+                            text + _join_footer("bale", srow))
+        sent += 1
+    if sent:
+        try:
+            srow.last_news_at = datetime.utcnow()
+            db.commit()
+        except Exception:
+            db.rollback()
+    return sent
+
+
 async def publish_content(db) -> bool:
     srow = db.query(models.SystemSettings).first()
     if not srow:

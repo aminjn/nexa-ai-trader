@@ -32,6 +32,10 @@ def ensure_columns():
     if "system_settings" in tables:
         cols = {c["name"] for c in inspector.get_columns("system_settings")}
         with engine.begin() as conn:
+            if "news_autopost" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN news_autopost BOOLEAN DEFAULT 1"))
+            if "last_news_at" not in cols:
+                conn.execute(text("ALTER TABLE system_settings ADD COLUMN last_news_at TIMESTAMP"))
             if "vapid_public_key" not in cols:
                 conn.execute(text("ALTER TABLE system_settings ADD COLUMN vapid_public_key TEXT DEFAULT ''"))
             if "vapid_private_key" not in cols:

@@ -148,12 +148,6 @@ async def _train_background():
                 log_bot_event(f"🧠 هوش مصنوعی مدل را تنظیم کرد — آستانه تصمیم: {round(tuned*100,1)}٪")
         except Exception:
             pass
-
-        # ── خودبهینه‌ساز: بهترین استراتژیِ سودده را پیدا و خودکار روی بات اعمال کن ──
-        try:
-            await _auto_optimize()
-        except Exception as e:
-            log_bot_event(f"خطا در خودبهینه‌ساز: {str(e)[:120]}")
     except Exception as e:
         _training_progress = {"status": "error", "progress": 0, "message": f"خطا: {str(e)}"}
         log_bot_event(f"خطا در آموزش مدل: {str(e)[:120]}")

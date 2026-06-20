@@ -52,36 +52,11 @@ export default function Model() {
   const [btLoading, setBtLoading] = useState(false)
   const [sweep, setSweep] = useState<any>(null)
   const [sweepLoading, setSweepLoading] = useState(false)
-  const [guard, setGuard] = useState<any>(null)
-  const [strategy, setStrategy] = useState<any>(null)
-  const [optimizing, setOptimizing] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval>>()
-
-  const loadGuard = async () => {
-    try { const r = await api.get('/model/guard'); setGuard(r.data) } catch {}
-    try { const r = await api.get('/model/strategy'); setStrategy(r.data) } catch {}
-  }
-  const optimizeNow = async () => {
-    setOptimizing(true)
-    try {
-      const r = await api.post('/model/optimize')
-      if (r.data.applied) toast.success('استراتژیِ سودده پیدا و خودکار اعمال شد')
-      else toast('فعلاً ترکیبِ سودده‌ای یافت نشد — بات تا یافتنش معامله نمی‌کند', { icon: '⚙️' })
-      loadGuard()
-    } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در بهینه‌سازی') }
-    finally { setOptimizing(false) }
-  }
-  const toggleOverride = async () => {
-    try {
-      const r = await api.post('/model/guard', null, { params: { override: !guard?.override } })
-      setGuard(r.data)
-      toast.success(r.data.override ? 'محافظ دور زده شد — بات با وجود ضرده‌بودنِ بک‌تست معامله می‌کند' : 'محافظ دوباره فعال شد')
-    } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
-  }
 
   const runBacktest = async () => {
     setBtLoading(true); setBt(null)
-    try { const r = await api.get('/model/backtest'); setBt(r.data); loadGuard() }
+    try { const r = await api.get('/model/backtest'); setBt(r.data) }
     catch (e: any) { toast.error(e.response?.data?.detail || 'خطا در بک‌تست') }
     finally { setBtLoading(false) }
   }
@@ -98,7 +73,7 @@ export default function Model() {
     catch {} finally { setLoading(false) }
   }
 
-  useEffect(() => { load(); loadGuard(); pollRef.current = setInterval(load, 3000); return () => clearInterval(pollRef.current) }, [])
+  useEffect(() => { load(); pollRef.current = setInterval(load, 3000); return () => clearInterval(pollRef.current) }, [])
 
   const startTraining = async () => {
     setTraining(true)
@@ -289,89 +264,6 @@ export default function Model() {
             </div>
             <div style={{ fontSize:11, color:'var(--faint)', marginTop:12 }}>
               فرمت CSV: ستون‌های timestamp, open, high, low, close, volume (و symbol اختیاری)
-            </div>
-          </div>
-        )}
-
-        {/* خودبهینه‌ساز: استراتژیِ زندهٔ بات (فقط سوپر ادمین) */}
-        {isSuperAdmin && strategy && (
-          <div style={{ background:'var(--panel)', border:`1px solid ${strategy.active?'var(--green)':'var(--border)'}`, borderRadius:18, padding:24 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
-              <div style={{ maxWidth:560 }}>
-                <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>⚙️ خودبهینه‌ساز (خودکار)</div>
-                <div style={{ fontSize:12, color:'var(--dim)', marginTop:6, lineHeight:1.8 }}>
-                  سیستم خودش بعد از هر آموزش، ده‌ها ترکیبِ استراتژی را بک‌تست می‌کند، سوددهترین را
-                  برمی‌گزیند و خودکار روی بات اعمال می‌کند — بدون نیاز به دکمه‌زدنِ دستی.
-                </div>
-                {strategy.active ? (
-                  <div style={{ marginTop:12, display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:10 }}>
-                    {[
-                      { l:'حالت', v: strategy.mode },
-                      { l:'آستانه', v: `${Math.round(strategy.threshold*100)}٪` },
-                      { l:'هدف', v: `+${strategy.tp_pct}٪` },
-                      { l:'حد ضرر', v: `−${strategy.sl_pct}٪` },
-                      { l:'افق', v: `${strategy.horizon_h}h` },
-                      { l:'PF', v: strategy.profit_factor ?? '—' },
-                      { l:'انتظارِ سود', v: `${strategy.expectancy_pct}٪` },
-                    ].map((x,i)=>(
-                      <div key={i} style={{ background:'var(--bg2)', borderRadius:10, padding:'9px 10px', textAlign:'center' }}>
-                        <div style={{ fontSize:11, color:'var(--dim)' }}>{x.l}</div>
-                        <div style={{ fontSize:15, fontWeight:800, marginTop:4, fontFamily:"'JetBrains Mono'", color:'var(--green)' }}>{x.v}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ marginTop:12, fontSize:13, color:'var(--amber)', fontWeight:700 }}>
-                    هنوز استراتژیِ سوددهی (پس از کمیسیون) پیدا نشده — بات برای جلوگیری از ضرر معامله نمی‌کند.
-                    با هر آموزش/داده‌ی جدید دوباره خودکار تلاش می‌شود.
-                  </div>
-                )}
-                {strategy.updated_at && (
-                  <div style={{ fontSize:11, color:'var(--faint)', marginTop:10 }}>
-                    آخرین بهینه‌سازی: {new Date(strategy.updated_at).toLocaleString('fa-IR')}
-                  </div>
-                )}
-              </div>
-              <div style={{ textAlign:'center' }}>
-                <div style={{ fontSize:13, fontWeight:800, padding:'7px 14px', borderRadius:10, marginBottom:10,
-                  background: strategy.active?'rgba(16,185,129,.14)':'rgba(245,158,11,.14)',
-                  color: strategy.active?'var(--green)':'var(--amber)' }}>
-                  {strategy.active ? '✅ بات فعال — استراتژیِ سودده' : '⏳ در انتظارِ استراتژیِ سودده'}
-                </div>
-                <button onClick={optimizeNow} disabled={optimizing} style={{ padding:'9px 16px', border:'1px solid var(--border)', borderRadius:10, background:'transparent', color:'var(--accent)', fontWeight:700, fontSize:13, cursor:'pointer', opacity:optimizing?.6:1 }}>
-                  {optimizing ? 'در حال بهینه‌سازی…' : 'بهینه‌سازیِ دستی الان'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* محافظِ سوددهی (فقط سوپر ادمین) */}
-        {isSuperAdmin && guard && (
-          <div style={{ background:'var(--panel)', border:`1px solid ${guard.blocking?'var(--red)':'var(--border)'}`, borderRadius:18, padding:24 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
-              <div>
-                <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>🛡️ محافظِ سوددهی</div>
-                <div style={{ fontSize:12, color:'var(--dim)', marginTop:6, maxWidth:520, lineHeight:1.7 }}>
-                  {!guard.known
-                    ? 'هنوز بک‌تستی اجرا نشده — وضعیت نامشخص است و بات مانع نمی‌شود. یک بار «اجرای بک‌تست» را بزن.'
-                    : guard.blocking
-                      ? `بات معاملهٔ واقعی نمی‌زند چون انتظارِ سودِ آخرین بک‌تست منفی است (${guard.expectancy_pct}٪ هر معامله). این از ضررِ واقعیِ کاربران جلوگیری می‌کند.`
-                      : guard.override
-                        ? `محافظ دور زده شده — بات با وجودِ انتظارِ سودِ ${guard.expectancy_pct}٪ معامله می‌کند (با مسئولیتِ شما).`
-                        : `انتظارِ سودِ آخرین بک‌تست مثبت است (${guard.expectancy_pct}٪) — بات اجازهٔ معاملهٔ واقعی دارد.`}
-                </div>
-              </div>
-              <div style={{ textAlign:'center' }}>
-                <div style={{ fontSize:13, fontWeight:800, padding:'7px 14px', borderRadius:10, marginBottom:10,
-                  background: guard.blocking?'rgba(239,68,68,.14)':'rgba(16,185,129,.14)',
-                  color: guard.blocking?'var(--red)':'var(--green)' }}>
-                  {guard.blocking ? '⛔ معاملهٔ واقعی متوقف' : '✅ معامله مجاز'}
-                </div>
-                <button onClick={toggleOverride} style={{ padding:'9px 16px', border:'1px solid var(--border)', borderRadius:10, background:'transparent', color: guard.override?'var(--amber)':'var(--dim)', fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                  {guard.override ? 'فعال‌کردنِ دوبارهٔ محافظ' : 'دورزدنِ محافظ (معامله با ریسک)'}
-                </button>
-              </div>
             </div>
           </div>
         )}

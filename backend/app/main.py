@@ -393,18 +393,8 @@ async def lifespan(app: FastAPI):
 
         import asyncio as _asyncio
         # آموزش خودکار دوره‌ای مدل (هر ۶ ساعت با داده جدید)
-        from .api.model_api import auto_retrain_loop, _auto_optimize
+        from .api.model_api import auto_retrain_loop
         _asyncio.create_task(auto_retrain_loop(6.0))
-
-        # خودبهینه‌ساز را یک‌بار هنگام راه‌اندازی اجرا کن (اگر مدلی آموزش‌دیده هست)
-        async def _startup_optimize():
-            try:
-                from .ml.trainer import get_trainer
-                if get_trainer().is_trained:
-                    await _auto_optimize()
-            except Exception:
-                pass
-        _asyncio.create_task(_startup_optimize())
         # زمان‌بند واحد و ماندگار: سیگنال، محتوا، تبلیغ و اسکرپ
         from .signals.scheduler import scheduler_loop
         _asyncio.create_task(scheduler_loop())

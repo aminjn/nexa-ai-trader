@@ -170,11 +170,6 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     ml_signal = trainer.predict(df)
                     ml_conf = ml_signal.get("confidence", 0)
 
-            # استراتژیِ زنده‌ای که خودبهینه‌ساز انتخاب کرده (آستانه/حالت/هدف/حدضرر/افق)
-            from .strategy import get_strategy
-            strat = get_strategy()
-            proba_up = (ml_signal.get("probabilities") or [0.0, 0.0])[1] if ml_signal else 0.0
-
             # ── معامله باز موجود؟ بررسی شرایط خروج ──
             open_trade = find_open(base_code)
             if open_trade:
@@ -186,17 +181,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 # حداقل سود خالصِ لازم برای خروجِ سوددهانه (پوشش لغزش بازارِ سفارش market)
                 min_exit = max(0.5, round_trip_fee + 0.3)
                 reason = None
-                if strat.get("active"):
-                    # خروج طبقِ همان هدف/حدضرر/افقی که بک‌تست اعتبارسنجی کرده (ناخالص، مثل بک‌تست)
-                    hrs = ((datetime.utcnow() - open_trade.opened_at).total_seconds() / 3600.0
-                           if open_trade.opened_at else 0)
-                    if gross_pct >= strat["tp_pct"]:
-                        reason = f"هدفِ استراتژیِ خودکار (+{gross_pct:.2f}٪ ناخالص / خالص {change_pct:+.2f}٪)"
-                    elif gross_pct <= -strat["sl_pct"]:
-                        reason = f"حدضررِ استراتژیِ خودکار ({gross_pct:.2f}٪)"
-                    elif hrs >= strat["horizon_h"]:
-                        reason = f"پایانِ افقِ {strat['horizon_h']} ساعته (خالص {change_pct:+.2f}٪)"
-                elif change_pct >= user.target_profit:
+                if change_pct >= user.target_profit:
                     reason = f"هدف سود (خالص {change_pct:+.2f}٪ پس از کارمزد)"
                 elif change_pct <= -user.stop_loss:
                     reason = f"حد ضرر (خالص {change_pct:+.2f}٪)"
@@ -279,34 +264,9 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 + (f" | فاندامنتال AI: {fund_score:+.2f}" if user.ai_trading_enabled else "")
             )
 
-            # ── تصمیمِ ورود را استراتژیِ خودکار (خودبهینه‌ساز) می‌گیرد ──
-            from .guard import is_live_trading_allowed, get_guard
-            guard = get_guard()
-            if strat.get("active"):
-                # ورود دقیقاً طبقِ همان سیگنالی که بک‌تست سوددهی‌اش را تأیید کرده
-                thr = float(strat["threshold"])
-                fire = (proba_up <= 1 - thr) if strat["invert"] else (proba_up >= thr)
-                if not fire:
-                    log_bot_event(
-                        f"⏳ {pair}: سیگنالِ استراتژیِ خودکار «{strat['mode']}» صادر نشد "
-                        f"(احتمالِ صعود {proba_up*100:.0f}٪، آستانه {thr*100:.0f}٪)")
-                    continue
-            elif guard.get("override"):
-                # سوپر ادمین دستی override کرده ⇒ سیگنالِ عادیِ مدل
-                if ml_signal["signal"] != "BUY":
-                    continue
-            else:
-                # خودبهینه‌ساز هنوز استراتژیِ سودده‌ای نیافته ⇒ معاملهٔ واقعی باز نشود
-                log_bot_event(
-                    f"🛡️ {pair}: سیستمِ خودبهینه‌ساز هنوز استراتژیِ سوددهی (پس از کمیسیون) نیافته — "
-                    f"برای جلوگیری از ضرر معامله باز نشد.", level="warn", user_id=user.id)
-                continue
-
-            if not is_live_trading_allowed():
-                g = get_guard()
-                log_bot_event(
-                    f"🛡️ {pair}: محافظ سوددهی فعال (انتظارِ سود {g['expectancy_pct']}٪) — معامله باز نشد.",
-                    level="warn", user_id=user.id)
+            # ── جهت را ML تعیین می‌کند: ورودِ ساده و پرتکرار روی سیگنالِ خرید ──
+            # (بدون گِیتِ خودبهینه‌ساز/محافظ/فیلترِ سخت‌گیرانه — معاملهٔ کوچک و زیاد در روز)
+            if ml_signal["signal"] != "BUY":
                 continue
 
             # سقف معاملهٔ روزانهٔ پلن (مثلاً پلن ۳ روزه: ۵ معامله در روز)

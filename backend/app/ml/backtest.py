@@ -8,16 +8,19 @@ import pandas as pd
 from .trainer import get_trainer, add_features, get_feature_columns, accum_load, TB_TP, TB_SL, TB_H
 
 
-def _simulate(hi, lo, cl, proba, thr, tp, sl, horizon, fee, adx=None, adx_min=0):
+def _simulate(hi, lo, cl, proba, thr, tp, sl, horizon, fee, adx=None, adx_min=0, invert=False):
     """شبیه‌سازی روی یک سری: فهرستِ سود/زیانِ خالصِ هر معامله را برمی‌گرداند.
 
+    invert=False : ورود وقتی proba ≥ thr (سیگنالِ صعودیِ مدل).
+    invert=True  : ورود وقتی proba ≤ 1-thr (مدل کمترین اطمینان به صعود دارد — شرطِ معکوس).
     اگر adx_min>0 باشد، فقط وقتی قدرتِ روند (ADX) بالاتر از حد است وارد می‌شود.
     """
     n = len(cl)
     rets = []
     i = 0
     while i < n - 1:
-        if proba[i] < thr or (adx_min > 0 and adx is not None and adx[i] < adx_min):
+        sig = (proba[i] <= 1 - thr) if invert else (proba[i] >= thr)
+        if (not sig) or (adx_min > 0 and adx is not None and adx[i] < adx_min):
             i += 1
             continue
         entry = cl[i]
@@ -100,22 +103,22 @@ def run_backtest_sweep_sync(fee_pct: float = 0.25, test_only: bool = True) -> di
     if not data:
         return {"error": "داده/مدل برای بک‌تست آماده نیست."}
 
-    # آستانه‌ها × (هدف٪، حدضرر٪، افق ساعت) × فیلترِ رژیمِ روند (ADX)
+    # آستانه‌ها × (هدف٪، حدضرر٪، افق ساعت) × حالت (عادی / معکوس)
     thresholds = [0.62, 0.70, 0.78]
     barriers = [(2, 1.5, 48), (3, 2, 72), (5, 3, 120), (8, 5, 168)]
-    adx_levels = [0, 20, 25, 30]   # 0 = بدون فیلترِ روند
+    modes = [("عادی", False), ("معکوس", True)]
     combos = []
     for thr in thresholds:
         for tp, sl, hz in barriers:
-            for adx_min in adx_levels:
+            for mode_name, inv in modes:
                 rets = []
                 for (_sym, hi, lo, cl, proba, adx) in data:
                     rets.extend(_simulate(hi, lo, cl, proba, thr, tp / 100.0, sl / 100.0,
-                                          hz, fee, adx=adx, adx_min=adx_min))
+                                          hz, fee, invert=inv))
                 a = _agg(rets)
                 if a and a["trades"] >= 10:
                     combos.append({"threshold": round(thr * 100), "tp_pct": tp, "sl_pct": sl,
-                                   "horizon_h": hz, "adx_min": adx_min, **a})
+                                   "horizon_h": hz, "mode": mode_name, "invert": inv, **a})
     # مرتب بر اساس ضریب سود (سوددهی)
     combos.sort(key=lambda x: (x["profit_factor"] or 0, x["avg_net_pct"]), reverse=True)
     profitable = [c for c in combos if (c["profit_factor"] or 0) >= 1.0 and c["avg_net_pct"] > 0]

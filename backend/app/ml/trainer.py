@@ -14,6 +14,7 @@ from .data_fetcher import fetch_5year_data
 MODEL_PATH = "ml_model.joblib"
 SCALER_PATH = "ml_scaler.joblib"
 THRESHOLD_PATH = "ml_threshold.txt"  # آستانه اطمینان تنظیم‌شده توسط هوش مصنوعی
+MANUAL_THRESHOLD_PATH = "ml_threshold_manual.txt"  # نشانهٔ تنظیمِ دستی توسط سوپر ادمین
 ACCUM_PATH = "training_data.csv"  # مجموعه داده انباشته (بازار + آپلودی کاربر)
 
 # پارامترهای تریپل‌بَریر (هدفِ آموزش): رسیدن به +TB_TP قبل از −TB_SL در TB_H کندلِ ساعتی
@@ -315,14 +316,28 @@ class MLTrainer:
         self.metrics = {}
         self.confidence_threshold = 0.53  # توسط هوش مصنوعی تنظیم می‌شود
 
-    def set_threshold(self, t: float):
-        """آستانه اطمینان را تنظیم و ذخیره می‌کند (پیشنهاد هوش مصنوعی)."""
+    def set_threshold(self, t: float, manual: bool = False):
+        """آستانه اطمینان را تنظیم و ذخیره می‌کند.
+
+        manual=True یعنی سوپر ادمین دستی تنظیم کرده؛ در این حالت آموزش‌های بعدی
+        آستانه را دوباره بازنویسی نمی‌کنند (تا کنترل دستِ کاربر بماند).
+        """
         self.confidence_threshold = max(0.5, min(0.75, float(t)))
         try:
             with open(THRESHOLD_PATH, "w") as f:
                 f.write(str(self.confidence_threshold))
         except Exception:
             pass
+        if manual:
+            try:
+                with open(MANUAL_THRESHOLD_PATH, "w") as f:
+                    f.write("1")
+            except Exception:
+                pass
+
+    @staticmethod
+    def is_threshold_manual() -> bool:
+        return os.path.exists(MANUAL_THRESHOLD_PATH)
 
     def load_if_exists(self) -> bool:
         if os.path.exists(THRESHOLD_PATH):

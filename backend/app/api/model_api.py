@@ -131,8 +131,13 @@ async def _train_background():
             pass
 
         # ── هوش مصنوعی مدل را تنظیم می‌کند: آستانه تصمیم بهینه ──
+        # اگر سوپر ادمین آستانه را دستی تنظیم کرده، بازنویسی نمی‌کنیم
         try:
-            tuned = await asyncio.wait_for(_ai_tune_threshold(result), timeout=45)
+            if trainer.is_threshold_manual():
+                tuned = None
+                log_bot_event(f"🔒 آستانهٔ تصمیم دستی تنظیم شده ({round(trainer.confidence_threshold*100,1)}٪) — هوش مصنوعی تغییرش نداد")
+            else:
+                tuned = await asyncio.wait_for(_ai_tune_threshold(result), timeout=45)
             if tuned:
                 trainer.set_threshold(tuned)
                 db3 = SessionLocal()
@@ -295,6 +300,29 @@ async def set_guard_override(override: bool = False,
     from ..trading.guard import set_override, get_guard
     set_override(override)
     return get_guard()
+
+
+@router.get("/threshold")
+async def get_threshold(db: Session = Depends(get_db),
+                        current_user: models.User = Depends(get_superadmin)):
+    """آستانهٔ تصمیمِ بات: پایین‌تر = معاملهٔ بیشتر و پرتکرارتر؛ بالاتر = محتاط‌تر."""
+    t = get_trainer()
+    return {"threshold": round(t.confidence_threshold, 3),
+            "threshold_pct": round(t.confidence_threshold * 100, 1),
+            "manual": t.is_threshold_manual()}
+
+
+@router.post("/threshold")
+async def set_threshold(value: float, db: Session = Depends(get_db),
+                        current_user: models.User = Depends(get_superadmin)):
+    """آستانهٔ تصمیم را دستی تنظیم می‌کند (۵۰ تا ۷۵٪). آموزش‌های بعدی بازنویسی‌اش نمی‌کنند."""
+    t = get_trainer()
+    v = value / 100.0 if value > 1 else value
+    t.set_threshold(v, manual=True)
+    log_bot_event(f"🎚️ آستانهٔ تصمیمِ بات دستی روی {round(t.confidence_threshold*100,1)}٪ تنظیم شد")
+    return {"threshold": round(t.confidence_threshold, 3),
+            "threshold_pct": round(t.confidence_threshold * 100, 1),
+            "manual": True}
 
 
 @router.get("/strategy")

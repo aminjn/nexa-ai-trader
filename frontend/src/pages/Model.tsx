@@ -52,7 +52,20 @@ export default function Model() {
   const [btLoading, setBtLoading] = useState(false)
   const [sweep, setSweep] = useState<any>(null)
   const [sweepLoading, setSweepLoading] = useState(false)
+  const [thr, setThr] = useState<any>(null)
+  const [thrInput, setThrInput] = useState<number>(55)
   const pollRef = useRef<ReturnType<typeof setInterval>>()
+
+  const loadThreshold = async () => {
+    try { const r = await api.get('/model/threshold'); setThr(r.data); setThrInput(Math.round(r.data.threshold_pct)) } catch {}
+  }
+  const saveThreshold = async () => {
+    try {
+      const r = await api.post('/model/threshold', null, { params: { value: thrInput } })
+      setThr(r.data); setThrInput(Math.round(r.data.threshold_pct))
+      toast.success(`آستانهٔ تصمیم روی ${r.data.threshold_pct}٪ تنظیم شد`)
+    } catch (e: any) { toast.error(e.response?.data?.detail || 'خطا') }
+  }
 
   const runBacktest = async () => {
     setBtLoading(true); setBt(null)
@@ -73,7 +86,7 @@ export default function Model() {
     catch {} finally { setLoading(false) }
   }
 
-  useEffect(() => { load(); pollRef.current = setInterval(load, 3000); return () => clearInterval(pollRef.current) }, [])
+  useEffect(() => { load(); loadThreshold(); pollRef.current = setInterval(load, 3000); return () => clearInterval(pollRef.current) }, [])
 
   const startTraining = async () => {
     setTraining(true)
@@ -264,6 +277,42 @@ export default function Model() {
             </div>
             <div style={{ fontSize:11, color:'var(--faint)', marginTop:12 }}>
               فرمت CSV: ستون‌های timestamp, open, high, low, close, volume (و symbol اختیاری)
+            </div>
+          </div>
+        )}
+
+        {/* آستانهٔ تصمیمِ بات (فقط سوپر ادمین) — اهرمِ پرتکراریِ معامله */}
+        {isSuperAdmin && thr && (
+          <div style={{ background:'var(--panel)', border:'1px solid var(--border)', borderRadius:18, padding:24 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, marginBottom:6 }}>
+              <div style={{ maxWidth:560 }}>
+                <div style={{ fontFamily:"'Space Grotesk'", fontSize:17, fontWeight:600 }}>🎚️ آستانهٔ تصمیمِ بات</div>
+                <div style={{ fontSize:12, color:'var(--dim)', marginTop:6, lineHeight:1.8 }}>
+                  بات فقط وقتی وارد می‌شود که اطمینانِ مدل از این آستانه بیشتر باشد.
+                  <b style={{ color:'var(--green)' }}> آستانهٔ پایین‌تر = معاملهٔ بیشتر و پرتکرارتر</b> (ولی ریسک بالاتر)؛
+                  بالاتر = محتاط‌تر و کم‌معامله‌تر.
+                </div>
+              </div>
+              <div style={{ textAlign:'center', minWidth:130 }}>
+                <div style={{ fontSize:30, fontWeight:800, fontFamily:"'JetBrains Mono'", color:'var(--accent)' }}>{thrInput}٪</div>
+                <div style={{ fontSize:11, color: thr.manual?'var(--amber)':'var(--faint)' }}>
+                  {thr.manual ? 'تنظیمِ دستی (ثابت)' : 'تنظیمِ خودکارِ هوش مصنوعی'}
+                </div>
+              </div>
+            </div>
+            <input type="range" min={50} max={75} step={1} value={thrInput}
+              onChange={e=>setThrInput(Number(e.target.value))}
+              style={{ width:'100%', accentColor:'var(--accent)', marginTop:8 }} />
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--faint)' }}>
+              <span>۵۰٪ (پرمعامله)</span><span>۷۵٪ (محتاط)</span>
+            </div>
+            <div style={{ marginTop:14, display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+              <button onClick={saveThreshold} style={{ padding:'10px 20px', border:'none', borderRadius:11, background:'var(--accent)', color:'#05121a', fontWeight:700, fontSize:14, cursor:'pointer' }}>
+                ذخیرهٔ آستانه
+              </button>
+              <span style={{ fontSize:12, color:'var(--dim)' }}>
+                الان روی {thr.threshold_pct}٪ — سیگنال‌های با اطمینانِ کمتر از این، WAIT می‌شوند.
+              </span>
             </div>
           </div>
         )}

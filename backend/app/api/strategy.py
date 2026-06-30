@@ -208,27 +208,59 @@ async def close_trade(
         free_coin = coin_bal.free if coin_bal else 0.0
     except Exception as e:
         return {"ok": False, "message": f"خطا در دریافت موجودی: {str(e)[:120]}"}
-    if free_coin <= 0:
-        return {"ok": False, "message": "موجودی این ارز در کیف‌پول صفر است (شاید قبلاً فروخته شده)"}
-    # بافرِ امن: کمی کمتر از کلِ موجودی تا نوبیتکس خطای OverValueOrder (رزرو کارمزد) ندهد
+    rial_to_toman = 10.0 if quote in ("RLS", "IRT", "IRR") else 1.0
+    ticker = await exchange.get_ticker(pair)
+    cur = ticker.get("last", 0) or 0   # قیمتِ لحظه‌ای (ریال)
+
+    # بافرِ امن: کمی کمتر از کلِ موجودی تا خطای OverValueOrder (رزرو کارمزد) ندهد
     sell_amount = min(trade.amount, free_coin) * 0.998
     sell_amount = math.floor(sell_amount * 1e6) / 1e6
-    if sell_amount <= 0:
-        return {"ok": False, "message": "موجودی سکه برای فروش کافی نیست (شاید قبلاً فروخته شده)"}
 
-    ticker = await exchange.get_ticker(pair)
-    cur = ticker.get("last", 0) or 0
+    from ..trading.bot import MIN_ORDER_VALUE
+    min_order = MIN_ORDER_VALUE.get(quote if quote in MIN_ORDER_VALUE else "RLS", 1_100_000.0)
+    value_rls = sell_amount * cur
+
+    # موجودیِ واقعی کمتر از حداقلِ فروشِ نوبیتکس (پوزیشن با کیف‌پول هم‌خوان نیست) →
+    # روی صرافی قابلِ فروش نیست؛ فقط در سوابق بسته می‌شود تا پوزیشنِ خیالی پاک شود.
+    if sell_amount <= 0 or value_rls < min_order:
+        cost_toman = (trade.entry_price * (free_coin if free_coin > 0 else 0)) / rial_to_toman
+        proceeds_toman = (cur * free_coin) / rial_to_toman if free_coin > 0 else 0.0
+        net_pnl = proceeds_toman - cost_toman
+        trade.exit_price = cur
+        trade.proceeds_toman = round(proceeds_toman, 2)
+        trade.pnl = round(net_pnl, 2)
+        trade.pnl_pct = round((net_pnl / cost_toman * 100.0) if cost_toman else 0, 3)
+        trade.status = "closed"
+        trade.closed_at = datetime.utcnow()
+        db.commit()
+        log_bot_event(f"⚪ بستنِ سوابق {pair}: موجودیِ واقعی ({free_coin}) کمتر از حداقلِ فروش — "
+                      f"این پوزیشن با کیف‌پول هم‌خوان نبود", user_id=current_user.id)
+        return {"ok": True, "message": "موجودیِ واقعیِ این ارز کمتر از حداقلِ فروشِ نوبیتکس بود؛ "
+                "پوزیشن فقط در سوابق بسته شد (روی صرافی چیزی برای فروش نبود)."}
+
     try:
-        await exchange.create_market_order(pair, "sell", sell_amount)
+        order = await exchange.create_market_order(pair, "sell", sell_amount)
     except Exception as e:
         return {"ok": False, "message": f"فروش ناموفق بود: {str(e)[:150]}"}
 
-    # حساب‌داریِ پولیِ دقیق — دقیقاً مثل خروجِ خودکارِ ربات
+    # ── حساب‌داری با دادهٔ واقعیِ فیل از نوبیتکس (نه تخمین) ──
+    sold_amount = sell_amount
+    proceeds_toman = (cur * sell_amount) / rial_to_toman   # پیش‌فرضِ تخمینی
     fee_pct = (getattr(current_user, "fee_pct", 0.25) or 0.25)
-    rial_to_toman = 10.0 if quote in ("RLS", "IRT", "IRR") else 1.0
-    cost_toman = (trade.entry_price * sell_amount) / rial_to_toman
-    proceeds_toman = (cur * sell_amount) / rial_to_toman
-    fee_toman = (cost_toman + proceeds_toman) * fee_pct / 100.0
+    fee_toman = ((trade.entry_price * sell_amount / rial_to_toman) + proceeds_toman) * fee_pct / 100.0
+    try:
+        od = await exchange.get_order(getattr(order, "order_id", "") or "", pair)
+        matched = float(od.get("matchedAmount") or 0)
+        total_rls = float(od.get("totalPrice") or od.get("totalOrderPrice") or 0)
+        fee_rls = float(od.get("fee") or 0)
+        if matched > 0 and total_rls > 0:
+            sold_amount = matched
+            proceeds_toman = total_rls / rial_to_toman
+            fee_toman = fee_rls / rial_to_toman
+    except Exception:
+        pass
+
+    cost_toman = (trade.entry_price * sold_amount) / rial_to_toman
     net_pnl = proceeds_toman - cost_toman - fee_toman
     trade.exit_price = cur
     trade.cost_toman = round(cost_toman, 2)
@@ -239,7 +271,7 @@ async def close_trade(
     trade.status = "closed"
     trade.closed_at = datetime.utcnow()
     db.commit()
-    log_bot_event(f"🟠 بستنِ دستی {pair} | مقدار {sell_amount} | خالص {net_pnl:+,.0f} ت",
+    log_bot_event(f"🟠 بستنِ دستی {pair} | مقدار {sold_amount} | خالص {net_pnl:+,.0f} ت (کارمزد {fee_toman:,.0f})",
                   user_id=current_user.id)
     return {"ok": True, "message": f"معامله بسته شد — سود/زیان خالص {net_pnl:+,.0f} تومان",
             "pnl": round(net_pnl, 2)}

@@ -179,8 +179,10 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     reason = f"حد ضرر (خالص {change_pct:+.2f}٪)"
                 elif (getattr(user, "ml_exit_enabled", False) and ml_signal
                       and ml_signal["signal"] == "SELL" and ml_conf >= trainer.confidence_threshold
-                      and change_pct >= min_exit):
-                    # خروج با سیگنال ML فقط وقتی سود خالص از حداقلِ پوشش‌دهندهٔ کارمزد+لغزش بیشتر باشد
+                      and change_pct >= max(min_exit, user.stop_loss)):
+                    # خروجِ ML فقط وقتی سودِ خالص دستِ‌کم به‌اندازهٔ فاصلهٔ حد ضرر باشد.
+                    # (وگرنه برنده‌ها کوچک بسته می‌شوند و بازنده‌ها کامل ضرر می‌کنند →
+                    #  با وجودِ نرخِ بردِ بالا، حساب آب می‌رود. این تقارن را تضمین می‌کند.)
                     reason = f"سیگنال فروش ML (سود خالص {change_pct:+.2f}٪)"
 
                 if reason:

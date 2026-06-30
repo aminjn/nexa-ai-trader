@@ -160,7 +160,7 @@ class SystemSettings(Base):
     telegram_bot_token = Column(String, default="")
     bale_bot_token = Column(String, default="")
     zarinpal_merchant_id = Column(String, default="")
-    signal_coins = Column(String, default="BTC,ETH")     # ارزهای تولید سیگنال (با کاما)
+    signal_coins = Column(String, default="ALL")     # ارزهای تولید سیگنال ("ALL" = همهٔ ارزهای نوبیتکس)
     signal_interval_minutes = Column(Integer, default=30)  # هر چند دقیقه سیگنال تولید شود
     # انتشار خودکار محتوا در کانال عمومی
     telegram_channel_id = Column(String, default="")     # @channel یا آی‌دی عددی

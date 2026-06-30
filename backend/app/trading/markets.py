@@ -17,10 +17,24 @@ _FALLBACK = [
 
 _ALL_TOKENS = {"ALL", "*", "همه", "همه‌ارزها", "همه ارزها", "AUTO", "خودکار"}
 
+# پیش‌فرض‌های قدیمی که عملاً «همه ارزها» منظور بوده — این‌ها هم به‌صورت همه تفسیر می‌شوند
+_LEGACY_DEFAULTS = {
+    "BTC,ETH",
+    "BTC,ETH,XRP,ADA,DOGE,LTC,TRX,BCH,BNB,SOL,DOT,AVAX,MATIC,SHIB,LINK,UNI,ATOM,FIL,ETC,XLM",
+}
+
 
 def is_all(coins_raw: str) -> bool:
     """آیا تنظیمِ کاربر یعنی «همهٔ ارزها به‌صورت خودکار»؟"""
     return (coins_raw or "").strip().upper() in {t.upper() for t in _ALL_TOKENS}
+
+
+def wants_all(coins_raw: str) -> bool:
+    """آیا باید همهٔ ارزها پوشش داده شوند؟ (خالی، «همه»، یا پیش‌فرضِ قدیمی)"""
+    s = (coins_raw or "").strip()
+    if not s or is_all(s):
+        return True
+    return s.upper() in {d.upper() for d in _LEGACY_DEFAULTS}
 
 
 async def get_all_nobitex_coins(quote: str = "IRT") -> list:

@@ -121,8 +121,8 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
         balances = await exchange.get_balance()
         # حالتِ «همهٔ ارزها»: لیستِ کاملِ بازارهای نوبیتکس را پویا بگیر (ارزِ جدید خودکار اضافه می‌شود)
         coins_override = None
-        from .markets import is_all, get_all_nobitex_coins
-        if is_all(getattr(user, "trading_coins", "")):
+        from .markets import wants_all, get_all_nobitex_coins
+        if wants_all(getattr(user, "trading_coins", "")):
             coins_override = await get_all_nobitex_coins("IRT")
         pairs, quote = _pairs_and_quote(user, balances, coins_override=coins_override)
         quote_free = balances[quote].free if balances.get(quote) else 0.0

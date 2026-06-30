@@ -65,8 +65,13 @@ SEP = "━━━━━━━━━━━━━"
 async def generate_signals(db, push: bool = True) -> int:
     """برای هر ارز تنظیم‌شده یک سیگنال می‌سازد و (در صورت push) توزیع می‌کند."""
     settings_row = db.query(models.SystemSettings).first()
-    coins_raw = (settings_row.signal_coins if settings_row else "") or "BTC,ETH"
-    coins = [c.strip().upper() for c in coins_raw.split(",") if c.strip()]
+    coins_raw = (settings_row.signal_coins if settings_row else "") or ""
+    from ..trading.markets import wants_all, get_all_nobitex_coins
+    if wants_all(coins_raw):
+        # پیش‌فرض: همهٔ ارزهای نوبیتکس (ارزِ جدید خودکار وارد می‌شود)
+        coins = await get_all_nobitex_coins("IRT")
+    else:
+        coins = [c.strip().upper() for c in coins_raw.split(",") if c.strip()]
     if not coins:
         coins = ["BTC", "ETH"]
 

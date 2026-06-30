@@ -90,8 +90,12 @@ export default function Signals() {
     const next = cur.includes(coin) ? cur.filter((c: string) => c !== coin) : [...cur, coin]
     setAdminSettings({ ...adminSettings, signal_coins: next.join(',') })
   }
-  const selectAllCoins = () => setAdminSettings({ ...adminSettings, signal_coins: availableCoins.join(',') })
-  const clearCoins = () => setAdminSettings({ ...adminSettings, signal_coins: '' })
+  const isAllSignals = () => {
+    const v = (adminSettings?.signal_coins || '').trim().toUpperCase()
+    return v === '' || v === 'ALL'
+  }
+  const selectAllCoins = () => setAdminSettings({ ...adminSettings, signal_coins: 'ALL' })  // پویا: همهٔ ارزهای نوبیتکس + ارزِ جدید خودکار
+  const clearCoins = () => setAdminSettings({ ...adminSettings, signal_coins: 'BTC,ETH' })
 
   const setPlanField = (idx: number, field: string, value: any) => {
     setAdminPlans(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
@@ -302,22 +306,29 @@ export default function Signals() {
                   <input style={inputStyle} value={adminSettings.zarinpal_merchant_id} onChange={e => setAdminSettings({ ...adminSettings, zarinpal_merchant_id: e.target.value })} dir="ltr" /></div>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                    <div style={label}>ارزهای تولید سیگنال ({selectedCoins().length} انتخاب‌شده)</div>
+                    <div style={label}>ارزهای تولید سیگنال ({isAllSignals() ? 'همهٔ ارزها — خودکار' : `${selectedCoins().length} انتخاب‌شده`})</div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" onClick={selectAllCoins} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit' }}>انتخاب همه</button>
-                      <button type="button" onClick={clearCoins} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' }}>پاک کردن</button>
+                      <button type="button" onClick={selectAllCoins} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--accent)', background: isAllSignals() ? 'var(--accent)' : 'transparent', color: isAllSignals() ? '#05121a' : 'var(--accent)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}>🌐 همهٔ ارزها (خودکار)</button>
+                      <button type="button" onClick={clearCoins} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border2)', background: 'transparent', color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' }}>لیست دستی</button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, maxHeight: 150, overflowY: 'auto', padding: 8, background: 'var(--bg2)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                    {availableCoins.map(coin => {
-                      const on = selectedCoins().includes(coin)
-                      return (
-                        <span key={coin} onClick={() => toggleSignalCoin(coin)} style={{ cursor: 'pointer', userSelect: 'none', padding: '5px 10px', borderRadius: 999, fontSize: 12, fontFamily: "'JetBrains Mono'", border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'color-mix(in srgb, var(--accent) 18%, transparent)' : 'transparent', color: on ? 'var(--accent)' : 'var(--dim)' }}>
-                          {on ? '✓ ' : ''}{coin}
-                        </span>
-                      )
-                    })}
-                  </div>
+                  {isAllSignals() && (
+                    <div style={{ marginTop: 8, padding: '10px 12px', background: 'color-mix(in srgb, var(--accent) 10%, transparent)', border: '1px solid var(--accent)', borderRadius: 10, fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>
+                      🌐 سیگنال برای همهٔ ارزهای نوبیتکس تولید می‌شود و ارزِ جدید خودکار اضافه می‌شود.
+                    </div>
+                  )}
+                  {!isAllSignals() && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8, maxHeight: 150, overflowY: 'auto', padding: 8, background: 'var(--bg2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                      {availableCoins.map(coin => {
+                        const on = selectedCoins().includes(coin)
+                        return (
+                          <span key={coin} onClick={() => toggleSignalCoin(coin)} style={{ cursor: 'pointer', userSelect: 'none', padding: '5px 10px', borderRadius: 999, fontSize: 12, fontFamily: "'JetBrains Mono'", border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`, background: on ? 'color-mix(in srgb, var(--accent) 18%, transparent)' : 'transparent', color: on ? 'var(--accent)' : 'var(--dim)' }}>
+                            {on ? '✓ ' : ''}{coin}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div><div style={label}>سیگنال هر چند دقیقه (تلگرام + بله)</div>
                   <input type="number" min={1} style={inputStyle} value={adminSettings.signal_interval_minutes} onChange={e => setAdminSettings({ ...adminSettings, signal_interval_minutes: Number(e.target.value) })} /></div>

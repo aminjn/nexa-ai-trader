@@ -91,10 +91,16 @@ MIN_ORDER_VALUE = {
 }
 
 
-def _pairs_and_quote(user, balances: dict):
-    """جفت‌ارزها (از لیست تنظیم‌شده‌ی کاربر) و ارز پایه را بر اساس موجودی انتخاب می‌کند."""
-    coins_raw = getattr(user, "trading_coins", "") or "BTC,ETH"
-    coins = [c.strip().upper() for c in coins_raw.split(",") if c.strip()]
+def _pairs_and_quote(user, balances: dict, coins_override=None):
+    """جفت‌ارزها و ارز پایه را انتخاب می‌کند.
+
+    coins_override: اگر داده شود (حالتِ «همهٔ ارزها»)، جایگزینِ لیستِ دستیِ کاربر می‌شود.
+    """
+    if coins_override:
+        coins = [c.upper() for c in coins_override]
+    else:
+        coins_raw = getattr(user, "trading_coins", "") or "BTC,ETH"
+        coins = [c.strip().upper() for c in coins_raw.split(",") if c.strip()]
     if not coins:
         coins = ["BTC", "ETH"]
     rls = balances.get("RLS")
@@ -113,7 +119,12 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
 
         exchange = get_exchange(exch.exchange_name, exch.api_key, exch.api_secret)
         balances = await exchange.get_balance()
-        pairs, quote = _pairs_and_quote(user, balances)
+        # حالتِ «همهٔ ارزها»: لیستِ کاملِ بازارهای نوبیتکس را پویا بگیر (ارزِ جدید خودکار اضافه می‌شود)
+        coins_override = None
+        from .markets import is_all, get_all_nobitex_coins
+        if is_all(getattr(user, "trading_coins", "")):
+            coins_override = await get_all_nobitex_coins("IRT")
+        pairs, quote = _pairs_and_quote(user, balances, coins_override=coins_override)
         quote_free = balances[quote].free if balances.get(quote) else 0.0
         min_value = MIN_ORDER_VALUE.get(quote, 0.0)
         trainer = get_trainer()

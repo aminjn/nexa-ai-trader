@@ -235,15 +235,33 @@ export default function Strategy() {
             <div style={cardStyle}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>ارزهایی که ربات معامله کند</div>
               <div style={{ fontSize: 12, color: 'var(--dim)', lineHeight: 1.8, marginBottom: 10 }}>
-                نمادها را با کاما جدا کن (مثل <span dir="ltr">BTC,ETH,XRP,SOL</span>). ربات روی همه‌ی این ارزها در بازار ریالی نوبیتکس کار می‌کند. ارزی که در نوبیتکس نباشد خودکار رد می‌شود.
+                نمادها را با کاما جدا کن (مثل <span dir="ltr">BTC,ETH,XRP,SOL</span>)، یا روی «همهٔ ارزها» بزن تا ربات روی <b>همهٔ ارزهای نوبیتکس</b> کار کند و هر ارزِ جدیدی که نوبیتکس اضافه کند <b>خودکار</b> وارد شود. ارزی که در نوبیتکس نباشد خودکار رد می‌شود.
               </div>
-              <input
-                value={tradingCoins}
-                onChange={e => setTradingCoins(e.target.value.toUpperCase())}
-                dir="ltr"
-                placeholder="BTC,ETH,XRP,ADA,..."
-                style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: "'JetBrains Mono', monospace" }}
-              />
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                <button type="button" onClick={() => setTradingCoins('ALL')}
+                  style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid var(--accent)', cursor: 'pointer',
+                    background: tradingCoins.trim().toUpperCase() === 'ALL' ? 'var(--accent)' : 'transparent',
+                    color: tradingCoins.trim().toUpperCase() === 'ALL' ? '#05121a' : 'var(--accent)', fontWeight: 700, fontSize: 13 }}>
+                  🌐 همهٔ ارزها (خودکار)
+                </button>
+                <button type="button" onClick={() => setTradingCoins('BTC,ETH,XRP,ADA,DOGE,LTC,TRX,BCH,BNB,SOL,DOT,AVAX,MATIC,SHIB,LINK,UNI,ATOM,FIL,ETC,XLM')}
+                  style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', background: 'transparent', color: 'var(--dim)', fontWeight: 700, fontSize: 13 }}>
+                  لیست دستی
+                </button>
+              </div>
+              {tradingCoins.trim().toUpperCase() === 'ALL' ? (
+                <div style={{ padding: '12px 14px', background: 'rgba(45,212,191,.08)', border: '1px solid var(--accent)', borderRadius: 10, fontSize: 13, color: 'var(--green)', fontWeight: 700 }}>
+                  🌐 حالتِ «همهٔ ارزها» فعال است — ربات همهٔ بازارهای ریالیِ نوبیتکس را پوشش می‌دهد و ارزِ جدید خودکار اضافه می‌شود.
+                </div>
+              ) : (
+                <input
+                  value={tradingCoins}
+                  onChange={e => setTradingCoins(e.target.value.toUpperCase())}
+                  dir="ltr"
+                  placeholder="BTC,ETH,XRP,ADA,..."
+                  style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', color: 'var(--text)', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: "'JetBrains Mono', monospace" }}
+                />
+              )}
               <div style={{ marginTop: 16, padding: 14, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 12 }}>
                 <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>💸 کارمزد نوبیتکس (خودکار)</div>
                 <div style={{ fontSize: 13, color: 'var(--dim)', lineHeight: 1.9 }}>

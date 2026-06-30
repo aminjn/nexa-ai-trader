@@ -106,9 +106,19 @@ async def fetch_5year_data(pairs: List[str] = None, resolution: str = "60"):
 
     خروجی: (DataFrame, نام منبع)
     """
+    # لیستِ نمادهای آموزش: پویا از همهٔ بازارهای نوبیتکس (ارزِ جدید خودکار وارد آموزش می‌شود)
+    symbols = NOBITEX_TRAIN_SYMBOLS
+    try:
+        from ..trading.markets import get_all_nobitex_coins
+        coins = await get_all_nobitex_coins("IRT")
+        if coins and len(coins) >= len(NOBITEX_TRAIN_SYMBOLS):
+            symbols = [f"{c}IRT" for c in coins]
+    except Exception:
+        pass
+
     # تلاش اول: نوبیتکس ساعتی (بیشترین داده + هماهنگ با تایم‌فریم ۱ساعتهٔ معامله)
     try:
-        df = await fetch_nobitex_history(NOBITEX_TRAIN_SYMBOLS, resolution=resolution)
+        df = await fetch_nobitex_history(symbols, resolution=resolution)
         if not df.empty and len(df) > 300:
             return df, "نوبیتکس"
     except Exception:
@@ -116,7 +126,7 @@ async def fetch_5year_data(pairs: List[str] = None, resolution: str = "60"):
 
     # تلاش دوم: نوبیتکس روزانه (اگر ساعتی در دسترس نبود)
     try:
-        df = await fetch_nobitex_history(NOBITEX_TRAIN_SYMBOLS, resolution="D")
+        df = await fetch_nobitex_history(symbols, resolution="D")
         if not df.empty and len(df) > 300:
             return df, "نوبیتکس"
     except Exception:

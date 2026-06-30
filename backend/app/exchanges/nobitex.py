@@ -163,6 +163,34 @@ class NobitexExchange(BaseExchange):
             dst_u = "IRT"
         return f"{src.upper()}{dst_u}"
 
+    async def get_all_markets(self, quote: str = "IRT") -> List[str]:
+        """لیستِ همهٔ ارزهای پایه (base) که در نوبیتکس بازارِ فعالِ نقدشونده با این quote دارند.
+
+        از /v3/orderbook/all استفاده می‌کند و فقط بازارهایی را برمی‌گرداند که هم سفارش خرید
+        و هم سفارش فروش دارند (یعنی واقعاً فعال‌اند). ارزِ جدیدِ نوبیتکس خودکار اینجا ظاهر می‌شود.
+        """
+        quote = (quote or "IRT").upper()
+        if quote in ("RLS", "IRR"):
+            quote = "IRT"
+        try:
+            result = await self._get("/v3/orderbook/all")
+        except Exception:
+            return []
+        if not isinstance(result, dict):
+            return []
+        coins = []
+        for sym, ob in result.items():
+            if sym == "status" or not isinstance(sym, str) or not sym.endswith(quote):
+                continue
+            base = sym[: -len(quote)]
+            if not base or base in ("USDT", "RLS", "IRT", "IRR"):
+                continue
+            # فقط بازارِ نقدشونده: هم خرید هم فروش داشته باشد
+            if isinstance(ob, dict) and not (ob.get("bids") and ob.get("asks")):
+                continue
+            coins.append(base.upper())
+        return sorted(set(coins))
+
     async def get_ohlcv(self, symbol: str, timeframe: str = "1h", limit: int = 200) -> List:
         try:
             src, dst = symbol.replace("/", "-").split("-")

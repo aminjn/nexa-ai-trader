@@ -214,7 +214,9 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     import math
                     coin_bal = balances.get(base_code.upper())
                     free_coin = coin_bal.free if coin_bal else 0.0
-                    sell_amount = min(open_trade.amount, free_coin) if free_coin > 0 else open_trade.amount
+                    base_amt = min(open_trade.amount, free_coin) if free_coin > 0 else open_trade.amount
+                    # بافرِ امن (۰.۲٪ کمتر) تا نوبیتکس خطای OverValueOrder/کمبودِ موجودی ندهد
+                    sell_amount = base_amt * 0.998
                     # کوتاه‌سازی به ۶ رقم اعشار برای جلوگیری از خطای دقت/کمبود موجودی
                     sell_amount = math.floor(sell_amount * 1e6) / 1e6
                     if sell_amount <= 0:

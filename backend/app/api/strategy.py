@@ -208,7 +208,10 @@ async def close_trade(
         free_coin = coin_bal.free if coin_bal else 0.0
     except Exception as e:
         return {"ok": False, "message": f"خطا در دریافت موجودی: {str(e)[:120]}"}
-    sell_amount = min(trade.amount, free_coin) if free_coin > 0 else trade.amount
+    if free_coin <= 0:
+        return {"ok": False, "message": "موجودی این ارز در کیف‌پول صفر است (شاید قبلاً فروخته شده)"}
+    # بافرِ امن: کمی کمتر از کلِ موجودی تا نوبیتکس خطای OverValueOrder (رزرو کارمزد) ندهد
+    sell_amount = min(trade.amount, free_coin) * 0.998
     sell_amount = math.floor(sell_amount * 1e6) / 1e6
     if sell_amount <= 0:
         return {"ok": False, "message": "موجودی سکه برای فروش کافی نیست (شاید قبلاً فروخته شده)"}

@@ -172,11 +172,22 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 change_pct = gross_pct - round_trip_fee  # سود/زیان خالص پس از کارمزد
                 # حداقل سود خالصِ لازم برای خروجِ سوددهانه (پوشش لغزش بازارِ سفارش market)
                 min_exit = max(0.5, round_trip_fee + 0.3)
+
+                # ── حد ضررِ متحرک (trailing): بیشترین قیمت را دنبال کن تا برنده‌ها بدوند ──
+                if open_trade.peak_price is None or current_price > open_trade.peak_price:
+                    open_trade.peak_price = current_price
+                    db.commit()
+                peak = open_trade.peak_price or open_trade.entry_price
+                peak_pct = (peak - open_trade.entry_price) / open_trade.entry_price * 100  # اوجِ سودِ ناخالص
+                drop_from_peak = ((peak - current_price) / peak * 100) if peak else 0.0
+                trail_pct = max(0.8, user.stop_loss * 0.6)   # فاصلهٔ دنبال‌کننده از قله
+
                 reason = None
-                if change_pct >= user.target_profit:
-                    reason = f"هدف سود (خالص {change_pct:+.2f}٪ پس از کارمزد)"
-                elif change_pct <= -user.stop_loss:
+                if change_pct <= -user.stop_loss:
                     reason = f"حد ضرر (خالص {change_pct:+.2f}٪)"
+                elif peak_pct >= user.target_profit and drop_from_peak >= trail_pct and change_pct >= min_exit:
+                    # به هدف رسید و حالا با عقب‌نشینی از قله، سودِ بزرگ‌تر را قفل می‌کند
+                    reason = f"حد ضررِ متحرک (قله {peak_pct:.1f}٪ → خروجِ خالص {change_pct:+.2f}٪)"
                 elif (getattr(user, "ml_exit_enabled", False) and ml_signal
                       and ml_signal["signal"] == "SELL" and ml_conf >= trainer.confidence_threshold
                       and change_pct >= max(min_exit, user.stop_loss)):
@@ -297,6 +308,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     pair=pair,
                     side="buy",
                     entry_price=current_price,
+                    peak_price=current_price,
                     amount=amount,
                     cost_toman=round((current_price * amount) / rial_to_toman, 2),
                     status="open",

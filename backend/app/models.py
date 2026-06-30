@@ -87,6 +87,7 @@ class Trade(Base):
     side = Column(String)  # buy/sell/long/short
     entry_price = Column(Float)
     exit_price = Column(Float, nullable=True)
+    peak_price = Column(Float, nullable=True)   # بیشترین قیمتِ دیده‌شده (برای حد ضررِ متحرک)
     amount = Column(Float)
     pnl = Column(Float, nullable=True)         # سود/زیان خالص (تومان) — پس از کسر کارمزد
     pnl_pct = Column(Float, nullable=True)     # سود/زیان خالص بر حسب درصد

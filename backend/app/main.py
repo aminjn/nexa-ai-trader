@@ -158,6 +158,8 @@ def ensure_columns():
             for col in ("cost_toman", "proceeds_toman", "fee_toman"):
                 if col not in cols:
                     conn.execute(text(f"ALTER TABLE trades ADD COLUMN {col} FLOAT DEFAULT 0.0"))
+            if "peak_price" not in cols:
+                conn.execute(text("ALTER TABLE trades ADD COLUMN peak_price FLOAT"))
     # pool_withdrawals: مقادیر قفل‌شده در لحظهٔ درخواست
     if "pool_withdrawals" in tables:
         cols = {c["name"] for c in inspector.get_columns("pool_withdrawals")}

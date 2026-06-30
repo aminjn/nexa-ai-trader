@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [importing, setImporting] = useState(false)
+  const [closingId, setClosingId] = useState<number|null>(null)
   const [prices, setPrices] = useState<Price[]>([])
   const [fundamental, setFundamental] = useState<Fundamental|null>(null)
   const [analysis, setAnalysis] = useState<Analysis|null>(null)
@@ -123,6 +124,19 @@ export default function Dashboard() {
     } catch (e: any) {
       toast.error(e.response?.data?.detail || 'خطا')
     } finally { setImporting(false) }
+  }
+
+  const closeTrade = async (id: number) => {
+    if (!confirm('این معامله همین حالا با قیمتِ بازار بسته شود؟')) return
+    setClosingId(id)
+    try {
+      const r = await api.post(`/strategy/close-trade/${id}`)
+      if (r.data.ok) toast.success(r.data.message || 'معامله بسته شد')
+      else toast.error(r.data.message || 'بستن ناموفق بود')
+      try { const pos = await api.get('/dashboard/positions'); setPositions(pos.data.positions || []) } catch {}
+    } catch (e: any) {
+      toast.error(e.response?.data?.detail || 'خطا در بستن معامله')
+    } finally { setClosingId(null) }
   }
 
   const fmtTime = (iso: string) => {
@@ -277,16 +291,20 @@ export default function Dashboard() {
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr', gap:8, padding:'0 12px 8px', fontSize:11, color:'var(--faint)' }}>
-                <span>جفت‌ارز</span><span>قیمت خرید</span><span>قیمت فعلی</span><span>🎯 فروش در</span><span style={{textAlign:'end'}}>سود/زیان</span>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr auto', gap:8, padding:'0 12px 8px', fontSize:11, color:'var(--faint)' }}>
+                <span>جفت‌ارز</span><span>قیمت خرید</span><span>قیمت فعلی</span><span>🎯 فروش در</span><span style={{textAlign:'end'}}>سود/زیان</span><span></span>
               </div>
               {positions.map(p => (
-                <div key={p.id} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr', gap:8, padding:12, borderRadius:11, alignItems:'center', fontSize:13, fontFamily:"'JetBrains Mono'", background:'var(--bg3)' }}>
+                <div key={p.id} style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr auto', gap:8, padding:12, borderRadius:11, alignItems:'center', fontSize:13, fontFamily:"'JetBrains Mono'", background:'var(--bg3)' }}>
                   <span style={{ fontWeight:700 }}>{p.pair}</span>
                   <span style={{ color:'var(--dim)' }}>{p.entry_price.toLocaleString()}</span>
                   <span style={{ color:'var(--dim)' }}>{p.current_price.toLocaleString()}</span>
                   <span style={{ color:'var(--green)', fontWeight:700 }}>{p.target_sell_price.toLocaleString()}</span>
                   <span style={{ textAlign:'end', fontWeight:700, color:pnlColor(p.pnl_pct) }}>{p.pnl_pct>=0?'+':''}{p.pnl_pct}%</span>
+                  <button onClick={() => closeTrade(p.id)} disabled={closingId===p.id}
+                    style={{ padding:'6px 12px', border:'none', borderRadius:9, background:'var(--red)', color:'#fff', fontWeight:700, fontFamily:'inherit', fontSize:12, cursor:closingId===p.id?'not-allowed':'pointer', opacity:closingId===p.id?0.6:1, whiteSpace:'nowrap' }}>
+                    {closingId===p.id ? '...' : '🔴 بستن'}
+                  </button>
                 </div>
               ))}
               <p style={{ fontSize:11, color:'var(--faint)', margin:'6px 0 0' }}>

@@ -168,6 +168,80 @@ class TestTradeRequest(BaseModel):
     pair: str = "BTC/RLS"
 
 
+@router.post("/close-trade/{trade_id}")
+async def close_trade(
+    trade_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """بستنِ دستیِ یک معاملهٔ باز (فروشِ فوریِ بازار) — مثلِ خروجِ خودکارِ ربات حساب می‌شود."""
+    import math
+    from datetime import datetime
+    from ..trading.bot import log_bot_event
+    from ..exchanges.nobitex import NobitexExchange
+
+    trade = db.query(models.Trade).filter(
+        models.Trade.id == trade_id,
+        models.Trade.user_id == current_user.id,
+        models.Trade.status == "open",
+    ).first()
+    if not trade:
+        return {"ok": False, "message": "معاملهٔ بازی با این شناسه پیدا نشد"}
+
+    exch_rec = db.query(models.ExchangeAPI).filter(
+        models.ExchangeAPI.user_id == current_user.id,
+        models.ExchangeAPI.is_active == True,
+    ).first()
+    if not exch_rec:
+        return {"ok": False, "message": "هیچ صرافی متصلی وجود ندارد"}
+
+    exchange = get_exchange(exch_rec.exchange_name, exch_rec.api_key, exch_rec.api_secret)
+    pair = trade.pair or ""
+    quote = pair.split("/")[1].upper() if "/" in pair else "RLS"
+    base = pair.split("/")[0] if "/" in pair else pair
+    base_code = NobitexExchange._code(base)
+
+    # مقدارِ قابلِ فروش = کمینهٔ ثبت‌شده و موجودیِ واقعی
+    try:
+        balances = await exchange.get_balance()
+        coin_bal = balances.get(base_code.upper())
+        free_coin = coin_bal.free if coin_bal else 0.0
+    except Exception as e:
+        return {"ok": False, "message": f"خطا در دریافت موجودی: {str(e)[:120]}"}
+    sell_amount = min(trade.amount, free_coin) if free_coin > 0 else trade.amount
+    sell_amount = math.floor(sell_amount * 1e6) / 1e6
+    if sell_amount <= 0:
+        return {"ok": False, "message": "موجودی سکه برای فروش کافی نیست (شاید قبلاً فروخته شده)"}
+
+    ticker = await exchange.get_ticker(pair)
+    cur = ticker.get("last", 0) or 0
+    try:
+        await exchange.create_market_order(pair, "sell", sell_amount)
+    except Exception as e:
+        return {"ok": False, "message": f"فروش ناموفق بود: {str(e)[:150]}"}
+
+    # حساب‌داریِ پولیِ دقیق — دقیقاً مثل خروجِ خودکارِ ربات
+    fee_pct = (getattr(current_user, "fee_pct", 0.25) or 0.25)
+    rial_to_toman = 10.0 if quote in ("RLS", "IRT", "IRR") else 1.0
+    cost_toman = (trade.entry_price * sell_amount) / rial_to_toman
+    proceeds_toman = (cur * sell_amount) / rial_to_toman
+    fee_toman = (cost_toman + proceeds_toman) * fee_pct / 100.0
+    net_pnl = proceeds_toman - cost_toman - fee_toman
+    trade.exit_price = cur
+    trade.cost_toman = round(cost_toman, 2)
+    trade.proceeds_toman = round(proceeds_toman, 2)
+    trade.fee_toman = round(fee_toman, 2)
+    trade.pnl = round(net_pnl, 2)
+    trade.pnl_pct = round((net_pnl / cost_toman * 100.0) if cost_toman else 0, 3)
+    trade.status = "closed"
+    trade.closed_at = datetime.utcnow()
+    db.commit()
+    log_bot_event(f"🟠 بستنِ دستی {pair} | مقدار {sell_amount} | خالص {net_pnl:+,.0f} ت",
+                  user_id=current_user.id)
+    return {"ok": True, "message": f"معامله بسته شد — سود/زیان خالص {net_pnl:+,.0f} تومان",
+            "pnl": round(net_pnl, 2)}
+
+
 @router.post("/bot/test-trade")
 async def test_trade(
     req: TestTradeRequest,

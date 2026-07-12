@@ -227,13 +227,33 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                         )
                         continue
                     try:
-                        await exchange.create_market_order(pair, "sell", sell_amount)
-                        open_trade.exit_price = current_price
-                        # ── حساب‌داری پولیِ دقیق (قیمت‌ها ریال؛ به تومان تبدیل می‌شود) ──
+                        sell_order = await exchange.create_market_order(pair, "sell", sell_amount)
+                        # ── حساب‌داری با فیلِ واقعیِ نوبیتکس (نه قیمتِ تخمینیِ تیکر) ──
                         rial_to_toman = 10.0 if quote == "RLS" else 1.0  # بازار RLS ریال است
-                        cost_toman = (open_trade.entry_price * sell_amount) / rial_to_toman
+                        real_exit = current_price
+                        sold = sell_amount
                         proceeds_toman = (current_price * sell_amount) / rial_to_toman
-                        fee_toman = (cost_toman + proceeds_toman) * fee_pct / 100.0
+                        fee_toman = None
+                        try:
+                            await asyncio.sleep(2)
+                            od = await exchange.get_order(sell_order.order_id, pair)
+                            matched = float(od.get("matchedAmount") or 0)
+                            total_rls = float(od.get("totalPrice") or od.get("totalOrderPrice") or 0)
+                            fee_rls = float(od.get("fee") or 0)
+                            if matched > 0 and total_rls > 0:
+                                sold = matched
+                                real_exit = total_rls / matched
+                                proceeds_toman = total_rls / rial_to_toman
+                                if fee_rls > 0:
+                                    # کارمزدِ فروش واقعی + کارمزدِ خریدِ تخمینی
+                                    fee_toman = fee_rls / rial_to_toman + \
+                                        (open_trade.entry_price * sold / rial_to_toman) * fee_pct / 100.0
+                        except Exception:
+                            pass
+                        open_trade.exit_price = real_exit
+                        cost_toman = (open_trade.entry_price * sold) / rial_to_toman
+                        if fee_toman is None:
+                            fee_toman = (cost_toman + proceeds_toman) * fee_pct / 100.0
                         net_pnl = proceeds_toman - cost_toman - fee_toman   # سود/زیان خالصِ پولی (تومان)
                         open_trade.cost_toman = round(cost_toman, 2)
                         open_trade.proceeds_toman = round(proceeds_toman, 2)
@@ -293,6 +313,19 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 log_bot_event(f"🚦 {pair}: به سقف معاملهٔ روزانهٔ پلن رسیده‌اید — معاملهٔ جدید باز نمی‌شود")
                 continue
 
+            # ── فیلترِ نقدشوندگی: در ارزِ با اسپردِ بالا وارد نشو ──
+            # سفارشِ market در ارزِ کم‌نقد چند درصد بدتر فیل می‌شود؛ روی کاغذ «سود» ثبت
+            # می‌شد ولی پولِ واقعی آب می‌رفت. اسپردِ خرید/فروش باید کمتر از ۰.۵٪ باشد.
+            bid = ticker.get("bid", 0) or 0
+            ask = ticker.get("ask", 0) or 0
+            if not bid or not ask:
+                log_bot_event(f"⏳ {pair}: دفترِ سفارش خالی/ناقص — ورود انجام نشد")
+                continue
+            spread_pct = (ask - bid) / ((ask + bid) / 2) * 100
+            if spread_pct > 0.5:
+                log_bot_event(f"⏳ {pair}: اسپردِ بازار بالاست ({spread_pct:.2f}٪) — ارزِ کم‌نقد، ورود انجام نشد")
+                continue
+
             # بررسی موجودی و حداقل سفارش
             if quote_free <= min_value:
                 log_bot_event(f"💰 {pair}: موجودی ({quote_free:,.0f}) کمتر از حداقل سفارش ({min_value:,.0f} {quote})")
@@ -315,15 +348,29 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
             try:
                 order = await exchange.create_market_order(pair, "buy", amount)
                 rial_to_toman = 10.0 if quote == "RLS" else 1.0
+                # ── قیمت و مقدارِ واقعیِ فیل‌شده از خودِ نوبیتکس (نه قیمتِ تخمینیِ تیکر) ──
+                # قیمتِ ثبت‌شده باید همانی باشد که پول واقعاً بابتش رفت، وگرنه سودِ کاغذی می‌سازد.
+                real_entry = current_price
+                real_amount = amount
+                try:
+                    await asyncio.sleep(2)  # فرصت برای فیلِ سفارشِ market
+                    od = await exchange.get_order(order.order_id, pair)
+                    matched = float(od.get("matchedAmount") or 0)
+                    total_rls = float(od.get("totalPrice") or od.get("totalOrderPrice") or 0)
+                    if matched > 0 and total_rls > 0:
+                        real_entry = total_rls / matched      # قیمتِ میانگینِ واقعیِ فیل
+                        real_amount = matched
+                except Exception:
+                    pass
                 trade = models.Trade(
                     user_id=user.id,
                     exchange=exch.exchange_name,
                     pair=pair,
                     side="buy",
-                    entry_price=current_price,
-                    peak_price=current_price,
-                    amount=amount,
-                    cost_toman=round((current_price * amount) / rial_to_toman, 2),
+                    entry_price=real_entry,
+                    peak_price=real_entry,
+                    amount=real_amount,
+                    cost_toman=round((real_entry * real_amount) / rial_to_toman, 2),
                     status="open",
                     trade_type=user.market_type,
                     ai_assisted=user.ai_trading_enabled,
@@ -333,7 +380,9 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 db.commit()
                 open_trades.append(trade)
                 quote_free -= spend
-                log_bot_event(f"🟢 خرید {pair} | مقدار: {amount} | قیمت: {current_price:,.0f}")
+                slip = ((real_entry - current_price) / current_price * 100) if current_price else 0
+                log_bot_event(f"🟢 خرید {pair} | مقدار: {real_amount} | قیمت واقعی فیل: {real_entry:,.0f}"
+                              + (f" (لغزش {slip:+.2f}٪)" if abs(slip) > 0.01 else ""))
             except Exception as e:
                 log_bot_event(f"خطا در خرید {pair}: {str(e)[:80]}", "error")
 

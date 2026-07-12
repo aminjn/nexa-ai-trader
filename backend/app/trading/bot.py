@@ -129,6 +129,17 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
         min_value = MIN_ORDER_VALUE.get(quote, 0.0)
         trainer = get_trainer()
 
+        # دادهٔ بیت‌کوین یک‌بار در هر چرخه — برای ویژگیِ «قدرتِ نسبی به BTC» در مدل
+        btc_df = None
+        if trainer.is_trained:
+            try:
+                ohlcv_btc = await exchange.get_ohlcv(f"BTC/{quote}", "1h", 720)
+                if ohlcv_btc:
+                    btc_df = pd.DataFrame(ohlcv_btc, columns=["timestamp", "open", "high", "low", "close", "volume"])
+                    btc_df["timestamp"] = pd.to_datetime(btc_df["timestamp"], unit="ms")
+            except Exception:
+                btc_df = None
+
         # همه‌ی معاملات باز کاربر را یک‌بار می‌گیریم و بر اساس «ارز پایه» تطبیق می‌دهیم
         # (مقاوم در برابر هر شکل ذخیره‌شده‌ی جفت‌ارز مثل BTC/RLS یا BTC/ریال)
         open_trades = db.query(models.Trade).filter(
@@ -170,7 +181,7 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                 if ohlcv:
                     df = pd.DataFrame(ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"])
                     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-                    ml_signal = trainer.predict(df)
+                    ml_signal = trainer.predict(df, btc_df=btc_df)
                     ml_conf = ml_signal.get("confidence", 0)
 
             # ── معامله باز موجود؟ بررسی شرایط خروج ──

@@ -130,6 +130,20 @@ FEATURES = [
     ("htf_d_rsi", "RSI تایم‌فریم روزانه"),
     ("htf_d_ret", "بازده روز قبل (روزانه)"),
     ("htf_d_dist20", "فاصله تا میانگین ۲۰ روزه"),
+    # نرمال‌شده به نوسان + شکست + ناهنجاری حجم
+    ("ret_z_24", "بازده نرمال‌شده به نوسان ۲۴س"),
+    ("dist_high_24", "فاصله تا سقف ۲۴ساعته (شکست)"),
+    ("dist_low_24", "فاصله تا کف ۲۴ساعته"),
+    ("dist_high_168", "فاصله تا سقف هفتگی"),
+    ("vol_z_24", "ناهنجاری حجم (z-score)"),
+    # الگوی زمانی بازار
+    ("hour_sin", "ساعت روز (سینوسی)"),
+    ("hour_cos", "ساعت روز (کسینوسی)"),
+    ("dow_sin", "روز هفته (سینوسی)"),
+    ("dow_cos", "روز هفته (کسینوسی)"),
+    # قدرت نسبی به بیت‌کوین (آلت‌کوین‌ها دنباله‌روی BTCاند)
+    ("btc_ret_24", "بازده ۲۴ساعتهٔ بیت‌کوین"),
+    ("rel_str_24", "قدرت نسبی به بیت‌کوین (۲۴س)"),
 ]
 
 
@@ -148,8 +162,11 @@ def _rsi(c, period):
     return 100 - (100 / (1 + rs))
 
 
-def add_features(df: pd.DataFrame) -> pd.DataFrame:
-    """افزودن ۳۵+ اندیکاتور تکنیکال به‌صورت مستقل از مقیاس قیمت."""
+def add_features(df: pd.DataFrame, btc_df: pd.DataFrame = None) -> pd.DataFrame:
+    """افزودن ۵۰ اندیکاتور تکنیکال به‌صورت مستقل از مقیاس قیمت.
+
+    btc_df: کندل‌های ساعتیِ بیت‌کوین برای ویژگی‌های «قدرت نسبی» (اختیاری — بدونِ آن خنثی).
+    """
     df = df.copy()
     c = df["close"]
     h = df["high"]
@@ -272,13 +289,64 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["htf_d_ret"] = pd.to_numeric(df["htf_d_ret"], errors="coerce").fillna(0.0)
     df["htf_d_dist20"] = pd.to_numeric(df["htf_d_dist20"], errors="coerce").fillna(0.0)
 
-    # ── هدف ساده (مثلِ منطقِ قبلی که پرتکرار معامله می‌کرد): کندلِ بعدی بالاتر است؟ ──
-    # هدفِ ساده ⇒ حدودِ نیمی از نمونه‌ها مثبت ⇒ مدل سیگنالِ «خرید» فراوان می‌دهد و
-    # بات تندتند معاملهٔ کوچک می‌زند. (هدفِ تریپل‌بَریر در بازارِ نزولی تقریباً هیچ خریدی نمی‌داد.)
-    nxt = c.shift(-1)
-    label = (nxt > c).astype(float)
-    label[nxt.isna()] = np.nan          # ردیفِ آخر آیندهٔ معلوم ندارد → حذف در آموزش
-    df["target"] = label.values
+    # ── بازدهِ نرمال‌شده به نوسان + شکستِ سقف/کف + ناهنجاریِ حجم ──
+    ret1 = c.pct_change(1)
+    vol24 = ret1.rolling(24).std()
+    df["ret_z_24"] = ret1 / (vol24 + 1e-9)
+    hi24 = h.rolling(24).max()
+    lo24 = l.rolling(24).min()
+    hi168 = h.rolling(168).max()
+    df["dist_high_24"] = c / (hi24 + 1e-9) - 1     # نزدیکِ صفر = در آستانهٔ شکستِ سقف
+    df["dist_low_24"] = c / (lo24 + 1e-9) - 1
+    df["dist_high_168"] = c / (hi168 + 1e-9) - 1
+    vmean24 = v.rolling(24).mean()
+    vstd24 = v.rolling(24).std()
+    df["vol_z_24"] = (v - vmean24) / (vstd24 + 1e-9)
+
+    # ── الگوی زمانی (ساعتِ روز و روزِ هفته به‌صورت چرخه‌ای) ──
+    df["hour_sin"] = 0.0
+    df["hour_cos"] = 1.0
+    df["dow_sin"] = 0.0
+    df["dow_cos"] = 1.0
+    if "timestamp" in df.columns:
+        try:
+            ts2 = pd.to_datetime(df["timestamp"])
+            hr = ts2.dt.hour.to_numpy()
+            dw = ts2.dt.dayofweek.to_numpy()
+            df["hour_sin"] = np.sin(2 * np.pi * hr / 24)
+            df["hour_cos"] = np.cos(2 * np.pi * hr / 24)
+            df["dow_sin"] = np.sin(2 * np.pi * dw / 7)
+            df["dow_cos"] = np.cos(2 * np.pi * dw / 7)
+        except Exception:
+            pass
+
+    # ── قدرتِ نسبی به بیت‌کوین (آلت‌کوین‌ها معمولاً دنباله‌روی BTCاند) ──
+    ret24 = c.pct_change(24)
+    df["btc_ret_24"] = 0.0
+    df["rel_str_24"] = 0.0
+    if btc_df is not None and "timestamp" in df.columns and "timestamp" in getattr(btc_df, "columns", []):
+        try:
+            b = btc_df.sort_values("timestamp")
+            bts = pd.to_datetime(b["timestamp"]).dt.floor("60min")
+            bret = pd.Series(b["close"].values, index=bts.values).pct_change(24)
+            bmap = dict(zip(bret.index, bret.values))
+            key = pd.to_datetime(df["timestamp"]).dt.floor("60min")
+            df["btc_ret_24"] = key.map(bmap).to_numpy()
+        except Exception:
+            pass
+    df["btc_ret_24"] = pd.to_numeric(df["btc_ret_24"], errors="coerce").fillna(0.0)
+    df["rel_str_24"] = (ret24.fillna(0.0) - df["btc_ret_24"]).astype(float)
+
+    # ── هدفِ سه‌کلاسه روی افقِ ۲۴ ساعته ──
+    # حرکتِ یک‌ساعته (~۰.۵٪) از کارمزدِ رفت‌وبرگشت کوچک‌تر است و پیش‌بینی‌اش پول نمی‌سازد.
+    # هدفِ جدید: بازدهِ ۲۴ساعتِ بعد — ۲=صعودِ قوی (≥+۲٪)، ۰=نزولِ قوی (≤−۱.۵٪)، ۱=خنثی.
+    # مدل اجازه دارد بگوید «فرصتی نیست» (خنثی) و فقط روی حرکت‌های بزرگ‌تر از کارمزد سیگنال بدهد.
+    fwd24 = c.shift(-24) / c - 1
+    label = np.full(len(c), 1.0)
+    label[(fwd24 >= 0.02).to_numpy()] = 2.0
+    label[(fwd24 <= -0.015).to_numpy()] = 0.0
+    label[fwd24.isna().to_numpy()] = np.nan     # ۲۴ ردیفِ آخر آیندهٔ معلوم ندارند
+    df["target"] = label
 
     return df.replace([np.inf, -np.inf], np.nan)
 
@@ -383,12 +451,21 @@ class MLTrainer:
             except Exception:
                 pass
         # ویژگی‌ها را برای هر نماد جداگانه محاسبه می‌کنیم تا مرز نمادها قاطی نشود
+        # سریِ بیت‌کوین را یک‌بار جدا می‌کنیم تا ویژگیِ «قدرتِ نسبی» برای همه ساخته شود
+        btc_ref = None
+        if "symbol" in raw.columns:
+            try:
+                btc_syms = [s for s in raw["symbol"].unique() if str(s).upper().startswith("BTC")]
+                if btc_syms:
+                    btc_ref = raw[raw["symbol"] == btc_syms[0]].sort_values("timestamp")
+            except Exception:
+                btc_ref = None
         frames = []
         total = len(list(raw.groupby("symbol"))) if "symbol" in raw.columns else 1
         if "symbol" in raw.columns:
             for i, (sym, g) in enumerate(raw.groupby("symbol")):
                 g = g.sort_values("timestamp")
-                frames.append(add_features(g))
+                frames.append(add_features(g, btc_df=btc_ref))
                 _p(20 + int((i + 1) / max(1, total) * 30), f"محاسبه اندیکاتورها... {i+1}/{total} بازار")
             df = pd.concat(frames, ignore_index=True)
         else:
@@ -426,38 +503,65 @@ class MLTrainer:
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_test_scaled = self.scaler.transform(X_test)
 
-        # RandomForest چندهسته‌ای (n_jobs=-1) با class_weight متوازن تا سیگنالِ «خرید»
-        # به‌اندازهٔ کافی صادر شود (مثلِ منطقِ قبلیِ پرتکرار).
-        _p(60, f"آموزش مدل روی {len(X_train):,} نمونه (موازی)...")
-        self.model = RandomForestClassifier(
-            n_estimators=250, max_depth=12, min_samples_leaf=5,
-            class_weight="balanced", n_jobs=-1, random_state=42,
+        # Gradient Boosting هیستوگرامی: سریع، دقیق‌تر از RandomForest روی دادهٔ جدولی،
+        # با توقفِ زودهنگام (early stopping) برای جلوگیری از بیش‌برازش.
+        # وزنِ متوازنِ کلاس‌ها تا کلاسِ «خنثی» (که فراوان‌تر است) بقیه را خفه نکند.
+        _p(60, f"آموزش مدل روی {len(X_train):,} نمونه (سه‌کلاسه، افق ۲۴ساعته)...")
+        from sklearn.ensemble import HistGradientBoostingClassifier
+        classes, counts = np.unique(y_train, return_counts=True)
+        w = {c_: len(y_train) / (len(classes) * n) for c_, n in zip(classes, counts)}
+        sample_weight = np.array([w[v] for v in y_train])
+        self.model = HistGradientBoostingClassifier(
+            max_iter=400, learning_rate=0.08, max_leaf_nodes=31,
+            early_stopping=True, validation_fraction=0.1, n_iter_no_change=20,
+            random_state=42,
         )
-        self.model.fit(X_train_scaled, y_train)
+        self.model.fit(X_train_scaled, y_train, sample_weight=sample_weight)
         _p(88, "ارزیابی مدل...")
 
         y_pred = self.model.predict(X_test_scaled)
         self.accuracy = float(accuracy_score(y_test, y_pred))
-        precision = float(precision_score(y_test, y_pred, zero_division=0))
-        recall = float(recall_score(y_test, y_pred, zero_division=0))
+        # Precision/Recall برای کلاسِ «صعودِ قوی» (۲) — همان که ربات رویش می‌خرد
+        precision = float(precision_score(y_test, y_pred, labels=[2.0], average="macro", zero_division=0))
+        recall = float(recall_score(y_test, y_pred, labels=[2.0], average="macro", zero_division=0))
 
-        # ── Precision در «آستانهٔ معاملاتیِ» واقعی (آنچه ربات تجربه می‌کند) ──
-        # ربات فقط روی سیگنال‌های پراطمینان معامله می‌کند؛ این عدد بامعناترین معیار است.
+        # ── Precision در «آستانهٔ معاملاتیِ» واقعی (اطمینانِ جهت‌دار) ──
+        # اطمینانِ جهت‌دار = p_up / (p_up + p_down) — همانی که ربات برای ورود می‌سنجد.
         prec_at = {}
         try:
-            proba_pos = self.model.predict_proba(X_test_scaled)[:, 1]
-            import numpy as _np
+            proba = self.model.predict_proba(X_test_scaled)
+            cls = list(self.model.classes_)
+            iu, idn = cls.index(2.0), cls.index(0.0)
+            ifl = cls.index(1.0) if 1.0 in cls else None
+            p_up, p_dn = proba[:, iu], proba[:, idn]
+            p_fl = proba[:, ifl] if ifl is not None else np.zeros(len(proba))
+            conf_dir = p_up / (p_up + p_dn + 1e-9)
+            buyable = (p_fl < 0.60)   # وتوی «خنثی»: وقتی مدل می‌گوید فرصتی نیست، سیگنال نده
             for thr in (0.60, 0.65, 0.70):
-                sel = proba_pos >= thr
+                sel = buyable & (conf_dir >= thr)
                 n_sel = int(sel.sum())
                 if n_sel >= 20:
-                    p = float((y_test[sel] == 1).mean())
-                    prec_at[str(thr)] = {"precision": round(p * 100, 1), "signals": n_sel,
+                    hit_up = float((y_test[sel] == 2.0).mean())      # واقعاً +۲٪ شد
+                    hit_dn = float((y_test[sel] == 0.0).mean())      # برعکس، −۱.۵٪ شد (بد)
+                    prec_at[str(thr)] = {"precision": round(hit_up * 100, 1),
+                                         "down_rate": round(hit_dn * 100, 1),
+                                         "signals": n_sel,
                                          "share": round(n_sel / len(y_test) * 100, 1)}
         except Exception:
             pass
 
-        importances = self.model.feature_importances_
+        # اهمیتِ ویژگی‌ها با permutation روی نمونهٔ کوچکِ تست (HGB اهمیتِ داخلی ندارد)
+        try:
+            from sklearn.inspection import permutation_importance
+            n_pi = min(4000, len(X_test_scaled))
+            pi = permutation_importance(self.model, X_test_scaled[:n_pi], y_test[:n_pi],
+                                        n_repeats=3, random_state=42, n_jobs=-1)
+            importances = pi.importances_mean
+            importances = np.clip(importances, 0, None)
+            tot = importances.sum() or 1.0
+            importances = importances / tot
+        except Exception:
+            importances = np.ones(len(feature_cols)) / len(feature_cols)
         self.feature_importances = sorted(
             [{"name": FEATURE_NAMES[i], "key": feature_cols[i], "importance": round(float(importances[i]) * 100, 2)}
              for i in range(len(feature_cols))],
@@ -495,11 +599,17 @@ class MLTrainer:
             "training_date": datetime.utcnow().isoformat(),
         }
 
-    def predict(self, df_recent: pd.DataFrame) -> dict:
+    def predict(self, df_recent: pd.DataFrame, btc_df: pd.DataFrame = None) -> dict:
+        """تصمیمِ جهت‌دار روی افقِ ۲۴ ساعته.
+
+        سه‌کلاسه: p_up (صعودِ قوی ≥+۲٪)، p_flat (خنثی)، p_down (نزولِ قوی ≤−۱.۵٪).
+        اطمینانِ جهت‌دار = p_up/(p_up+p_down). اگر مدل بگوید «فرصتی نیست» (خنثیِ قوی)،
+        سیگنال WAIT است — این جلوی معامله در بازارِ بی‌جهت را می‌گیرد.
+        """
         if not self.is_trained:
             return {"signal": "WAIT", "confidence": 0.0}
 
-        df = add_features(df_recent)
+        df = add_features(df_recent, btc_df=btc_df)
         feature_cols = get_feature_columns()
         # فقط روی فیچرها dropna می‌کنیم نه target — وگرنه کندلِ جاری (که target=NaN دارد) حذف می‌شد
         df = df.dropna(subset=feature_cols)
@@ -508,18 +618,37 @@ class MLTrainer:
         try:
             X = df[feature_cols].iloc[-1:].values
             X_scaled = self.scaler.transform(X)
-            pred = self.model.predict(X_scaled)[0]
             proba = self.model.predict_proba(X_scaled)[0]
+            cls = list(self.model.classes_)
         except Exception:
             # ناسازگاری مدلِ قدیمی با فیچرهای جدید → تا آموزش مجدد، صبر
             return {"signal": "WAIT", "confidence": 0.0}
-        confidence = float(max(proba))
 
+        if 2.0 in cls:
+            # مدلِ سه‌کلاسهٔ جدید
+            p_up = float(proba[cls.index(2.0)])
+            p_dn = float(proba[cls.index(0.0)]) if 0.0 in cls else 0.0
+            p_fl = float(proba[cls.index(1.0)]) if 1.0 in cls else 0.0
+            conf_dir = p_up / (p_up + p_dn + 1e-9)
+            if p_fl >= 0.60:
+                # مدل می‌گوید حرکتِ بزرگی در کار نیست → معامله نکن (کارمزد می‌بلعد)
+                return {"signal": "WAIT", "confidence": round(max(conf_dir, 1 - conf_dir), 4),
+                        "probabilities": [p_dn, p_fl, p_up], "flat": True}
+            if conf_dir >= self.confidence_threshold:
+                return {"signal": "BUY", "confidence": round(conf_dir, 4),
+                        "probabilities": [p_dn, p_fl, p_up]}
+            if (1 - conf_dir) >= self.confidence_threshold:
+                return {"signal": "SELL", "confidence": round(1 - conf_dir, 4),
+                        "probabilities": [p_dn, p_fl, p_up]}
+            return {"signal": "WAIT", "confidence": round(max(conf_dir, 1 - conf_dir), 4),
+                    "probabilities": [p_dn, p_fl, p_up]}
+
+        # مدلِ دوکلاسهٔ قدیمی (تا آموزشِ مجدد)
+        confidence = float(max(proba))
+        pred = cls[int(np.argmax(proba))]
         signal = "BUY" if pred == 1 else "SELL"
-        # آستانه اطمینان که توسط هوش مصنوعی تنظیم شده است
         if confidence < self.confidence_threshold:
             signal = "WAIT"
-
         return {"signal": signal, "confidence": confidence, "probabilities": proba.tolist()}
 
 

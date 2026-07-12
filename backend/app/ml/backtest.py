@@ -47,6 +47,24 @@ def _simulate(hi, lo, cl, proba, thr, tp, sl, horizon, fee, adx=None, adx_min=0,
     return rets
 
 
+def _directional_conf(model, X_scaled):
+    """اطمینانِ مؤثرِ خرید برای هر ردیف — سازگار با مدلِ سه‌کلاسهٔ جدید و دوکلاسهٔ قدیمی.
+
+    سه‌کلاسه: conf = p_up/(p_up+p_down) با وتوی خنثی (p_flat≥0.6 ⇒ صفر = سیگنال نده).
+    دوکلاسه: همان proba کلاسِ مثبت.
+    """
+    proba = model.predict_proba(X_scaled)
+    cls = list(model.classes_)
+    if 2.0 in cls:
+        p_up = proba[:, cls.index(2.0)]
+        p_dn = proba[:, cls.index(0.0)] if 0.0 in cls else np.zeros(len(proba))
+        p_fl = proba[:, cls.index(1.0)] if 1.0 in cls else np.zeros(len(proba))
+        conf = p_up / (p_up + p_dn + 1e-9)
+        conf[p_fl >= 0.60] = 0.0
+        return conf
+    return proba[:, 1]
+
+
 def _prep_symbol_arrays(test_only=True):
     """برای هر نماد: high/low/close، ADX و احتمالِ مدل را یک‌بار محاسبه و کش می‌کند."""
     trainer = get_trainer()
@@ -56,10 +74,17 @@ def _prep_symbol_arrays(test_only=True):
     if raw is None or raw.empty:
         return out, trainer
     symbols = raw["symbol"].unique().tolist() if "symbol" in raw.columns else ["?"]
+    btc_ref = None
+    try:
+        btc_syms = [s for s in symbols if str(s).upper().startswith("BTC")]
+        if btc_syms:
+            btc_ref = raw[raw["symbol"] == btc_syms[0]].sort_values("timestamp")
+    except Exception:
+        btc_ref = None
     for sym in symbols:
         g = raw[raw["symbol"] == sym] if "symbol" in raw.columns else raw
         g = g.sort_values("timestamp") if "timestamp" in g.columns else g
-        f = add_features(g).dropna(subset=feature_cols)
+        f = add_features(g, btc_df=btc_ref).dropna(subset=feature_cols)
         if len(f) < 100:
             continue
         if test_only:
@@ -67,7 +92,7 @@ def _prep_symbol_arrays(test_only=True):
         if len(f) < 50:
             continue
         try:
-            proba = trainer.model.predict_proba(trainer.scaler.transform(f[feature_cols].values))[:, 1]
+            proba = _directional_conf(trainer.model, trainer.scaler.transform(f[feature_cols].values))
         except Exception:
             continue
         adx = f["adx"].values if "adx" in f.columns else np.zeros(len(f))
@@ -186,10 +211,17 @@ def run_backtest_sync(threshold: float = None, fee_pct: float = 0.25,
     per_symbol = {}
     symbols = raw["symbol"].unique().tolist() if "symbol" in raw.columns else ["?"]
 
+    btc_ref = None
+    try:
+        btc_syms = [s for s in symbols if str(s).upper().startswith("BTC")]
+        if btc_syms:
+            btc_ref = raw[raw["symbol"] == btc_syms[0]].sort_values("timestamp")
+    except Exception:
+        btc_ref = None
     for sym in symbols:
         g = raw[raw["symbol"] == sym] if "symbol" in raw.columns else raw
         g = g.sort_values("timestamp") if "timestamp" in g.columns else g
-        f = add_features(g)
+        f = add_features(g, btc_df=btc_ref)
         f = f.dropna(subset=feature_cols)
         if len(f) < 100:
             continue
@@ -198,8 +230,8 @@ def run_backtest_sync(threshold: float = None, fee_pct: float = 0.25,
         if len(f) < 50:
             continue
         try:
-            proba = trainer.model.predict_proba(
-                trainer.scaler.transform(f[feature_cols].values))[:, 1]
+            proba = _directional_conf(trainer.model,
+                                      trainer.scaler.transform(f[feature_cols].values))
         except Exception:
             continue
         hi = f["high"].values

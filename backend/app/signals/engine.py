@@ -78,6 +78,17 @@ async def generate_signals(db, push: bool = True) -> int:
     ex = NobitexExchange("")  # داده‌ی عمومی نوبیتکس بدون نیاز به توکن
     trainer = get_trainer()
 
+    # دادهٔ بیت‌کوین یک‌بار برای همهٔ ارزها (ویژگیِ قدرتِ نسبی به BTC در مدل)
+    btc_df = None
+    if trainer.is_trained:
+        try:
+            ohlcv_btc = await ex.get_ohlcv("BTC/RLS", "1h", 720)
+            if ohlcv_btc:
+                btc_df = pd.DataFrame(ohlcv_btc, columns=["timestamp", "open", "high", "low", "close", "volume"])
+                btc_df["timestamp"] = pd.to_datetime(btc_df["timestamp"], unit="ms")
+        except Exception:
+            btc_df = None
+
     created = []
     for idx, coin in enumerate(coins):
         try:
@@ -97,7 +108,7 @@ async def generate_signals(db, push: bool = True) -> int:
             # تصمیم ML
             side, conf = "WAIT", 0.0
             if trainer.is_trained:
-                ml = trainer.predict(df)
+                ml = trainer.predict(df, btc_df=btc_df)
                 side, conf = ml.get("signal", "WAIT"), ml.get("confidence", 0.0)
 
             # تحلیل تکنیکال + فاندامنتال (متن)

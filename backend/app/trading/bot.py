@@ -217,6 +217,11 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     # (وگرنه برنده‌ها کوچک بسته می‌شوند و بازنده‌ها کامل ضرر می‌کنند →
                     #  با وجودِ نرخِ بردِ بالا، حساب آب می‌رود. این تقارن را تضمین می‌کند.)
                     reason = f"سیگنال فروش ML (سود خالص {change_pct:+.2f}٪)"
+                elif open_trade.opened_at and (datetime.utcnow() - open_trade.opened_at).total_seconds() >= 48 * 3600:
+                    # خروجِ زمانی: پوزیشن نباید بی‌نهایت باز بماند و سرمایه را قفل کند.
+                    # (مدل روی افقِ ۲۴ساعته پیش‌بینی می‌کند؛ بعد از ۴۸ ساعت پیش‌بینی منقضی است
+                    #  و نگه‌داشتن، فقط فرصتِ معاملاتِ بعدی را می‌سوزاند.)
+                    reason = f"خروج زمانی (۴۸ ساعت نگهداری، خالص {change_pct:+.2f}٪)"
 
                 if reason:
                     # مقدار قابل‌فروش = کمینه‌ی مقدار ثبت‌شده و موجودی واقعی کیف‌پول.
@@ -230,10 +235,25 @@ async def run_trading_cycle(db: Session, user: models.User, exch: models.Exchang
                     sell_amount = base_amt * 0.998
                     # کوتاه‌سازی به ۶ رقم اعشار برای جلوگیری از خطای دقت/کمبود موجودی
                     sell_amount = math.floor(sell_amount * 1e6) / 1e6
-                    if sell_amount <= 0:
+                    # اگر ارزشِ قابل‌فروش کمتر از حداقلِ سفارشِ نوبیتکس باشد، این پوزیشن روی
+                    # صرافی بسته‌شدنی نیست (AmountTooLow) و اگر باز بماند تا ابد سرمایه و
+                    # پایپ‌لاین را قفل می‌کند → در سوابق بسته می‌شود و ارزشِ باقی‌مانده
+                    # (که هنوز در کیف‌پول است) به‌عنوان خروجی ثبت می‌گردد.
+                    sellable_value = sell_amount * current_price
+                    if sell_amount <= 0 or sellable_value < min_value:
+                        rial_to_toman = 10.0 if quote == "RLS" else 1.0
+                        remain_toman = (free_coin * current_price) / rial_to_toman if free_coin > 0 else 0.0
+                        cost_rec = open_trade.cost_toman or ((open_trade.entry_price * open_trade.amount) / rial_to_toman)
+                        open_trade.exit_price = current_price
+                        open_trade.proceeds_toman = round(remain_toman, 2)
+                        open_trade.pnl = round(remain_toman - cost_rec, 2)
+                        open_trade.pnl_pct = round((open_trade.pnl / cost_rec * 100.0) if cost_rec else 0, 3)
+                        open_trade.status = "closed"
+                        open_trade.closed_at = datetime.utcnow()
+                        db.commit()
                         log_bot_event(
-                            f"⚠️ {pair}: موجودی {base_code.upper()} برای فروش کافی نیست "
-                            f"(ثبت‌شده {open_trade.amount} / در کیف‌پول {free_coin}) — احتمالاً قبلاً فروخته شده",
+                            f"⚪ {pair}: موجودی واقعی ({free_coin} {base_code.upper()}) کمتر از حداقلِ فروش — "
+                            f"پوزیشن در سوابق بسته شد تا سرمایه/پایپ‌لاین آزاد شود",
                             "error",
                         )
                         continue

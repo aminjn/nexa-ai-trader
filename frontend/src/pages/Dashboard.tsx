@@ -13,7 +13,7 @@ interface EquityPoint { date:string; value:number }
 interface ActivityEvent { time:string; message:string; level:string }
 interface Signal { pair:string; signal:string; signal_fa:string; confidence:number }
 interface Holding { currency:string; amount:number; value_toman:number; exchange:string }
-interface Position { id:number; pair:string; amount:number; entry_price:number; current_price:number; target_sell_price:number; stop_price:number; pnl_pct:number; target_profit:number; stop_loss:number }
+interface Position { id:number; pair:string; amount:number; entry_price:number; current_price:number; target_sell_price:number; trailing?:boolean; peak_pct?:number; stop_price:number; pnl_pct:number; target_profit:number; stop_loss:number }
 interface Price { coin:string; toman:number; usd:number }
 interface Fundamental { score:number; summary:string; usd_trend_7d:number; btc_trend_7d:number; btc_trend_30d:number }
 interface Analysis {
@@ -299,7 +299,7 @@ export default function Dashboard() {
                   <span style={{ fontWeight:700 }}>{p.pair}</span>
                   <span style={{ color:'var(--dim)' }}>{p.entry_price.toLocaleString()}</span>
                   <span style={{ color:'var(--dim)' }}>{p.current_price.toLocaleString()}</span>
-                  <span style={{ color:'var(--green)', fontWeight:700 }}>{p.target_sell_price.toLocaleString()}</span>
+                  <span style={{ color:'var(--green)', fontWeight:700 }}>{p.target_sell_price.toLocaleString()}{p.trailing ? <span style={{ display:'block', fontSize:10, color:'var(--accent)' }}>📈 دنبال‌کنندهٔ قله (اوج +{p.peak_pct}٪)</span> : null}</span>
                   <span style={{ textAlign:'end', fontWeight:700, color:pnlColor(p.pnl_pct) }}>{p.pnl_pct>=0?'+':''}{p.pnl_pct}%</span>
                   <button onClick={() => closeTrade(p.id)} disabled={closingId===p.id}
                     style={{ padding:'6px 12px', border:'none', borderRadius:9, background:'var(--red)', color:'#fff', fontWeight:700, fontFamily:'inherit', fontSize:12, cursor:closingId===p.id?'not-allowed':'pointer', opacity:closingId===p.id?0.6:1, whiteSpace:'nowrap' }}>
@@ -308,7 +308,7 @@ export default function Dashboard() {
                 </div>
               ))}
               <p style={{ fontSize:11, color:'var(--faint)', margin:'6px 0 0' }}>
-                ربات وقتی قیمت به «هدف فروش» (سود {positions[0]?.target_profit}٪) یا حد ضرر ({positions[0]?.stop_loss}٪-) برسد، خودکار می‌فروشد.
+                ربات در حد ضرر ({positions[0]?.stop_loss}٪-) می‌فروشد؛ بعد از عبور از هدف (+{positions[0]?.target_profit}٪) نمی‌فروشد بلکه قله را دنبال می‌کند و با ~۱٪ عقب‌نشینی از قله، سودِ بزرگ‌تر را قفل می‌کند («فروش در» همان ماشهٔ لحظه‌ای است). هر پوزیشن حداکثر ۴۸ ساعت باز می‌ماند.
               </p>
             </div>
           )}

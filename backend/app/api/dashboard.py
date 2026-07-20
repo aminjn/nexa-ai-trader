@@ -372,6 +372,7 @@ async def get_positions(db: Session = Depends(get_db), current_user: models.User
 
     tp = current_user.target_profit
     sl = current_user.stop_loss
+    trail_pct = max(0.8, sl * 0.6)   # همان فرمولِ حد ضررِ متحرک در ربات
     out = []
     for t in open_trades:
         raw = t.pair or ""
@@ -381,13 +382,25 @@ async def get_positions(db: Session = Depends(get_db), current_user: models.User
         cur = rial / 10.0                              # ریال → تومان
         entry = (t.entry_price or 0) / 10.0            # قیمت ورود هم به ریال ذخیره شده بود
         pnl_pct = ((cur - entry) / entry * 100) if (entry and cur) else 0
+        # ── قیمتِ واقعیِ ماشهٔ فروش ──
+        # تا قبل از رسیدن به هدف: entry*(1+tp). بعد از عبور از هدف، حد ضررِ متحرک فعال است:
+        # ماشه = قله × (1 − trail)؛ با بالا رفتنِ قیمت، ماشه هم بالا می‌آید (قفلِ سودِ بیشتر).
+        peak = max((t.peak_price or 0) / 10.0, cur)    # قله هم به ریال ذخیره شده
+        peak_pct = ((peak - entry) / entry * 100) if entry else 0
+        trailing_active = peak_pct >= tp
+        if trailing_active:
+            sell_trigger = peak * (1 - trail_pct / 100)
+        else:
+            sell_trigger = entry * (1 + tp / 100)
         out.append({
             "id": t.id,
             "pair": f"{base_code.upper()}/تومان",
             "amount": t.amount,
             "entry_price": round(entry, 2),
             "current_price": round(cur, 2),
-            "target_sell_price": round(entry * (1 + tp / 100), 2),
+            "target_sell_price": round(sell_trigger, 2),
+            "trailing": trailing_active,               # سود از هدف رد شده و در حال دنبال‌کردنِ قله است
+            "peak_pct": round(peak_pct, 2),
             "stop_price": round(entry * (1 - sl / 100), 2),
             "pnl_pct": round(pnl_pct, 2),
             "target_profit": tp,
